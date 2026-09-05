@@ -7,5 +7,4 @@ function randomString(length)
     end
     return result
 end
-loadstring(game:HttpGet("https://raw.githubusercontent.com/neo956906-cpu/-v1/main/script.lua?"..randomString(8).."="..randomString(8)))()
-
+loadstring(game:HttpGet("https://raw.githubusercontent.com/een493437-dev/rayv3/main/script.lua?"..randomString(8).."="..randomString(8)))()
