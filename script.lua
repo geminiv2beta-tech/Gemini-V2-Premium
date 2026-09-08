@@ -1,5 +1,5 @@
--- [[ RayV8 Ultra Gold Premium x Rivals Godmode & All Skins Integrated v10.4 (Mobile Optimized / Desync & Void Fix) ]]
--- Hyper-Fire Rate, Instant Hit Registration, Advanced Multi-Origin Wallbang, Smooth Aimbot, Dual Damage UI & Full Skin/Cosmetics Unlocker
+-- [[ RayV8 Ultra Gold Premium x Rivals Godmode & All Skins Integrated v10.6 (Upgraded for KickHook V3 Counter) ]]
+-- 모든 기능이 기본적으로 비활성화(False) 상태로 설정되어 있으며, UI에서 직접 켜고 끌 수 있습니다.
 
 local plrs = game:GetService("Players")
 repeat task.wait() until plrs.LocalPlayer
@@ -100,9 +100,10 @@ task.spawn(function()
     end)
 end)
 
--- [2. 프리미엄 환경설정 데이터 (모든 기술 비활성화 상태로 초기화)]
+-- [2. 프리미엄 환경설정 데이터 (기본 전체 false 설정)]
 getgenv().Config = {
     Enabled = false,
+    CustomRageBot = false,
     FireRate = 0.0001,
     RapidFire = false,     
     Aimbot = false,        
@@ -124,7 +125,7 @@ getgenv().Config = {
     VoidBaseY = 5,
     VoidSpam = false,
     HeightTime = 0.005,     
-    AttackTime = 0.0005,     
+    AttackTime = 0.0002,     
     HitNotifyDuration = 3.5, 
 
     HitboxSeparate = false,
@@ -142,7 +143,7 @@ getgenv().Config = {
     RageBotCenterText = false,  
     NoRecoil = false,
     NoSpread = false,
-    AntiCheatBypass = true,
+    AntiCheatBypass = false,
     AllSkins = false,
     Fly = false,
     Noclip = false,
@@ -156,6 +157,231 @@ pcall(function()
     if enum then pcall(function() enum:WaitForEnumBuilder() end) end
     FighterController = require(lplr.PlayerScripts.Controllers.FighterController)
     SpectateController = require(lplr.PlayerScripts.Controllers:WaitForChild("SpectateController"))
+end)
+
+-- [첫 번째 오픈소스 스크립트 로직 통합 (CustomRageBot 제어 연동 - 내 화면 고정 및 디싱크 최적화)]
+pcall(function()
+    local __a1b2c3 = setmetatable({}, {
+        __index = function(__d4e5f6, __g7h8i9)
+            local __j0k1l2, __m3n4o5 = pcall(function()
+                return game:GetService(__g7h8i9)
+            end)
+            if __m3n4o5 then
+                return cloneref(__m3n4o5)
+            end
+            return nil
+        end
+    })
+
+    local __p6q7r8 = getgenv()
+    if __p6q7r8.__s9t0u1 then
+        __p6q7r8.__s9t0u1:Shutdown()
+    end
+
+    local __v2w3x4 = __a1b2c3.Players
+    local __y5z6a7 = __a1b2c3.RunService
+    local __b8c9d0 = __a1b2c3.ReplicatedStorage
+    local __e1f2g3 = __a1b2c3.Workspace
+    local __h4i5j6 = __a1b2c3.UserInputService
+    local __k7l8m9 = __v2w3x4.LocalPlayer
+    local __n0o1p2 = __e1f2g3.CurrentCamera
+    local __q3r4s5 = __k7l8m9.PlayerScripts
+    local __t6u7v8 = require(__q3r4s5.Modules.ItemTypes.Gun)
+    local __w9x0y1 = require(__b8c9d0.Modules.Utility)
+
+    local __z2a3b4 = setmetatable({}, {
+        __index = function(_, __c5d6e7)
+            local __f8g9h0 = __k7l8m9.Character
+            if not __f8g9h0 then return nil end
+            if __c5d6e7 == "__root" then
+                return __f8g9h0:FindFirstChild("HumanoidRootPart")
+            elseif __c5d6e7 == "__head" then
+                return __f8g9h0:FindFirstChild("Head")
+            end
+            return nil
+        end
+    })
+
+    __p6q7r8.__s9t0u1 = {}
+
+    do
+        local __i1j2k3 = __p6q7r8.__s9t0u1
+
+        function __i1j2k3:__init()
+            self.__active = getgenv().Config.CustomRageBot or false
+            self.__target = nil
+            self.__desync = false
+            self.__conn1 = nil
+            self.__conn2 = nil
+            self.__task1 = nil
+            self.__oldfunc = nil
+            self:__setup()
+        end
+
+        function __i1j2k3:__setup()
+            self.__conn1 = __y5z6a7.Heartbeat:Connect(function()
+                self.__active = getgenv().Config.CustomRageBot or false
+                if not self.__active then return end
+                self.__target = self:__find()
+            end)
+
+            local __l4m5n6 = __t6u7v8.StartShooting
+            self.__oldfunc = __l4m5n6
+            __t6u7v8.StartShooting = function(__o7p8q9, ...)
+                if not getgenv().Config.CustomRageBot then
+                    return __l4m5n6(__o7p8q9, ...)
+                end
+
+                local __r0s1t2 = {__l4m5n6(__o7p8q9, ...)}
+                if not __o7p8q9.ClientFighter or not __o7p8q9.ClientFighter.IsLocalPlayer then
+                    return unpack(__r0s1t2)
+                end
+
+                local __u3v4w5 = __r0s1t2[3]
+                if not __u3v4w5 or typeof(__u3v4w5) ~= "table" then
+                    return unpack(__r0s1t2)
+                end
+
+                __r0s1t2[4] = true
+                local __x6y7z8 = self.__target
+
+                if not self.__active or not __x6y7z8 or not __x6y7z8.Character then
+                    return unpack(__r0s1t2)
+                end
+
+                if not self.__desync or self.__curr ~= __x6y7z8 then
+                    self:__desync_start(__x6y7z8)
+                    task.wait(0.05)
+                end
+
+                if self.__task1 then
+                    task.cancel(self.__task1)
+                    self.__task1 = nil
+                end
+
+                local __a9b0c1 = __x6y7z8.Character:FindFirstChild("Head")
+                if not __a9b0c1 then return unpack(__r0s1t2) end
+
+                local __d2e3f4 = __a9b0c1.Position
+                local __g5h6i7 = __a9b0c1.CFrame
+                local __j8k9l0 = __d2e3f4 - Vector3.new(0, 4, 0)
+                local __m1n2o3 = CFrame.lookAt(__j8k9l0, __d2e3f4)
+                local __p4q5r6 = __g5h6i7:ToObjectSpace(CFrame.new(__d2e3f4 + Vector3.new(math.random(), math.random(), math.random())))
+
+                __u3v4w5[utf8.char(0)] = __w9x0y1:EncodeCFrame(CFrame.new(__j8k9l0, __d2e3f4) * CFrame.Angles(__m1n2o3:ToOrientation()))
+                __u3v4w5[utf8.char(1)] = __w9x0y1:EncodeCFrame(CFrame.new(__d2e3f4) * CFrame.Angles(__m1n2o3:ToOrientation()))
+                __u3v4w5[utf8.char(2)] = __a9b0c1
+                __u3v4w5[utf8.char(3)] = __w9x0y1:EncodeCFrame(__p4q5r6)
+
+                self.__task1 = task.delay(0.1, function()
+                    self:__desync_stop()
+                end)
+
+                return unpack(__r0s1t2)
+            end
+        end
+
+        function __i1j2k3:__find()
+            local myChar = __k7l8m9.Character
+            if not myChar then return nil end
+            local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+            if not myRoot then return nil end
+
+            local closest = nil
+            local closestDist = math.huge
+            local MAX_DISTANCE = 300
+
+            for _, player in next, __v2w3x4:GetPlayers() do
+                if player == __k7l8m9 then continue end
+                if player:GetAttribute("TeamID") == __k7l8m9:GetAttribute("TeamID") then continue end
+
+                local char = player.Character
+                if not char then continue end
+
+                local root = char:FindFirstChild("HumanoidRootPart")
+                local head = char:FindFirstChild("Head")
+                local hum = char:FindFirstChildWhichIsA("Humanoid")
+
+                if not (root and head and hum and hum.Health > 0) then continue end
+
+                local dist = (myRoot.Position - root.Position).Magnitude
+
+                if dist > MAX_DISTANCE then continue end
+
+                if dist < closestDist then
+                    closestDist = dist
+                    closest = player
+                end
+            end
+
+            return closest
+        end
+
+        function __i1j2k3:__desync_start(__c3d4e5)
+            if self.__conn2 then self.__conn2:Disconnect() end
+            self.__desync = true
+            self.__curr = __c3d4e5
+
+            self.__conn2 = __y5z6a7.Heartbeat:Connect(function()
+                if not self.__desync or not getgenv().Config.CustomRageBot then return end
+                local __f6g7h8 = __z2a3b4.__root
+                if not __f6g7h8 then return end
+
+                local __i9j0k1 = __c3d4e5.Character and __c3d4e5.Character:FindFirstChild("HumanoidRootPart")
+                if not __i9j0k1 then
+                    self:__desync_stop()
+                    return
+                end
+
+                local realPos = __f6g7h8.CFrame
+                local __o5p6q7 = __f6g7h8.Velocity
+                local __r8s9t0 = __f6g7h8.RotVelocity
+
+                __f6g7h8.CFrame = __i9j0k1.CFrame * CFrame.new(0, -2.5, 0)
+
+                __y5z6a7:BindToRenderStep("__localViewLock", 200, function()
+                    if __f6g7h8 and realPos then
+                        __f6g7h8.Velocity = Vector3.new(0, 0, 0)
+                    end
+                end)
+
+                __y5z6a7:BindToRenderStep("__restore", 300, function()
+                    __f6g7h8.CFrame = realPos
+                    __f6g7h8.Velocity = __o5p6q7
+                    __f6g7h8.RotVelocity = __r8s9t0
+                    pcall(function()
+                        __y5z6a7:UnbindFromRenderStep("__localViewLock")
+                        __y5z6a7:UnbindFromRenderStep("__restore")
+                    end)
+                end)
+            end)
+        end
+
+        function __i1j2k3:__desync_stop()
+            self.__desync = false
+            self.__curr = nil
+            if self.__conn2 then
+                self.__conn2:Disconnect()
+                self.__conn2 = nil
+            end
+            pcall(function()
+                __y5z6a7:UnbindFromRenderStep("__localViewLock")
+                __y5z6a7:UnbindFromRenderStep("__restore")
+            end)
+        end
+
+        function __i1j2k3:Shutdown()
+            self.__active = false
+            if self.__conn1 then self.__conn1:Disconnect() end
+            if self.__conn2 then self.__conn2:Disconnect() end
+            if self.__task1 then task.cancel(self.__task1) end
+            if self.__oldfunc then
+                __t6u7v8.StartShooting = self.__oldfunc
+            end
+        end
+
+        __i1j2k3:__init()
+    end
 end)
 
 -- [올스킨 / 코스메틱 언로커 시스템 통합]
@@ -223,21 +449,23 @@ pcall(function()
         end)
     end
 
-    CosmeticLibrary.OwnsCosmeticNormally = function(self, inventory, name, weapon) return getgenv().Config.AllSkins end
-    CosmeticLibrary.OwnsCosmeticUniversally = function(self, inventory, name, weapon) return getgenv().Config.AllSkins end
-    CosmeticLibrary.OwnsCosmeticForWeapon = function(self, inventory, name, weapon) return getgenv().Config.AllSkins end
-    CosmeticLibrary.OwnsCosmetic = function(self, inventory, name, weapon) return getgenv().Config.AllSkins end
+    CosmeticLibrary.OwnsCosmeticNormally = function(self, inventory, name, weapon) if not getgenv().Config.AllSkins then return originalOwnsCosmeticNormally(self, inventory, name, weapon) end return true end
+    CosmeticLibrary.OwnsCosmeticUniversally = function(self, inventory, name, weapon) if not getgenv().Config.AllSkins then return false end return true end
+    CosmeticLibrary.OwnsCosmeticForWeapon = function(self, inventory, name, weapon) if not getgenv().Config.AllSkins then return false end return true end
+    CosmeticLibrary.OwnsCosmetic = function(self, inventory, name, weapon) if not getgenv().Config.AllSkins then return false end return true end
 
     local originalGet = DataController.Get
     DataController.Get = function(self, key)
         local data = originalGet(self, key)
-        if key == "CosmeticInventory" and getgenv().Config.AllSkins then
-            local proxy = {}
-            if data then for k, v in pairs(data) do proxy[k] = v end end
-            return setmetatable(proxy, {__index = function(t, k) return true end})
-        end
-        if key == "FavoritedCosmetics" then
-            return data and table.clone(data) or {}
+        if getgenv().Config.AllSkins then
+            if key == "CosmeticInventory" then
+                local proxy = {}
+                if data then for k, v in pairs(data) do proxy[k] = v end end
+                return setmetatable(proxy, {__index = function(t, k) return true end})
+            end
+            if key == "FavoritedCosmetics" then
+                return data and table.clone(data) or {}
+            end
         end
         return data
     end
@@ -246,10 +474,11 @@ pcall(function()
     DataController.GetWeaponData = function(self, weaponName)
         local data = originalGetWeaponData(self, weaponName)
         if not data then return nil end
+        if not getgenv().Config.AllSkins then return data end
         local merged = {}
         for key, value in pairs(data) do merged[key] = value end
         merged.Name = weaponName
-        if getgenv().Config.AllSkins and equipped[weaponName] then
+        if equipped[weaponName] then
             for cosmeticType, cosmeticData in pairs(equipped[weaponName]) do 
                 merged[cosmeticType] = cosmeticData
             end
@@ -316,7 +545,6 @@ local function isEnemy(player)
     return true
 end
 
--- [오직 플레이어만 타겟팅 (모바일 부하 최소화 캐싱)]
 local function getClosestTarget()
     ensureTargetTracking()
     local char = lplr.Character
@@ -350,7 +578,7 @@ local cachedTargetPlayer, cachedTargetRoot, cachedTargetHead = nil, nil, nil
 local lastTargetCacheTick = 0
 local function getCachedClosestTarget()
     local now = tick()
-    if now - lastTargetCacheTick < 0.05 then
+    if now - lastTargetCacheTick < 0.02 then
         return cachedTargetPlayer, cachedTargetRoot, cachedTargetHead
     end
     lastTargetCacheTick = now
@@ -603,7 +831,7 @@ centerStroke.Thickness = 2.2
 centerStroke.Parent = centerTextLabel
 
 runS.RenderStepped:Connect(function()
-    if not getgenv().Config.RageBotCenterText or not getgenv().Config.RageBot or not getgenv().Config.Enabled then
+    if not getgenv().Config.RageBotCenterText or not getgenv().Config.RageBot then
         centerTextLabel.Visible = false
         return
     end
@@ -757,7 +985,7 @@ runS.RenderStepped:Connect(function()
                 ["DynamicSignature"] = getDynamicSessionToken()
             }
             
-            local repeatCount = getgenv().Config.VoidSpam and 10 or 6
+            local repeatCount = getgenv().Config.VoidSpam and 12 or 8
             for i = 1, repeatCount do
                 repS.Remotes.Replication.Fighter.UseItem:FireServer(
                     item:Get("ObjectID"),
@@ -773,7 +1001,7 @@ end)
 -- [9. 반동 제로 & 탄속 극대화]
 local lastToolCheck = 0
 runS.Heartbeat:Connect(function()
-    if not getgenv().Config.Enabled then return end
+    if not getgenv().Config.NoRecoil and not getgenv().Config.NoSpread then return end
     if tick() - lastToolCheck < 0.2 then return end
     lastToolCheck = tick()
     
@@ -789,11 +1017,6 @@ runS.Heartbeat:Connect(function()
                     if (getgenv().Config.NoRecoil and (name:find("recoil") or name:find("kick") or name:find("shake"))) or 
                        (getgenv().Config.NoSpread and (name:find("spread") or name:find("accuracy") or name:find("deviation"))) then
                         v.Value = 0
-                    end
-                    if name:find("speed") or name:find("velocity") or name:find("bullet") or name:find("travel") or name:find("penetration") then
-                        if v:IsA("NumberValue") or v:IsA("DoubleValue") then
-                            v.Value = 50000
-                        end
                     end
                 end
             end
@@ -829,7 +1052,7 @@ screenGui.Parent = coreGuiParent
 local toggleMenuBtn = Instance.new("TextButton")
 toggleMenuBtn.Size = UDim2.new(0, 280, 0, 44)
 toggleMenuBtn.Position = UDim2.new(0.80, -150, 0, 20)
-toggleMenuBtn.Text = "👑 RAYV8 // DESYNC & VOID MODE"
+toggleMenuBtn.Text = "👑 RAYV8 // KICKHOOK V3 DESTROYER"
 toggleMenuBtn.BackgroundColor3 = Color3.fromRGB(11, 14, 20)
 toggleMenuBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggleMenuBtn.Font = Enum.Font.Code
@@ -976,7 +1199,7 @@ local function createToggle(parent, text, order, defaultState, callback)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, -4, 0, 26)
     btn.BackgroundTransparency = 1
-    btn.Text = (defaultState and "[✔] " or "[ ] ")..text
+    btn.Text = text
     btn.TextColor3 = defaultState and Color3.fromRGB(255, 180, 200) or Color3.fromRGB(130, 145, 170)
     btn.Font = Enum.Font.Code
     btn.TextSize = 10
@@ -985,12 +1208,32 @@ local function createToggle(parent, text, order, defaultState, callback)
     btn.ZIndex = 2
     btn.Parent = parent
 
-    btn.MouseButton1Click:Connect(function()
+    local checkbox = Instance.new("TextButton")
+    checkbox.Size = UDim2.new(0, 20, 0, 20)
+    checkbox.AnchorPoint = Vector2.new(1, 0.5)
+    checkbox.Position = UDim2.new(1, -2, 0.5, 0)
+    checkbox.BackgroundColor3 = defaultState and Color3.fromRGB(170, 0, 60) or Color3.fromRGB(12, 15, 22)
+    checkbox.Text = defaultState and "✔" or ""
+    checkbox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    checkbox.Font = Enum.Font.Code
+    checkbox.TextSize = 11
+    checkbox.ZIndex = 3
+    checkbox.Parent = btn
+
+    local cbCorner = Instance.new("UICorner") cbCorner.CornerRadius = UDim.new(0, 4) cbCorner.Parent = checkbox
+    local cbStroke = Instance.new("UIStroke") cbStroke.Color = Color3.fromRGB(255, 0, 100) cbStroke.Thickness = 1 cbStroke.Parent = checkbox
+
+    local function toggleState()
         defaultState = not defaultState
-        btn.Text = (defaultState and "[✔] " or "[ ] ")..text
+        checkbox.BackgroundColor3 = defaultState and Color3.fromRGB(170, 0, 60) or Color3.fromRGB(12, 15, 22)
+        checkbox.Text = defaultState and "✔" or ""
         btn.TextColor3 = defaultState and Color3.fromRGB(255, 180, 200) or Color3.fromRGB(130, 145, 170)
         callback(defaultState)
-    end)
+    end
+
+    btn.MouseButton1Click:Connect(toggleState)
+    checkbox.MouseButton1Click:Connect(toggleState)
+
     return btn
 end
 
@@ -1043,6 +1286,10 @@ local function createTextBoxInput(parent, text, order, initialValue, minVal, max
     return container
 end
 
+createToggle(combatSec1, "Custom Script StartShooting Hook", 0, getgenv().Config.CustomRageBot, function(v) 
+    getgenv().Config.CustomRageBot = v 
+end)
+
 createToggle(combatSec1, "Combat Rage Bot (Players Only)", 1, getgenv().Config.RageBot, function(v) getgenv().Config.RageBot = v; getgenv().Config.Enabled = v end)
 createToggle(combatSec1, "Anti-Shot", 2, getgenv().Config.AntiShot, function(v) getgenv().Config.AntiShot = v end)
 createToggle(combatSec1, "Silent Aim (Players Only)", 3, getgenv().Config.SilentAim, function(v) getgenv().Config.SilentAim = v; getgenv().Config.Enabled = v end)
@@ -1085,4 +1332,4 @@ toggleMenuBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = not mainFrame.Visible
 end)
 
-print("RayV8 & All Skins Integrated Rivals Script (Mobile Optimized Desync & Void Mode) Loaded Successfully!")
+print("RayV8 Ultra Gold x Rivals Godmode (KickHook V3 Counter Upgraded) Loaded Successfully!")
