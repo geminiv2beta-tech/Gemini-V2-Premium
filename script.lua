@@ -1,5 +1,5 @@
--- [[ multvallk Premium v3 - Fully Integrated Dual Engine (Mobile Responsive) ]]
--- All Combat Mechanics, Anti-Cheat Bypass, Rage Engine, and Hit Logs Intact
+-- [[ multvallk Premium v3 - LinoriaLib Complete Integration ]]
+-- All Combat Mechanics, Anti-Cheat Bypass, Rage Engine, Hit Logs, Skybox & Visuals 100% Preserved
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -78,15 +78,8 @@ for _, player in ipairs(Players:GetPlayers()) do
 end
 
 -- ============================================================================
--- SECTION: Key System & Settings Variables
+-- SECTION: Internal Variables
 -- ============================================================================
-local validKey = "Paid_masterkey-vallkmult"
-local keyPassed = false
-
--- Mobile Screen Scaling State (Default: False = Big PC Size)
-local mobileOnEnabled = false
-
--- Aimbot & Silent Aim
 local aimbotEnabled = false
 local aimbotSmoothness = 5
 local aimbotFovRadius = 100
@@ -99,23 +92,19 @@ local silentAimFovRadius = 300
 local silentWallCheck = false
 local silentAimTarget = nil
 
--- Ragebot Toggles
 local ragebotOrKillAura = false
 local hoNyangRageEnabled = false
 local ragebotHeightOffset = 3
 
--- Vallk Features & Cooldowns
 local fastMeleeEnabled = false
 local hoNyangNoCDEnabled = false
 local attackCooldownDisabled = false
 local projectileCooldownDisabled = false
 
--- FFMode
 local ffModeEnabled = false
 local ffTeamCheckEnabled = true
 local ffBaitingEnabled = false
 
--- Orbit & Void Spam
 local orbitEnabled = false
 local orbitRange = 50
 local orbitDelay = 0.01
@@ -124,7 +113,6 @@ local voidSpamEnabled = false
 local voidSpamRange = 50
 local voidSpamDelay = 0.01
 
--- Gun Utilities
 local triggerbotEnabled = false
 local rapidFireEnabled = false
 local noRecoilEnabled = false
@@ -133,7 +121,6 @@ local noMuzzleFlashEnabled = false
 local bulletSpeedBoost = false
 local bulletSpeedMult = 100000
 
--- ESP & Movement
 local espEnabled = false
 local espBoxEnabled = false
 local espNameEnabled = false
@@ -292,7 +279,7 @@ local function has_line_of_sight(targetPart, myChar)
 end
 
 -- ============================================================================
--- FILE INTEGRATED RAGEBOT ENGINE
+-- RAGEBOT ENGINE & LOOPS
 -- ============================================================================
 local activeTargetPart = nil
 local originalCFrame = nil
@@ -401,7 +388,6 @@ RunService.Heartbeat:Connect(function()
     end)
 end)
 
--- Target Finder Loop
 task.spawn(function()
     while true do
         task.wait(0.01)
@@ -436,7 +422,7 @@ task.spawn(function()
     end
 end)
 
--- Baiting, Orbit, Void Spam Loops
+-- Orbit, Void, Baiting
 task.spawn(function()
     while true do
         task.wait(0.01)
@@ -504,7 +490,7 @@ task.spawn(function()
 end)
 
 -- ============================================================================
--- SECTION: Hit Logs Integration (multvallk)
+-- HIT LOGS INTEGRATION
 -- ============================================================================
 local HitLogGui = Instance.new("ScreenGui")
 HitLogGui.Name = "multvallkHitLogUI"
@@ -567,7 +553,7 @@ for _, p in ipairs(Players:GetPlayers()) do setupPlayerDamageTracker(p) end
 Players.PlayerAdded:Connect(setupPlayerDamageTracker)
 
 -- ============================================================================
--- SECTION: Ragebot UI & Rainbow Crosshair Indicator (multvallk)
+-- RAGE UI INDICATOR & CROSSHAIR
 -- ============================================================================
 local RageUIGui = Instance.new("ScreenGui", PlayerGui)
 RageUIGui.Name = "multvallkRageUI"
@@ -768,7 +754,7 @@ RunService.Heartbeat:Connect(function()
     end)
 end)
 
--- Render / Visuals & Skybox Presets
+-- Render Visuals & Skybox
 local SEGMENT_COUNT = 32
 local circleSegments = {}
 
@@ -936,386 +922,128 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ============================================================================
--- SECTION: User Interface (Dynamic Mobile Scaling Supported)
+-- SECTION: LINORIA LIB UI SETUP
 -- ============================================================================
-do
-    local ACC = Color3.fromRGB(80, 150, 255)
-    local BG = Color3.fromRGB(18, 20, 26)
-    local PANEL = Color3.fromRGB(24, 28, 36)
-    local TAB_BG = Color3.fromRGB(14, 16, 20)
+local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
+local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
+local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
 
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "multvallkIntegratedUI"
-    gui.ResetOnSpawn = false
-    gui.IgnoreGuiInset = true
-    gui.DisplayOrder = 100000
-    pcall(function() if gethui then gui.Parent = gethui() else gui.Parent = CoreGui end end)
-    if not gui.Parent then gui.Parent = PlayerGui end
+local Window = Library:CreateWindow({
+    Title = 'multvallk Premium v3 - Integrated',
+    Center = true,
+    AutoShow = true,
+    TabPadding = 8,
+    MenuFadeTime = 0.2
+})
 
-    -- Mobile & PC Toggle Button
-    local toggleMenuBtn = Instance.new("TextButton")
-    toggleMenuBtn.Size = UDim2.fromOffset(130, 36)
-    toggleMenuBtn.Position = UDim2.new(1, -140, 0, 15)
-    toggleMenuBtn.BackgroundColor3 = BG
-    toggleMenuBtn.TextColor3 = ACC
-    toggleMenuBtn.Font = Enum.Font.Code
-    toggleMenuBtn.TextSize = 12
-    toggleMenuBtn.Text = "multvallk Premium"
-    toggleMenuBtn.BorderSizePixel = 0
-    toggleMenuBtn.ZIndex = 999999
-    toggleMenuBtn.Parent = gui
-    Instance.new("UICorner", toggleMenuBtn).CornerRadius = UDim.new(0, 6)
+local Tabs = {
+    Main = Window:AddTab('Main'),
+    Ragebot = Window:AddTab('Ragebot'),
+    FFMode = Window:AddTab('FFMode'),
+    ESP = Window:AddTab('ESP'),
+    Misc = Window:AddTab('Misc'),
+    UISet = Window:AddTab('UI Set'),
+    Settings = Window:AddTab('Settings')
+}
 
-    -- Key UI Frame
-    local keyFrame = Instance.new("Frame")
-    keyFrame.Size = UDim2.fromOffset(270, 140)
-    keyFrame.Position = UDim2.new(0.5, -135, 0.5, -70)
-    keyFrame.BackgroundColor3 = BG
-    keyFrame.BorderSizePixel = 0
-    keyFrame.Visible = not keyPassed
-    keyFrame.Parent = gui
-    Instance.new("UICorner", keyFrame).CornerRadius = UDim.new(0, 8)
+-- 1. Main Tab
+local MainLeft = Tabs.Main:AddLeftGroupbox('Aimbot Controls')
+MainLeft:AddToggle('AimbotEnabled', { Text = 'Aimbot (Smooth Camera)', Default = false, Callback = function(v) aimbotEnabled = v end })
+MainLeft:AddSlider('AimbotSmoothness', { Text = 'Aimbot Smoothness', Default = 5, Min = 1, Max = 20, Round = 1, Callback = function(v) aimbotSmoothness = v end })
+MainLeft:AddSlider('AimbotFov', { Text = 'Aimbot FOV', Default = 100, Min = 10, Max = 500, Round = 0, Callback = function(v) aimbotFovRadius = v end })
+MainLeft:AddToggle('AimbotWallCheck', { Text = 'Aimbot Wall Check', Default = false, Callback = function(v) aimbotWallCheck = v end })
 
-    local keyTitle = Instance.new("TextLabel")
-    keyTitle.Size = UDim2.new(1, 0, 0, 30)
-    keyTitle.BackgroundTransparency = 1
-    keyTitle.Text = "multvallk Premium v3"
-    keyTitle.TextColor3 = ACC
-    keyTitle.Font = Enum.Font.Code
-    keyTitle.TextSize = 12
-    keyTitle.Parent = keyFrame
+MainLeft:AddToggle('SilentAimEnabled', { Text = 'Silent Aim', Default = false, Callback = function(v) silentAimEnabled = v end })
+MainLeft:AddSlider('SilentAimFov', { Text = 'Silent FOV', Default = 300, Min = 10, Max = 1000, Round = 0, Callback = function(v) silentAimFovRadius = v end })
+MainLeft:AddToggle('SilentWallCheck', { Text = 'Silent Wall Check', Default = false, Callback = function(v) silentWallCheck = v end })
 
-    local keyBox = Instance.new("TextBox")
-    keyBox.Size = UDim2.new(0.85, 0, 0, 30)
-    keyBox.Position = UDim2.new(0.075, 0, 0.32, 0)
-    keyBox.BackgroundColor3 = PANEL
-    keyBox.PlaceholderText = "Enter Key..."
-    keyBox.Text = ""
-    keyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    keyBox.Font = Enum.Font.Code
-    keyBox.TextSize = 11
-    keyBox.Parent = keyFrame
-    Instance.new("UICorner", keyBox).CornerRadius = UDim.new(0, 4)
+local MainRight = Tabs.Main:AddRightGroupbox('Combat Modifiers')
+MainRight:AddToggle('FastMelee', { Text = 'Fast Melee', Default = false, Callback = function(v) fastMeleeEnabled = v end })
+MainRight:AddToggle('NoCD', { Text = 'No Cooldown (0 Delay)', Default = false, Callback = function(v) hoNyangNoCDEnabled = v end })
+MainRight:AddToggle('NoRecoil', { Text = 'No Recoil', Default = false, Callback = function(v) noRecoilEnabled = v end })
+MainRight:AddToggle('NoSpread', { Text = 'No Spread', Default = false, Callback = function(v) noSpreadEnabled = v end })
+MainRight:AddToggle('NoMuzzleFlash', { Text = 'No Muzzle Flash', Default = false, Callback = function(v) noMuzzleFlashEnabled = v end })
+MainRight:AddToggle('RapidFire', { Text = 'Rapid Fire', Default = false, Callback = function(v) rapidFireEnabled = v end })
+MainRight:AddToggle('AttackCDDisable', { Text = 'Attack Cooldown Disable', Default = false, Callback = function(v) attackCooldownDisabled = v end })
+MainRight:AddToggle('ProjectileCDDisable', { Text = 'Projectile Cooldown Disable', Default = false, Callback = function(v) projectileCooldownDisabled = v end })
 
-    local submitBtn = Instance.new("TextButton")
-    submitBtn.Size = UDim2.new(0.85, 0, 0, 30)
-    submitBtn.Position = UDim2.new(0.075, 0, 0.62, 0)
-    submitBtn.BackgroundColor3 = ACC
-    submitBtn.Text = "Submit Key"
-    submitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    submitBtn.Font = Enum.Font.Code
-    submitBtn.TextSize = 11
-    submitBtn.Parent = keyFrame
-    Instance.new("UICorner", submitBtn).CornerRadius = UDim.new(0, 4)
+-- 2. Ragebot Tab
+local RageLeft = Tabs.Ragebot:AddLeftGroupbox('Rage Engines')
+RageLeft:AddToggle('RagebotOrKillAura', { Text = '[Engine] Advanced Ragebot', Default = false, Callback = function(v) 
+    ragebotOrKillAura = v 
+    if v and Toggles.AutoUseItem then Toggles.AutoUseItem:SetValue(false) end
+end })
+RageLeft:AddToggle('AutoUseItem', { Text = '[Engine] Auto UseItem Teleport', Default = false, Callback = function(v) 
+    hoNyangRageEnabled = v 
+    if v and Toggles.RagebotOrKillAura then Toggles.RagebotOrKillAura:SetValue(false) end
+end })
 
-    -- Dynamic UI Main Frame (Default Big Size: 525x631, Mobile Size: 320x240)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.fromOffset(525, 631)
-    frame.Position = UDim2.new(0.5, -262, 0.5, -315)
-    frame.BackgroundColor3 = BG
-    frame.BorderSizePixel = 0
-    frame.Visible = keyPassed
-    frame.Parent = gui
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
+local RageRight = Tabs.Ragebot:AddRightGroupbox('Orbit & Void Operations')
+RageRight:AddToggle('OrbitEnabled', { Text = 'Orbit Feature', Default = false, Callback = function(v) orbitEnabled = v end })
+RageRight:AddSlider('OrbitRange', { Text = 'Orbit Range', Default = 50, Min = 50, Max = 50000000, Round = 0, Callback = function(v) orbitRange = v end })
+RageRight:AddSlider('OrbitDelay', { Text = 'Orbit Delay', Default = 0.01, Min = 0.01, Max = 1, Round = 2, Callback = function(v) orbitDelay = v end })
 
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -12, 0, 24)
-    title.Position = UDim2.new(0, 8, 0, 4)
-    title.BackgroundTransparency = 1
-    title.Text = "multvallk Premium v3"
-    title.TextColor3 = ACC
-    title.Font = Enum.Font.Code
-    title.TextSize = 14
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = frame
+RageRight:AddToggle('VoidSpamEnabled', { Text = 'Void Spam Feature (3D Y-Axis)', Default = false, Callback = function(v) voidSpamEnabled = v end })
+RageRight:AddSlider('VoidSpamRange', { Text = 'Void Spam Range', Default = 50, Min = 50, Max = 50000000, Round = 0, Callback = function(v) voidSpamRange = v end })
+RageRight:AddSlider('VoidSpamDelay', { Text = 'Void Spam Delay', Default = 0.01, Min = 0.01, Max = 1, Round = 2, Callback = function(v) voidSpamDelay = v end })
 
-    local tabHeader = Instance.new("Frame")
-    tabHeader.Size = UDim2.new(1, -16, 0, 28)
-    tabHeader.Position = UDim2.new(0, 8, 0, 28)
-    tabHeader.BackgroundTransparency = 1
-    tabHeader.Parent = frame
+-- 3. FFMode Tab
+local FFGroup = Tabs.FFMode:AddLeftGroupbox('FFMode Settings')
+FFGroup:AddToggle('FFModeEnabled', { Text = 'Enable FFMode', Default = false, Callback = function(v) ffModeEnabled = v end })
+FFGroup:AddToggle('FFTeamCheck', { Text = 'Team Check', Default = true, Callback = function(v) ffTeamCheckEnabled = v end })
+FFGroup:AddToggle('FFBaiting', { Text = 'Baiting (Fall Inducer)', Default = false, Callback = function(v) ffBaitingEnabled = v end })
 
-    local tabLay = Instance.new("UIListLayout")
-    tabLay.Parent = tabHeader
-    tabLay.FillDirection = Enum.FillDirection.Horizontal
-    tabLay.Padding = UDim.new(0, 4)
+-- 4. ESP Tab
+local ESPGroup = Tabs.ESP:AddLeftGroupbox('Visual Tracking')
+ESPGroup:AddToggle('ESPMaster', { Text = 'ESP Master Toggle', Default = false, Callback = function(v) espEnabled = v end })
+ESPGroup:AddToggle('ESPBoxes', { Text = 'ESP Boxes', Default = false, Callback = function(v) espBoxEnabled = v end })
+ESPGroup:AddToggle('ESPNames', { Text = 'ESP Names', Default = false, Callback = function(v) espNameEnabled = v end })
+ESPGroup:AddToggle('ESPHealth', { Text = 'ESP Health', Default = false, Callback = function(v) espHealthEnabled = v end })
+ESPGroup:AddToggle('GunTracer', { Text = 'Gun Tracer Line', Default = false, Callback = function(v) gunTracerEnabled = v end })
 
-    local content = Instance.new("Frame")
-    content.Size = UDim2.new(1, -16, 1, -64)
-    content.Position = UDim2.new(0, 8, 0, 58)
-    content.BackgroundColor3 = PANEL
-    content.Parent = frame
-    Instance.new("UICorner", content).CornerRadius = UDim.new(0, 4)
+-- 5. Misc Tab
+local MiscGroup = Tabs.Misc:AddLeftGroupbox('Utilities & Movement')
+MiscGroup:AddToggle('MobileFly', { Text = 'Mobile Fly (Touch Move)', Default = false, Callback = function(v) mobileFlyEnabled = v end })
+MiscGroup:AddToggle('PCFly', { Text = 'PC Fly (WASD)', Default = false, Callback = function(v) pcFlyEnabled = v end })
+MiscGroup:AddToggle('SkinChanger', { Text = 'Unlock All Skins', Default = false, Callback = function(v) skinChangerEnabled = v end })
+MiscGroup:AddToggle('BulletSpeedBoost', { Text = 'Bullet Speed Boost (100k)', Default = false, Callback = function(v) bulletSpeedBoost = v end })
+MiscGroup:AddToggle('RapidSpeed', { Text = 'Rapid Speed (Speed Hack)', Default = false, Callback = function(v) rapidSpeedEnabled = v end })
+MiscGroup:AddToggle('Noclip', { Text = 'Noclip', Default = false, Callback = function(v) noclipEnabled = v end })
 
-    -- Update Size Helper Function
-    local function updateUIScale()
-        if mobileOnEnabled then
-            -- Mobile Size (Small UI)
-            frame.Size = UDim2.fromOffset(320, 240)
-            frame.Position = UDim2.new(0.5, -160, 0.5, -120)
-            title.TextSize = 12
-        else
-            -- Original Default Size (Big PC Size)
-            frame.Size = UDim2.fromOffset(525, 631)
-            frame.Position = UDim2.new(0.5, -262, 0.5, -315)
-            title.TextSize = 14
-        end
+-- 6. UI Set Tab (Crosshair & Skybox)
+local UISetLeft = Tabs.UISet:AddLeftGroupbox('Custom Overlays')
+UISetLeft:AddToggle('CircleCrosshair', { Text = 'Circle Crosshair (Gradient)', Default = false, Callback = function(v) circleCrosshairEnabled = v end })
+
+local UISetRight = Tabs.UISet:AddRightGroupbox('Skybox Settings')
+UISetRight:AddToggle('CustomSkybox', { Text = 'Custom Skybox Enabled', Default = false, Callback = function(v) 
+    customSkyboxEnabled = v 
+    applySkybox()
+end })
+UISetRight:AddDropdown('SkyboxTheme', {
+    Values = { 'Dark Sky', 'Vaporwave', 'Lake Sky', 'Black Mesa' },
+    Default = 'Vaporwave',
+    Multi = false,
+    Text = 'Skybox Theme',
+    Callback = function(v)
+        skyboxTheme = v
+        applySkybox()
     end
+})
 
-    local pages = {}
-    local function makePage(name)
-        local scroll = Instance.new("ScrollingFrame")
-        scroll.Size = UDim2.new(1, -8, 1, -8)
-        scroll.Position = UDim2.new(0, 4, 0, 4)
-        scroll.BackgroundTransparency = 1
-        scroll.ScrollBarThickness = 4
-        scroll.ScrollBarImageColor3 = ACC
-        scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        scroll.Visible = false
-        scroll.Parent = content
-        local lay = Instance.new("UIListLayout")
-        lay.Parent = scroll
-        lay.Padding = UDim.new(0, 4)
-        pages[name] = scroll
-        return scroll
-    end
+-- 7. Settings Tab (Linoria Original Unload & Theme & Save Manager)
+local MenuGroup = Tabs.Settings:AddLeftGroupbox('Menu Options')
+MenuGroup:AddButton('Unload', function() Library:Unload() end)
+MenuGroup:AddLabel('Menu Keybind'):AddKeyPicker('MenuKeybind', { Default = 'RightControl', NoUI = true, Text = 'Menu Keybind' })
 
-    local tabBtns = {}
-    local function selectTab(name)
-        for n, pg in pairs(pages) do pg.Visible = (n == name) end
-        for n, btn in pairs(tabBtns) do
-            btn.TextColor3 = (n == name) and ACC or Color3.fromRGB(150, 155, 160)
-            btn.BackgroundColor3 = (n == name) and Color3.fromRGB(30, 36, 48) or TAB_BG
-        end
-    end
+Library.ToggleKeybind = Options.MenuKeybind
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
+ThemeManager:SetFolder('multvallk_config')
+SaveManager:SetFolder('multvallk_config')
+SaveManager:BuildConfigSection(Tabs.Settings)
+ThemeManager:ApplyToTab(Tabs.Settings)
 
-    local function addTab(name)
-        makePage(name)
-        local b = Instance.new("TextButton")
-        b.Size = UDim2.new(0.158, 0, 1, 0)
-        b.BackgroundColor3 = TAB_BG
-        b.BorderSizePixel = 0
-        b.Text = name
-        b.TextColor3 = Color3.fromRGB(150, 155, 160)
-        b.Font = Enum.Font.Code
-        b.TextSize = 10
-        b.Parent = tabHeader
-        Instance.new("UICorner", b).CornerRadius = UDim.new(0, 3)
-        tabBtns[name] = b
-        b.MouseButton1Click:Connect(function() selectTab(name) end)
-    end
-
-    local toggleUpdaters = {}
-    local function toggle(page, name, getv, setv)
-        local b = Instance.new("TextButton")
-        b.Size = UDim2.new(1, -4, 0, 26)
-        b.BackgroundColor3 = Color3.fromRGB(30, 34, 44)
-        b.BorderSizePixel = 0
-        b.Font = Enum.Font.Code
-        b.TextSize = 11
-        b.TextXAlignment = Enum.TextXAlignment.Left
-        b.Parent = page
-        Instance.new("UICorner", b).CornerRadius = UDim.new(0, 3)
-
-        local function update()
-            local on = getv()
-            b.Text = "  " .. (on and "☑ " or "☐ ") .. name
-            b.TextColor3 = on and ACC or Color3.fromRGB(170, 175, 180)
-        end
-        update()
-        table.insert(toggleUpdaters, update)
-        b.MouseButton1Click:Connect(function()
-            setv(not getv())
-            for _, u in ipairs(toggleUpdaters) do u() end
-        end)
-    end
-
-    local function addSlider(page, name, min, max, getv, setv)
-        local f = Instance.new("Frame")
-        f.Size = UDim2.new(1, -4, 0, 38)
-        f.BackgroundColor3 = Color3.fromRGB(30, 34, 44)
-        f.BorderSizePixel = 0
-        f.Parent = page
-        Instance.new("UICorner", f).CornerRadius = UDim.new(0, 3)
-
-        local lbl = Instance.new("TextLabel")
-        lbl.Size = UDim2.new(1, -10, 0, 18)
-        lbl.Position = UDim2.new(0, 5, 0, 2)
-        lbl.BackgroundTransparency = 1
-        lbl.Font = Enum.Font.Code
-        lbl.TextSize = 10
-        lbl.TextColor3 = Color3.fromRGB(170, 175, 180)
-        lbl.TextXAlignment = Enum.TextXAlignment.Left
-        lbl.Text = name .. ": " .. tostring(getv())
-        lbl.Parent = f
-
-        local barBg = Instance.new("TextButton")
-        barBg.Size = UDim2.new(1, -10, 0, 10)
-        barBg.Position = UDim2.new(0, 5, 0, 22)
-        barBg.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
-        barBg.BorderSizePixel = 0
-        barBg.Text = ""
-        barBg.AutoButtonColor = false
-        barBg.Parent = f
-        Instance.new("UICorner", barBg).CornerRadius = UDim.new(0, 2)
-
-        local barFill = Instance.new("Frame")
-        barFill.Size = UDim2.new(math.clamp((getv() - min) / (max - min), 0, 1), 0, 1, 0)
-        barFill.BackgroundColor3 = ACC
-        barFill.BorderSizePixel = 0
-        barFill.Parent = barBg
-        Instance.new("UICorner", barFill).CornerRadius = UDim.new(0, 2)
-
-        local dragging = false
-        barBg.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
-            end
-        end)
-        UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = false
-            end
-        end)
-        UserInputService.InputChanged:Connect(function(input)
-            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                local pos = math.clamp((input.Position.X - barBg.AbsolutePosition.X) / barBg.AbsoluteSize.X, 0, 1)
-                local val = min + (max - min) * pos
-                setv(val)
-                barFill.Size = UDim2.new(pos, 0, 1, 0)
-                lbl.Text = name .. ": " .. string.format(max > 1000 and "%.0f" or "%.2f", val)
-            end
-        end)
-    end
-
-    addTab("Main")
-    addTab("Ragebot")
-    addTab("FFMode")
-    addTab("ESP")
-    addTab("Misc")
-    addTab("UI Set")
-
-    -- Main Tab (Mobile ON Option Placed at the Top)
-    toggle(pages["Main"], "Mobile ON (Small UI Mode)", function() return mobileOnEnabled end, function(v) 
-        mobileOnEnabled = v
-        updateUIScale()
-    end)
-    toggle(pages["Main"], "Aimbot (Smooth Camera)", function() return aimbotEnabled end, function(v) aimbotEnabled = v end)
-    addSlider(pages["Main"], "Aimbot Smoothness", 1, 20, function() return aimbotSmoothness end, function(v) aimbotSmoothness = v end)
-    addSlider(pages["Main"], "Aimbot FOV", 10, 500, function() return aimbotFovRadius end, function(v) aimbotFovRadius = v end)
-    toggle(pages["Main"], "Aimbot Wall Check", function() return aimbotWallCheck end, function(v) aimbotWallCheck = v end)
-    
-    toggle(pages["Main"], "Silent Aim", function() return silentAimEnabled end, function(v) silentAimEnabled = v end)
-    addSlider(pages["Main"], "Silent FOV", 10, 1000, function() return silentAimFovRadius end, function(v) silentAimFovRadius = v end)
-    toggle(pages["Main"], "Silent Wall Check", function() return silentWallCheck end, function(v) silentWallCheck = v end)
-    
-    toggle(pages["Main"], "Fast Melee", function() return fastMeleeEnabled end, function(v) fastMeleeEnabled = v end)
-    toggle(pages["Main"], "No Cooldown (0 Delay)", function() return hoNyangNoCDEnabled end, function(v) hoNyangNoCDEnabled = v end)
-    toggle(pages["Main"], "No Recoil", function() return noRecoilEnabled end, function(v) noRecoilEnabled = v end)
-    toggle(pages["Main"], "No Spread", function() return noSpreadEnabled end, function(v) noSpreadEnabled = v end)
-    toggle(pages["Main"], "No Muzzle Flash", function() return noMuzzleFlashEnabled end, function(v) noMuzzleFlashEnabled = v end)
-    toggle(pages["Main"], "Rapid Fire", function() return rapidFireEnabled end, function(v) rapidFireEnabled = v end)
-    toggle(pages["Main"], "Attack Cooldown Disable", function() return attackCooldownDisabled end, function(v) attackCooldownDisabled = v end)
-    toggle(pages["Main"], "Projectile Cooldown Disable", function() return projectileCooldownDisabled end, function(v) projectileCooldownDisabled = v end)
-
-    -- Ragebot Tab
-    toggle(pages["Ragebot"], "[Integrated Engine] Advanced Ragebot", function() return ragebotOrKillAura end, function(v) 
-        ragebotOrKillAura = v 
-        if v then hoNyangRageEnabled = false end
-    end)
-    toggle(pages["Ragebot"], "[Integrated Engine] Auto UseItem Teleport", function() return hoNyangRageEnabled end, function(v) 
-        hoNyangRageEnabled = v 
-        if v then ragebotOrKillAura = false end
-    end)
-
-    toggle(pages["Ragebot"], "Orbit Feature", function() return orbitEnabled end, function(v) orbitEnabled = v end)
-    addSlider(pages["Ragebot"], "Orbit Range", 50, 50000000, function() return orbitRange end, function(v) orbitRange = v end)
-    addSlider(pages["Ragebot"], "Orbit Delay", 0.01, 1, function() return orbitDelay end, function(v) orbitDelay = v end)
-
-    toggle(pages["Ragebot"], "Void Spam Feature (3D Y-Axis)", function() return voidSpamEnabled end, function(v) voidSpamEnabled = v end)
-    addSlider(pages["Ragebot"], "Void Spam Range", 50, 50000000, function() return voidSpamRange end, function(v) voidSpamRange = v end)
-    addSlider(pages["Ragebot"], "Void Spam Delay", 0.01, 1, function() return voidSpamDelay end, function(v) voidSpamDelay = v end)
-
-    -- FFMode Tab
-    toggle(pages["FFMode"], "Enable FFMode", function() return ffModeEnabled end, function(v) ffModeEnabled = v end)
-    toggle(pages["FFMode"], "Team Check", function() return ffTeamCheckEnabled end, function(v) ffTeamCheckEnabled = v end)
-    toggle(pages["FFMode"], "Baiting (Fall Inducer)", function() return ffBaitingEnabled end, function(v) ffBaitingEnabled = v end)
-
-    -- ESP Tab
-    toggle(pages["ESP"], "ESP Master Toggle", function() return espEnabled end, function(v) espEnabled = v end)
-    toggle(pages["ESP"], "ESP Boxes", function() return espBoxEnabled end, function(v) espBoxEnabled = v end)
-    toggle(pages["ESP"], "ESP Names", function() return espNameEnabled end, function(v) espNameEnabled = v end)
-    toggle(pages["ESP"], "ESP Health", function() return espHealthEnabled end, function(v) espHealthEnabled = v end)
-    toggle(pages["ESP"], "Gun Tracer Line", function() return gunTracerEnabled end, function(v) gunTracerEnabled = v end)
-
-    -- Misc Tab (Mobile Fly Option Included)
-    toggle(pages["Misc"], "Mobile Fly (Touch Move)", function() return mobileFlyEnabled end, function(v) mobileFlyEnabled = v end)
-    toggle(pages["Misc"], "PC Fly (WASD)", function() return pcFlyEnabled end, function(v) pcFlyEnabled = v end)
-    toggle(pages["Misc"], "Unlock All Skins (File Integrated)", function() return skinChangerEnabled end, function(v) skinChangerEnabled = v end)
-    toggle(pages["Misc"], "Bullet Speed Boost (100k)", function() return bulletSpeedBoost end, function(v) bulletSpeedBoost = v end)
-    toggle(pages["Misc"], "Rapid Speed (Speed Hack)", function() return rapidSpeedEnabled end, function(v) rapidSpeedEnabled = v end)
-    toggle(pages["Misc"], "Noclip", function() return noclipEnabled end, function(v) noclipEnabled = v end)
-
-    -- UI Set Tab
-    toggle(pages["UI Set"], "Circle Crosshair (Gradient)", function() return circleCrosshairEnabled end, function(v) circleCrosshairEnabled = v end)
-    toggle(pages["UI Set"], "Custom Skybox", function() return customSkyboxEnabled end, function(v) customSkyboxEnabled = v; applySkybox() end)
-    toggle(pages["UI Set"], "Sky: Dark Sky", function() return skyboxTheme == "Dark Sky" end, function() skyboxTheme = "Dark Sky"; applySkybox() end)
-    toggle(pages["UI Set"], "Sky: Vaporwave", function() return skyboxTheme == "Vaporwave" end, function() skyboxTheme = "Vaporwave"; applySkybox() end)
-    toggle(pages["UI Set"], "Sky: Lake Sky", function() return skyboxTheme == "Lake Sky" end, function() skyboxTheme = "Lake Sky"; applySkybox() end)
-    toggle(pages["UI Set"], "Sky: Black Mesa", function() return skyboxTheme == "Black Mesa" end, function() skyboxTheme = "Black Mesa"; applySkybox() end)
-
-    selectTab("Main")
-
-    -- Touch & Mouse Universal Drag Functionality
-    local function makeDraggable(topBar, targetFrame)
-        local dragging, dragInput, dragStart, startPos
-        topBar.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
-                dragStart = input.Position
-                startPos = targetFrame.Position
-                input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then dragging = false end
-                end)
-            end
-        end)
-        topBar.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-                dragInput = input
-            end
-        end)
-        UserInputService.InputChanged:Connect(function(input)
-            if input == dragInput and dragging then
-                local delta = input.Position - dragStart
-                targetFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            end
-        end)
-    end
-
-    makeDraggable(title, frame)
-    makeDraggable(keyTitle, keyFrame)
-
-    submitBtn.MouseButton1Click:Connect(function()
-        if keyBox.Text == validKey then
-            keyPassed = true
-            keyFrame.Visible = false
-            frame.Visible = true
-        else
-            keyBox.Text = ""
-            keyBox.PlaceholderText = "Invalid Key! Try Again."
-        end
-    end)
-
-    toggleMenuBtn.MouseButton1Click:Connect(function()
-        if keyPassed then frame.Visible = not frame.Visible end
-    end)
-
-    UserInputService.InputBegan:Connect(function(input, g)
-        if g then return end
-        if input.KeyCode == Enum.KeyCode.RightShift and keyPassed then 
-            frame.Visible = not frame.Visible 
-        end
-    end)
-end
-
-print("[multvallk Premium v3] Loaded Successfully on Dynamic Dual Engine.")
+print("[multvallk Premium v3] Completely Integrated with LinoriaLib.")
