@@ -4,14 +4,37 @@ local rs = g:GetService("RunService")
 local uis = g:GetService("UserInputService")
 local ws = g:GetService("Workspace")
 local hs = g:GetService("HttpService")
-local rep = g:GetService("ReplicatedStorage")
+local reps = g:GetService("ReplicatedStorage")
 local cg = g:GetService("CoreGui")
 local lighting = g:GetService("Lighting")
 local ts = g:GetService("TweenService")
 
 local lp = plrs.LocalPlayer
-local camera = ws.CurrentCamera
-local playerGui = lp:WaitForChild("PlayerGui")
+local Camera = ws.CurrentCamera
+local PlayerGui = lp:WaitForChild("PlayerGui")
+
+-- ============================================================================
+-- SECTION: LinoriaLib UI Setup
+-- ============================================================================
+local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
+local Library = loadstring(g:HttpGet(repo .. 'Library.lua'))()
+local ThemeManager = loadstring(g:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local SaveManager = loadstring(g:HttpGet(repo .. 'addons/SaveManager.lua'))()
+
+local Window = Library:CreateWindow({
+    Title = 'multvallk Premium v3 (Linoria UI)',
+    Center = true,
+    AutoShow = true,
+    TabPadding = 8,
+    MenuFadeTime = 0.2
+})
+
+local Tabs = {
+    Combat = Window:AddTab('Combat'),
+    GunMods = Window:AddTab('Gun Mods'),
+    Movement = Window:AddTab('Movement & Visuals'),
+    Settings = Window:AddTab('Settings')
+}
 
 -- ============================================================================
 -- SECTION: Anti-Kick / Security / Anti-Cheat Bypass
@@ -45,7 +68,9 @@ pcall(function()
         local oldNamecall
         oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
             local method = getnamecallmethod()
-            if method == "Kick" or method == "kick" then return end
+            if method == "Kick" or method == "kick" then
+                return
+            end
             if method == "FireServer" and self and self.Name then
                 local sName = string.lower(self.Name)
                 for k, _ in pairs(bannedRemoteNames) do
@@ -57,7 +82,6 @@ pcall(function()
     end
 end)
 
--- Player Spawn Tracker
 plrs.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function(char)
         player:SetAttribute("SpawnTime", tick())
@@ -74,16 +98,15 @@ for _, player in ipairs(plrs:GetPlayers()) do
 end
 
 -- ============================================================================
--- SECTION: Feature State Variables
+-- SECTION: State Variables
 -- ============================================================================
 local aimbotEnabled = false
 local aimbotSmoothness = 5
 local aimbotFovRadius = 100
-local aimbotHitPart = "head"
+local aimbotHitPart = "Head"
 local aimbotWallCheck = false
 
 local silentAimEnabled = false
-local silentAimHitPart = "head"
 local silentAimFovRadius = 300
 local silentWallCheck = false
 local silentAimTarget = nil
@@ -137,7 +160,9 @@ local circleCrosshairEnabled = false
 local circleCrosshairSize = 60
 local circleRotationSpeed = 4
 
--- Controller Modules
+-- ============================================================================
+-- SECTION: Controller Modules Initialization
+-- ============================================================================
 local FighterController, SpectateController, CameraController, GunModule, UtilityModule, EnumLibrary
 pcall(function()
     local ps = lp:WaitForChild("PlayerScripts")
@@ -146,11 +171,11 @@ pcall(function()
     SpectateController = require(ctrl:WaitForChild("SpectateController", 2))
     CameraController = require(ctrl:WaitForChild("CameraController", 2))
     GunModule = require(ps:WaitForChild("Modules"):WaitForChild("ItemTypes"):WaitForChild("Gun"))
-    UtilityModule = require(rep:WaitForChild("Modules"):WaitForChild("Utility"))
-    pcall(function() EnumLibrary = require(rep:WaitForChild("Modules"):WaitForChild("EnumLibrary")) end)
+    UtilityModule = require(reps:WaitForChild("Modules"):WaitForChild("Utility"))
+    pcall(function() EnumLibrary = require(reps:WaitForChild("Modules"):WaitForChild("EnumLibrary")) end)
 end)
 
--- Helpers & Safety Checks
+-- Helpers
 local function is_teammate(player)
     if ffModeEnabled and ffTeamCheckEnabled then
         local myTeam = lp:GetAttribute("TeamID")
@@ -262,11 +287,11 @@ end
 
 local function has_line_of_sight(targetPart, myChar)
     if not targetPart then return false end
-    local origin = camera.CFrame.Position
+    local origin = Camera.CFrame.Position
     local dir = targetPart.Position - origin
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = { myChar, camera }
+    params.FilterDescendantsInstances = { myChar, Camera }
     params.IgnoreWater = true
     local result = ws:Raycast(origin, dir, params)
     if not result then return true end
@@ -275,7 +300,7 @@ local function has_line_of_sight(targetPart, myChar)
 end
 
 -- ============================================================================
--- FILE INTEGRATED RAGEBOT ENGINE
+-- SECTION: Ragebot Core Engine
 -- ============================================================================
 local activeTargetPart = nil
 local originalCFrame = nil
@@ -318,10 +343,10 @@ local function createTeleportPacket(originPos, targetPart)
 end
 
 task.spawn(function()
-    local useItemRemote = rep:WaitForChild("Remotes", 5)
-        and rep.Remotes:WaitForChild("Replication", 5)
-        and rep.Remotes.Replication:WaitForChild("Fighter", 5)
-        and rep.Remotes.Replication.Fighter:WaitForChild("UseItem", 5)
+    local useItemRemote = reps:WaitForChild("Remotes", 5)
+        and reps.Remotes:WaitForChild("Replication", 5)
+        and reps.Remotes.Replication:WaitForChild("Fighter", 5)
+        and reps.Remotes.Replication.Fighter:WaitForChild("UseItem", 5)
 
     local startShootingEnum = nil
     pcall(function()
@@ -384,7 +409,6 @@ rs.Heartbeat:Connect(function()
     end)
 end)
 
--- Target Finder Loop
 task.spawn(function()
     while true do
         task.wait(0.01)
@@ -493,7 +517,7 @@ local HitLogGui = Instance.new("ScreenGui")
 HitLogGui.Name = "multvallkHitLogUI"
 HitLogGui.ResetOnSpawn = false
 pcall(function() if gethui then HitLogGui.Parent = gethui() else HitLogGui.Parent = cg end end)
-if not HitLogGui.Parent then HitLogGui.Parent = playerGui end
+if not HitLogGui.Parent then HitLogGui.Parent = PlayerGui end
 
 local HitLogFrame = Instance.new("Frame", HitLogGui)
 HitLogFrame.Size = UDim2.new(0, 280, 0, 150)
@@ -550,9 +574,9 @@ for _, p in ipairs(plrs:GetPlayers()) do setupPlayerDamageTracker(p) end
 plrs.PlayerAdded:Connect(setupPlayerDamageTracker)
 
 -- ============================================================================
--- SECTION: Ragebot UI & Rainbow Crosshair Indicator
+-- SECTION: Rainbow Crosshair & Rage Indicator
 -- ============================================================================
-local RageUIGui = Instance.new("ScreenGui", playerGui)
+local RageUIGui = Instance.new("ScreenGui", PlayerGui)
 RageUIGui.Name = "multvallkRageUI"
 RageUIGui.ResetOnSpawn = false
 
@@ -563,7 +587,7 @@ CrosshairContainer.Size = UDim2.new(0, 40, 0, 40)
 CrosshairContainer.BackgroundTransparency = 1
 CrosshairContainer.Visible = false
 
-local lines = {
+local linesInfo = {
     {Size = UDim2.new(0, 8, 0, 2), DefaultPos = UDim2.new(0, 0, 0.5, -1)},
     {Size = UDim2.new(0, 8, 0, 2), DefaultPos = UDim2.new(1, -8, 0.5, -1)},
     {Size = UDim2.new(0, 2, 0, 8), DefaultPos = UDim2.new(0.5, -1, 0, 0)},
@@ -571,7 +595,7 @@ local lines = {
 }
 
 local crosshairLines = {}
-for _, info in ipairs(lines) do
+for _, info in ipairs(linesInfo) do
     local line = Instance.new("Frame", CrosshairContainer)
     line.Size = info.Size
     line.Position = info.DefaultPos
@@ -664,14 +688,14 @@ task.spawn(function()
     end
 end)
 
--- Gun Hooking & Gun Attributes Fix
+-- Gun Hooking & Attributes
 pcall(function()
     if FighterController and FighterController.LocalFighter and FighterController.LocalFighter.GetMouseLocation then
         local LocalFighter = FighterController.LocalFighter
         local oldMouseLoc = LocalFighter.GetMouseLocation
         LocalFighter.GetMouseLocation = newcclosure(function(...)
             if silentAimTarget and (silentAimEnabled or ragebotOrKillAura or hoNyangRageEnabled) then
-                local screenPos = camera:WorldToScreenPoint(silentAimTarget.Position)
+                local screenPos = Camera:WorldToScreenPoint(silentAimTarget.Position)
                 return Vector2.new(screenPos.X, screenPos.Y)
             end
             return oldMouseLoc(...)
@@ -680,7 +704,7 @@ pcall(function()
 end)
 
 pcall(function()
-    local CosmeticLibrary = require(rep.Modules:WaitForChild("CosmeticLibrary", 5))
+    local CosmeticLibrary = require(reps.Modules:WaitForChild("CosmeticLibrary", 5))
     local DataController = require(lp.PlayerScripts.Controllers:WaitForChild("PlayerDataController", 5))
 
     local originalOwns = CosmeticLibrary.OwnsCosmetic
@@ -751,7 +775,7 @@ rs.Heartbeat:Connect(function()
     end)
 end)
 
--- Render / Visuals & Skybox Presets
+-- Visual / Drawing Render Loop
 local SEGMENT_COUNT = 32
 local circleSegments = {}
 
@@ -802,7 +826,7 @@ rs.RenderStepped:Connect(function()
     local mousePos = uis:GetMouseLocation()
 
     if circleCrosshairEnabled then
-        local centerPos = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+        local centerPos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
         local radius = math.clamp(circleCrosshairSize, 1, 600)
         local currentRot = (tick() * circleRotationSpeed) % (math.pi * 2)
 
@@ -833,7 +857,7 @@ rs.RenderStepped:Connect(function()
             if player ~= lp and not is_teammate(player) and not get_character_immune(player) and not is_reflecting_or_parrying(player) then
                 local hitPart = player.Character and player.Character:FindFirstChild(aimbotHitPart)
                 if hitPart then
-                    local screenPos, onScreen = camera:WorldToViewportPoint(hitPart.Position)
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(hitPart.Position)
                     if onScreen then
                         local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
                         if screenDist <= aimbotFovRadius and screenDist < closestDist then
@@ -847,7 +871,7 @@ rs.RenderStepped:Connect(function()
             end
         end
         if closestTarget then
-            local targetPos = camera:WorldToScreenPoint(closestTarget.Position)
+            local targetPos = Camera:WorldToScreenPoint(closestTarget.Position)
             local currentPos = uis:GetMouseLocation()
             local moveVector = (Vector2.new(targetPos.X, targetPos.Y) - currentPos) / math.max(1, aimbotSmoothness)
             mousemoverel(moveVector.X, moveVector.Y)
@@ -861,7 +885,7 @@ rs.RenderStepped:Connect(function()
             if player ~= lp and not is_teammate(player) and not get_character_immune(player) and not is_reflecting_or_parrying(player) then
                 local hitPart = get_character_root(player.Character)
                 if hitPart then
-                    local screenPos, onScreen = camera:WorldToViewportPoint(hitPart.Position)
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(hitPart.Position)
                     if onScreen then
                         local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
                         local maxFov = (ragebotOrKillAura or hoNyangRageEnabled) and 99999 or silentAimFovRadius
@@ -901,15 +925,15 @@ rs.Stepped:Connect(function()
         local flyVel = Vector3.zero
         if pcFlyEnabled then
             local moveDir = Vector3.zero
-            if uis:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + camera.CFrame.LookVector end
-            if uis:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - camera.CFrame.LookVector end
-            if uis:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - camera.CFrame.RightVector end
-            if uis:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + camera.CFrame.RightVector end
+            if uis:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
+            if uis:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
+            if uis:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
+            if uis:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Camera.CFrame.RightVector end
             if uis:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
             if uis:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir = moveDir - Vector3.new(0, 1, 0) end
             if moveDir.Magnitude > 0 then flyVel = moveDir.Unit * 50 end
         elseif mobileFlyEnabled and hum.MoveDirection.Magnitude > 0 then
-            flyVel = camera.CFrame.LookVector * 50
+            flyVel = Camera.CFrame.LookVector * 50
         end
         hrp.AssemblyLinearVelocity = flyVel
         hrp.AssemblyAngularVelocity = Vector3.zero
@@ -919,107 +943,70 @@ rs.Stepped:Connect(function()
 end)
 
 -- ============================================================================
--- SECTION: LinoriaLib UI Setup
+-- SECTION: Linoria UI Controls & Groupboxes
 -- ============================================================================
-local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
-local Library = loadstring(g:HttpGet(repo .. 'Library.lua'))()
-local ThemeManager = loadstring(g:HttpGet(repo .. 'addons/ThemeManager.lua'))()
-local SaveManager = loadstring(g:HttpGet(repo .. 'addons/SaveManager.lua'))()
 
-local Window = Library:CreateWindow({Title = 'multvallk Premium v3 - Rivals', Center = true, AutoShow = true, TabPadding = 8, MenuFadeTime = 0.2})
+-- [TAB: COMBAT]
+local AimbotGroup = Tabs.Combat:AddLeftGroupbox('Aimbot')
+AimbotGroup:AddToggle('AimbotToggle', { Text = 'Enable Aimbot', Default = false, Callback = function(v) aimbotEnabled = v end })
+AimbotGroup:AddSlider('AimbotSmoothness', { Text = 'Smoothness', Default = 5, Min = 1, Max = 20, Round = 0, Callback = function(v) aimbotSmoothness = v end })
+AimbotGroup:AddSlider('AimbotFOV', { Text = 'FOV Radius', Default = 100, Min = 10, Max = 500, Round = 0, Callback = function(v) aimbotFovRadius = v end })
+AimbotGroup:AddDropdown('AimbotHitPart', { Values = { 'head', 'HumanoidRootPart', 'UpperTorso' }, Default = 1, Multi = false, Text = 'Target Part', Callback = function(v) aimbotHitPart = v end })
+AimbotGroup:AddToggle('AimbotWallCheck', { Text = 'Wall Check', Default = false, Callback = function(v) aimbotWallCheck = v end })
 
-local Tabs = {
-    Main = Window:AddTab('Main'),
-    Ragebot = Window:AddTab('Ragebot'),
-    FFMode = Window:AddTab('FFMode'),
-    ESP = Window:AddTab('ESP'),
-    Misc = Window:AddTab('Misc'),
-    UISet = Window:AddTab('UI Set'),
-    Settings = Window:AddTab('Settings')
-}
+local SilentAimGroup = Tabs.Combat:AddRightGroupbox('Silent Aim')
+SilentAimGroup:AddToggle('SilentAimToggle', { Text = 'Enable Silent Aim', Default = false, Callback = function(v) silentAimEnabled = v end })
+SilentAimGroup:AddSlider('SilentAimFOV', { Text = 'FOV Radius', Default = 300, Min = 10, Max = 1000, Round = 0, Callback = function(v) silentAimFovRadius = v end })
+SilentAimGroup:AddToggle('SilentAimWallCheck', { Text = 'Wall Check', Default = false, Callback = function(v) silentWallCheck = v end })
 
--- --- Main Tab ---
-local MainLeft = Tabs.Main:AddLeftGroupbox('Aimbot')
-MainLeft:AddToggle('AimbotToggle', { Text = 'Aimbot (Smooth Camera)', Default = false, Callback = function(v) aimbotEnabled = v end })
-MainLeft:AddSlider('AimbotSmoothness', { Text = 'Aimbot Smoothness', Default = 5, Min = 1, Max = 20, Round = 1, Callback = function(v) aimbotSmoothness = v end })
-MainLeft:AddSlider('AimbotFOV', { Text = 'Aimbot FOV', Default = 100, Min = 10, Max = 500, Round = 0, Callback = function(v) aimbotFovRadius = v end })
-MainLeft:AddToggle('AimbotWallCheck', { Text = 'Aimbot Wall Check', Default = false, Callback = function(v) aimbotWallCheck = v end })
-
-MainLeft:AddToggle('SilentAimToggle', { Text = 'Silent Aim', Default = false, Callback = function(v) silentAimEnabled = v end })
-MainLeft:AddSlider('SilentFOV', { Text = 'Silent FOV', Default = 300, Min = 10, Max = 1000, Round = 0, Callback = function(v) silentAimFovRadius = v end })
-MainLeft:AddToggle('SilentWallCheck', { Text = 'Silent Wall Check', Default = false, Callback = function(v) silentWallCheck = v end })
-
-local MainRight = Tabs.Main:AddRightGroupbox('Gun & Combat Modifiers')
-MainRight:AddToggle('FastMelee', { Text = 'Fast Melee', Default = false, Callback = function(v) fastMeleeEnabled = v end })
-MainRight:AddToggle('NoCooldown', { Text = 'No Cooldown (0 Delay)', Default = false, Callback = function(v) hoNyangNoCDEnabled = v end })
-MainRight:AddToggle('NoRecoil', { Text = 'No Recoil', Default = false, Callback = function(v) noRecoilEnabled = v end })
-MainRight:AddToggle('NoSpread', { Text = 'No Spread', Default = false, Callback = function(v) noSpreadEnabled = v end })
-MainRight:AddToggle('NoMuzzleFlash', { Text = 'No Muzzle Flash', Default = false, Callback = function(v) noMuzzleFlashEnabled = v end })
-MainRight:AddToggle('RapidFire', { Text = 'Rapid Fire', Default = false, Callback = function(v) rapidFireEnabled = v end })
-MainRight:AddToggle('AttackCDDisable', { Text = 'Attack Cooldown Disable', Default = false, Callback = function(v) attackCooldownDisabled = v end })
-MainRight:AddToggle('ProjCDDisable', { Text = 'Projectile Cooldown Disable', Default = false, Callback = function(v) projectileCooldownDisabled = v end })
-
--- --- Ragebot Tab ---
-local RageLeft = Tabs.Ragebot:AddLeftGroupbox('Rage Engines')
-RageLeft:AddToggle('AdvRagebot', { Text = 'Advanced Ragebot', Default = false, Callback = function(v) 
+local RageGroup = Tabs.Combat:AddLeftGroupbox('Ragebot & Exploits')
+RageGroup:AddToggle('RagebotToggle', { Text = 'Advanced Ragebot', Default = false, Callback = function(v) 
     ragebotOrKillAura = v 
     if v and Toggles.AutoUseItem then Toggles.AutoUseItem:SetValue(false) end
 end })
-RageLeft:AddToggle('AutoUseItem', { Text = 'Auto UseItem Teleport', Default = false, Callback = function(v) 
+RageGroup:AddToggle('AutoUseItem', { Text = 'Auto UseItem Teleport', Default = false, Callback = function(v) 
     hoNyangRageEnabled = v 
-    if v and Toggles.AdvRagebot then Toggles.AdvRagebot:SetValue(false) end
+    if v and Toggles.RagebotToggle then Toggles.RagebotToggle:SetValue(false) end
 end })
+RageGroup:AddToggle('OrbitToggle', { Text = 'Orbit Feature', Default = false, Callback = function(v) orbitEnabled = v end })
+RageGroup:AddSlider('OrbitRange', { Text = 'Orbit Range', Default = 50, Min = 50, Max = 5000, Round = 0, Callback = function(v) orbitRange = v end })
+RageGroup:AddToggle('VoidSpamToggle', { Text = 'Void Spam (3D Y-Axis)', Default = false, Callback = function(v) voidSpamEnabled = v end })
 
-local RageRight = Tabs.Ragebot:AddRightGroupbox('Orbit & Void Spam')
-RageRight:AddToggle('OrbitToggle', { Text = 'Orbit Feature', Default = false, Callback = function(v) orbitEnabled = v end })
-RageRight:AddSlider('OrbitRange', { Text = 'Orbit Range', Default = 50, Min = 50, Max = 5000, Round = 0, Callback = function(v) orbitRange = v end })
-RageRight:AddSlider('OrbitDelay', { Text = 'Orbit Delay', Default = 0.01, Min = 0.01, Max = 1, Round = 2, Callback = function(v) orbitDelay = v end })
-
-RageRight:AddToggle('VoidSpamToggle', { Text = 'Void Spam Feature (3D Y-Axis)', Default = false, Callback = function(v) voidSpamEnabled = v end })
-RageRight:AddSlider('VoidSpamRange', { Text = 'Void Spam Range', Default = 50, Min = 50, Max = 5000, Round = 0, Callback = function(v) voidSpamRange = v end })
-RageRight:AddSlider('VoidSpamDelay', { Text = 'Void Spam Delay', Default = 0.01, Min = 0.01, Max = 1, Round = 2, Callback = function(v) voidSpamDelay = v end })
-
--- --- FFMode Tab ---
-local FFGroup = Tabs.FFMode:AddLeftGroupbox('FFMode Settings')
+local FFGroup = Tabs.Combat:AddRightGroupbox('FFMode & Misc Combat')
 FFGroup:AddToggle('FFModeToggle', { Text = 'Enable FFMode', Default = false, Callback = function(v) ffModeEnabled = v end })
 FFGroup:AddToggle('FFTeamCheck', { Text = 'Team Check', Default = true, Callback = function(v) ffTeamCheckEnabled = v end })
 FFGroup:AddToggle('FFBaiting', { Text = 'Baiting (Fall Inducer)', Default = false, Callback = function(v) ffBaitingEnabled = v end })
+FFGroup:AddToggle('FastMelee', { Text = 'Fast Melee', Default = false, Callback = function(v) fastMeleeEnabled = v end })
 
--- --- ESP Tab ---
-local ESPGroup = Tabs.ESP:AddLeftGroupbox('ESP Settings')
-ESPGroup:AddToggle('ESPMaster', { Text = 'ESP Master Toggle', Default = false, Callback = function(v) espEnabled = v end })
-ESPGroup:AddToggle('ESPBoxes', { Text = 'ESP Boxes', Default = false, Callback = function(v) espBoxEnabled = v end })
-ESPGroup:AddToggle('ESPNames', { Text = 'ESP Names', Default = false, Callback = function(v) espNameEnabled = v end })
-ESPGroup:AddToggle('ESPHealth', { Text = 'ESP Health', Default = false, Callback = function(v) espHealthEnabled = v end })
-ESPGroup:AddToggle('GunTracer', { Text = 'Gun Tracer Line', Default = false, Callback = function(v) gunTracerEnabled = v end })
+-- [TAB: GUN MODS]
+local GunModsGroup = Tabs.GunMods:AddLeftGroupbox('Gun Multipliers & Bypasses')
+GunModsGroup:AddToggle('NoCooldown', { Text = 'No Cooldown (0 Delay)', Default = false, Callback = function(v) hoNyangNoCDEnabled = v end })
+GunModsGroup:AddToggle('RapidFire', { Text = 'Rapid Fire', Default = false, Callback = function(v) rapidFireEnabled = v end })
+GunModsGroup:AddToggle('NoRecoil', { Text = 'No Recoil', Default = false, Callback = function(v) noRecoilEnabled = v end })
+GunModsGroup:AddToggle('NoSpread', { Text = 'No Spread', Default = false, Callback = function(v) noSpreadEnabled = v end })
+GunModsGroup:AddToggle('NoMuzzleFlash', { Text = 'No Muzzle Flash', Default = false, Callback = function(v) noMuzzleFlashEnabled = v end })
+GunModsGroup:AddToggle('AttackCDDisable', { Text = 'Attack Cooldown Disable', Default = false, Callback = function(v) attackCooldownDisabled = v end })
+GunModsGroup:AddToggle('ProjectileCDDisable', { Text = 'Projectile Cooldown Disable', Default = false, Callback = function(v) projectileCooldownDisabled = v end })
+GunModsGroup:AddToggle('BulletSpeedBoost', { Text = 'Bullet Speed Boost (100k)', Default = false, Callback = function(v) bulletSpeedBoost = v end })
 
--- --- Misc Tab ---
-local MiscGroup = Tabs.Misc:AddLeftGroupbox('Movement & Hacks')
-MiscGroup:AddToggle('MobileFly', { Text = 'Mobile Fly (Touch Move)', Default = false, Callback = function(v) mobileFlyEnabled = v end })
-MiscGroup:AddToggle('PCFly', { Text = 'PC Fly (WASD)', Default = false, Callback = function(v) pcFlyEnabled = v end })
-MiscGroup:AddToggle('SkinChanger', { Text = 'Unlock All Skins', Default = false, Callback = function(v) skinChangerEnabled = v end })
-MiscGroup:AddToggle('BulletSpeed', { Text = 'Bullet Speed Boost (100k)', Default = false, Callback = function(v) bulletSpeedBoost = v end })
-MiscGroup:AddToggle('RapidSpeed', { Text = 'Rapid Speed (Speed Hack)', Default = false, Callback = function(v) rapidSpeedEnabled = v end })
-MiscGroup:AddToggle('NoclipToggle', { Text = 'Noclip', Default = false, Callback = function(v) noclipEnabled = v end })
+-- [TAB: MOVEMENT & VISUALS]
+local MovementGroup = Tabs.Movement:AddLeftGroupbox('Movement')
+MovementGroup:AddToggle('PCFly', { Text = 'PC Fly (WASD)', Default = false, Callback = function(v) pcFlyEnabled = v end })
+MovementGroup:AddToggle('MobileFly', { Text = 'Mobile Fly (Touch)', Default = false, Callback = function(v) mobileFlyEnabled = v end })
+MovementGroup:AddToggle('Noclip', { Text = 'Noclip', Default = false, Callback = function(v) noclipEnabled = v end })
+MovementGroup:AddToggle('RapidSpeed', { Text = 'Rapid Speed (Speed Hack)', Default = false, Callback = function(v) rapidSpeedEnabled = v end })
 
--- --- UI Set Tab ---
-local UIGroup = Tabs.UISet:AddLeftGroupbox('Visual Customization')
-UIGroup:AddToggle('CircleCrosshair', { Text = 'Circle Crosshair (Gradient)', Default = false, Callback = function(v) circleCrosshairEnabled = v end })
-UIGroup:AddToggle('CustomSkybox', { Text = 'Custom Skybox', Default = false, Callback = function(v) customSkyboxEnabled = v; applySkybox() end })
+local VisualsGroup = Tabs.Movement:AddRightGroupbox('Visuals & Skybox')
+VisualsGroup:AddToggle('UnlockSkins', { Text = 'Unlock All Skins', Default = false, Callback = function(v) skinChangerEnabled = v end })
+VisualsGroup:AddToggle('CircleCrosshair', { Text = 'Circle Crosshair (Gradient)', Default = false, Callback = function(v) circleCrosshairEnabled = v end })
+VisualsGroup:AddToggle('CustomSkybox', { Text = 'Custom Skybox', Default = false, Callback = function(v) customSkyboxEnabled = v; applySkybox() end })
+VisualsGroup:AddDropdown('SkyboxTheme', { Values = { 'Dark Sky', 'Vaporwave', 'Lake Sky', 'Black Mesa' }, Default = 2, Multi = false, Text = 'Skybox Theme', Callback = function(v) 
+    skyboxTheme = v 
+    applySkybox()
+end })
 
-UIGroup:AddDropdown('SkyboxTheme', {
-    Values = { 'Dark Sky', 'Vaporwave', 'Lake Sky', 'Black Mesa' },
-    Default = 2,
-    Multi = false,
-    Text = 'Skybox Preset',
-    Callback = function(v)
-        skyboxTheme = v
-        applySkybox()
-    end
-})
-
--- --- Settings Tab (Linoria Base) ---
-local MenuGroup = Tabs.Settings:AddLeftGroupbox('Menu Settings')
+-- [TAB: SETTINGS]
+local MenuGroup = Tabs.Settings:AddLeftGroupbox('Menu')
 MenuGroup:AddButton('Unload', function() Library:Unload() end)
 MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'RightControl', NoUI = true, Text = 'Menu keybind' })
 
@@ -1033,4 +1020,4 @@ SaveManager:SetFolder('multvallk')
 SaveManager:BuildConfigSection(Tabs.Settings)
 ThemeManager:ApplyToTab(Tabs.Settings)
 
-print("[multvallk Premium v3] LinoriaLib UI Integrated Successfully.")
+print("[multvallk Premium v3] Linoria UI Migration Complete!")
