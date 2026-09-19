@@ -1,15 +1,16 @@
--- [[ multvallk Premium v3 - LinoriaLib Complete Integration ]]
--- All Combat Mechanics, Anti-Cheat Bypass, Rage Engine, Hit Logs, Skybox & Visuals 100% Preserved
+-- [[ multvallk Premium v3 - LinoriaLib Full Integration ]]
+-- All Combat Mechanics, Anti-Cheat Bypass, Rage Engine, Hit Logs, Skybox & Linoria UI Included
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local Workspace = game:GetService("Workspace")
-local HttpService = game:GetService("HttpService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local CoreGui = game:GetService("CoreGui")
-local Lighting = game:GetService("Lighting")
-local TweenService = game:GetService("TweenService")
+local g = game
+local Players = g:GetService("Players")
+local RunService = g:GetService("RunService")
+local UserInputService = g:GetService("UserInputService")
+local Workspace = g:GetService("Workspace")
+local HttpService = g:GetService("HttpService")
+local ReplicatedStorage = g:GetService("ReplicatedStorage")
+local CoreGui = g:GetService("CoreGui")
+local Lighting = g:GetService("Lighting")
+local TweenService = g:GetService("TweenService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
@@ -78,8 +79,11 @@ for _, player in ipairs(Players:GetPlayers()) do
 end
 
 -- ============================================================================
--- SECTION: Internal Variables
+-- SECTION: Global Settings State
 -- ============================================================================
+local mobileOnEnabled = false
+
+-- Aimbot & Silent Aim
 local aimbotEnabled = false
 local aimbotSmoothness = 5
 local aimbotFovRadius = 100
@@ -92,19 +96,23 @@ local silentAimFovRadius = 300
 local silentWallCheck = false
 local silentAimTarget = nil
 
+-- Ragebot Toggles
 local ragebotOrKillAura = false
 local hoNyangRageEnabled = false
 local ragebotHeightOffset = 3
 
+-- Vallk Features & Cooldowns
 local fastMeleeEnabled = false
 local hoNyangNoCDEnabled = false
 local attackCooldownDisabled = false
 local projectileCooldownDisabled = false
 
+-- FFMode
 local ffModeEnabled = false
 local ffTeamCheckEnabled = true
 local ffBaitingEnabled = false
 
+-- Orbit & Void Spam
 local orbitEnabled = false
 local orbitRange = 50
 local orbitDelay = 0.01
@@ -113,6 +121,7 @@ local voidSpamEnabled = false
 local voidSpamRange = 50
 local voidSpamDelay = 0.01
 
+-- Gun Utilities
 local triggerbotEnabled = false
 local rapidFireEnabled = false
 local noRecoilEnabled = false
@@ -121,6 +130,7 @@ local noMuzzleFlashEnabled = false
 local bulletSpeedBoost = false
 local bulletSpeedMult = 100000
 
+-- ESP & Movement
 local espEnabled = false
 local espBoxEnabled = false
 local espNameEnabled = false
@@ -279,7 +289,7 @@ local function has_line_of_sight(targetPart, myChar)
 end
 
 -- ============================================================================
--- RAGEBOT ENGINE & LOOPS
+-- SECTION: Ragebot Engine Logic
 -- ============================================================================
 local activeTargetPart = nil
 local originalCFrame = nil
@@ -388,6 +398,7 @@ RunService.Heartbeat:Connect(function()
     end)
 end)
 
+-- Target Finder Loop
 task.spawn(function()
     while true do
         task.wait(0.01)
@@ -422,7 +433,7 @@ task.spawn(function()
     end
 end)
 
--- Orbit, Void, Baiting
+-- Orbit, Void Spam & Baiting Loops
 task.spawn(function()
     while true do
         task.wait(0.01)
@@ -490,7 +501,7 @@ task.spawn(function()
 end)
 
 -- ============================================================================
--- HIT LOGS INTEGRATION
+-- SECTION: Hit Logs Integration
 -- ============================================================================
 local HitLogGui = Instance.new("ScreenGui")
 HitLogGui.Name = "multvallkHitLogUI"
@@ -553,7 +564,7 @@ for _, p in ipairs(Players:GetPlayers()) do setupPlayerDamageTracker(p) end
 Players.PlayerAdded:Connect(setupPlayerDamageTracker)
 
 -- ============================================================================
--- RAGE UI INDICATOR & CROSSHAIR
+-- SECTION: Rage UI & Crosshair Overlay
 -- ============================================================================
 local RageUIGui = Instance.new("ScreenGui", PlayerGui)
 RageUIGui.Name = "multvallkRageUI"
@@ -754,7 +765,7 @@ RunService.Heartbeat:Connect(function()
     end)
 end)
 
--- Render Visuals & Skybox
+-- Render / Visuals & Skybox Presets
 local SEGMENT_COUNT = 32
 local circleSegments = {}
 
@@ -922,15 +933,15 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ============================================================================
--- SECTION: LINORIA LIB UI SETUP
+-- SECTION: LinoriaLib Complete UI Integration
 -- ============================================================================
 local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
-local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
-local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
-local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+local Library = loadstring(g:HttpGet(repo .. 'Library.lua'))()
+local ThemeManager = loadstring(g:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local SaveManager = loadstring(g:HttpGet(repo .. 'addons/SaveManager.lua'))()
 
 local Window = Library:CreateWindow({
-    Title = 'multvallk Premium v3 - Integrated',
+    Title = 'multvallk Premium v3 - Linoria Integration',
     Center = true,
     AutoShow = true,
     TabPadding = 8,
@@ -941,99 +952,96 @@ local Tabs = {
     Main = Window:AddTab('Main'),
     Ragebot = Window:AddTab('Ragebot'),
     FFMode = Window:AddTab('FFMode'),
-    ESP = Window:AddTab('ESP'),
-    Misc = Window:AddTab('Misc'),
-    UISet = Window:AddTab('UI Set'),
+    ESP = Window:AddTab('ESP / Movement'),
+    UISet = Window:AddTab('UI & Visuals'),
     Settings = Window:AddTab('Settings')
 }
 
--- 1. Main Tab
-local MainLeft = Tabs.Main:AddLeftGroupbox('Aimbot Controls')
-MainLeft:AddToggle('AimbotEnabled', { Text = 'Aimbot (Smooth Camera)', Default = false, Callback = function(v) aimbotEnabled = v end })
-MainLeft:AddSlider('AimbotSmoothness', { Text = 'Aimbot Smoothness', Default = 5, Min = 1, Max = 20, Round = 1, Callback = function(v) aimbotSmoothness = v end })
-MainLeft:AddSlider('AimbotFov', { Text = 'Aimbot FOV', Default = 100, Min = 10, Max = 500, Round = 0, Callback = function(v) aimbotFovRadius = v end })
-MainLeft:AddToggle('AimbotWallCheck', { Text = 'Aimbot Wall Check', Default = false, Callback = function(v) aimbotWallCheck = v end })
+-- MAIN TAB
+local AimbotGroup = Tabs.Main:AddLeftGroupbox('Aimbot')
+AimbotGroup:AddToggle('AimbotEnabled', { Text = 'Enable Aimbot', Default = aimbotEnabled, Callback = function(Value) aimbotEnabled = Value end })
+AimbotGroup:AddSlider('AimbotSmoothness', { Text = 'Smoothness', Default = aimbotSmoothness, Min = 1, Max = 20, Round = 0, Callback = function(Value) aimbotSmoothness = Value end })
+AimbotGroup:AddSlider('AimbotFovRadius', { Text = 'FOV Radius', Default = aimbotFovRadius, Min = 10, Max = 500, Round = 0, Callback = function(Value) aimbotFovRadius = Value end })
+AimbotGroup:AddToggle('AimbotWallCheck', { Text = 'Wall Check', Default = aimbotWallCheck, Callback = function(Value) aimbotWallCheck = Value end })
 
-MainLeft:AddToggle('SilentAimEnabled', { Text = 'Silent Aim', Default = false, Callback = function(v) silentAimEnabled = v end })
-MainLeft:AddSlider('SilentAimFov', { Text = 'Silent FOV', Default = 300, Min = 10, Max = 1000, Round = 0, Callback = function(v) silentAimFovRadius = v end })
-MainLeft:AddToggle('SilentWallCheck', { Text = 'Silent Wall Check', Default = false, Callback = function(v) silentWallCheck = v end })
+local SilentGroup = Tabs.Main:AddRightGroupbox('Silent Aim')
+SilentGroup:AddToggle('SilentAimEnabled', { Text = 'Enable Silent Aim', Default = silentAimEnabled, Callback = function(Value) silentAimEnabled = Value end })
+SilentGroup:AddSlider('SilentAimFovRadius', { Text = 'Silent FOV Radius', Default = silentAimFovRadius, Min = 10, Max = 1000, Round = 0, Callback = function(Value) silentAimFovRadius = Value end })
+SilentGroup:AddToggle('SilentWallCheck', { Text = 'Silent Wall Check', Default = silentWallCheck, Callback = function(Value) silentWallCheck = Value end })
 
-local MainRight = Tabs.Main:AddRightGroupbox('Combat Modifiers')
-MainRight:AddToggle('FastMelee', { Text = 'Fast Melee', Default = false, Callback = function(v) fastMeleeEnabled = v end })
-MainRight:AddToggle('NoCD', { Text = 'No Cooldown (0 Delay)', Default = false, Callback = function(v) hoNyangNoCDEnabled = v end })
-MainRight:AddToggle('NoRecoil', { Text = 'No Recoil', Default = false, Callback = function(v) noRecoilEnabled = v end })
-MainRight:AddToggle('NoSpread', { Text = 'No Spread', Default = false, Callback = function(v) noSpreadEnabled = v end })
-MainRight:AddToggle('NoMuzzleFlash', { Text = 'No Muzzle Flash', Default = false, Callback = function(v) noMuzzleFlashEnabled = v end })
-MainRight:AddToggle('RapidFire', { Text = 'Rapid Fire', Default = false, Callback = function(v) rapidFireEnabled = v end })
-MainRight:AddToggle('AttackCDDisable', { Text = 'Attack Cooldown Disable', Default = false, Callback = function(v) attackCooldownDisabled = v end })
-MainRight:AddToggle('ProjectileCDDisable', { Text = 'Projectile Cooldown Disable', Default = false, Callback = function(v) projectileCooldownDisabled = v end })
+local WeaponUtilsGroup = Tabs.Main:AddLeftGroupbox('Weapon Utilities')
+WeaponUtilsGroup:AddToggle('FastMelee', { Text = 'Fast Melee', Default = fastMeleeEnabled, Callback = function(Value) fastMeleeEnabled = Value end })
+WeaponUtilsGroup:AddToggle('HoNyangNoCD', { Text = 'No Cooldown (0 Delay)', Default = hoNyangNoCDEnabled, Callback = function(Value) hoNyangNoCDEnabled = Value end })
+WeaponUtilsGroup:AddToggle('NoRecoil', { Text = 'No Recoil', Default = noRecoilEnabled, Callback = function(Value) noRecoilEnabled = Value end })
+WeaponUtilsGroup:AddToggle('NoSpread', { Text = 'No Spread', Default = noSpreadEnabled, Callback = function(Value) noSpreadEnabled = Value end })
+WeaponUtilsGroup:AddToggle('NoMuzzleFlash', { Text = 'No Muzzle Flash', Default = noMuzzleFlashEnabled, Callback = function(Value) noMuzzleFlashEnabled = Value end })
+WeaponUtilsGroup:AddToggle('RapidFire', { Text = 'Rapid Fire', Default = rapidFireEnabled, Callback = function(Value) rapidFireEnabled = Value end })
+WeaponUtilsGroup:AddToggle('AttackCooldownDisabled', { Text = 'Disable Attack Cooldown', Default = attackCooldownDisabled, Callback = function(Value) attackCooldownDisabled = Value end })
+WeaponUtilsGroup:AddToggle('ProjectileCooldownDisabled', { Text = 'Disable Projectile Cooldown', Default = projectileCooldownDisabled, Callback = function(Value) projectileCooldownDisabled = Value end })
 
--- 2. Ragebot Tab
-local RageLeft = Tabs.Ragebot:AddLeftGroupbox('Rage Engines')
-RageLeft:AddToggle('RagebotOrKillAura', { Text = '[Engine] Advanced Ragebot', Default = false, Callback = function(v) 
-    ragebotOrKillAura = v 
-    if v and Toggles.AutoUseItem then Toggles.AutoUseItem:SetValue(false) end
+-- RAGEBOT TAB
+local RageEngineGroup = Tabs.Ragebot:AddLeftGroupbox('Rage Engine')
+RageEngineGroup:AddToggle('RagebotOrKillAura', { Text = 'Advanced Ragebot', Default = ragebotOrKillAura, Callback = function(Value) 
+    ragebotOrKillAura = Value
+    if Value and Toggles.HoNyangRageEnabled then Toggles.HoNyangRageEnabled:SetValue(false) end
 end })
-RageLeft:AddToggle('AutoUseItem', { Text = '[Engine] Auto UseItem Teleport', Default = false, Callback = function(v) 
-    hoNyangRageEnabled = v 
-    if v and Toggles.RagebotOrKillAura then Toggles.RagebotOrKillAura:SetValue(false) end
+RageEngineGroup:AddToggle('HoNyangRageEnabled', { Text = 'Auto UseItem Teleport', Default = hoNyangRageEnabled, Callback = function(Value) 
+    hoNyangRageEnabled = Value
+    if Value and Toggles.RagebotOrKillAura then Toggles.RagebotOrKillAura:SetValue(false) end
 end })
 
-local RageRight = Tabs.Ragebot:AddRightGroupbox('Orbit & Void Operations')
-RageRight:AddToggle('OrbitEnabled', { Text = 'Orbit Feature', Default = false, Callback = function(v) orbitEnabled = v end })
-RageRight:AddSlider('OrbitRange', { Text = 'Orbit Range', Default = 50, Min = 50, Max = 50000000, Round = 0, Callback = function(v) orbitRange = v end })
-RageRight:AddSlider('OrbitDelay', { Text = 'Orbit Delay', Default = 0.01, Min = 0.01, Max = 1, Round = 2, Callback = function(v) orbitDelay = v end })
+local OrbitGroup = Tabs.Ragebot:AddRightGroupbox('Orbit')
+OrbitGroup:AddToggle('OrbitEnabled', { Text = 'Enable Orbit', Default = orbitEnabled, Callback = function(Value) orbitEnabled = Value end })
+OrbitGroup:AddSlider('OrbitRange', { Text = 'Orbit Range', Default = orbitRange, Min = 50, Max = 50000000, Round = 0, Callback = function(Value) orbitRange = Value end })
+OrbitGroup:AddSlider('OrbitDelay', { Text = 'Orbit Delay', Default = orbitDelay, Min = 0.01, Max = 1, Round = 2, Callback = function(Value) orbitDelay = Value end })
 
-RageRight:AddToggle('VoidSpamEnabled', { Text = 'Void Spam Feature (3D Y-Axis)', Default = false, Callback = function(v) voidSpamEnabled = v end })
-RageRight:AddSlider('VoidSpamRange', { Text = 'Void Spam Range', Default = 50, Min = 50, Max = 50000000, Round = 0, Callback = function(v) voidSpamRange = v end })
-RageRight:AddSlider('VoidSpamDelay', { Text = 'Void Spam Delay', Default = 0.01, Min = 0.01, Max = 1, Round = 2, Callback = function(v) voidSpamDelay = v end })
+local VoidGroup = Tabs.Ragebot:AddRightGroupbox('Void Spam (3D Y-Axis)')
+VoidGroup:AddToggle('VoidSpamEnabled', { Text = 'Enable Void Spam', Default = voidSpamEnabled, Callback = function(Value) voidSpamEnabled = Value end })
+VoidGroup:AddSlider('VoidSpamRange', { Text = 'Void Spam Range', Default = voidSpamRange, Min = 50, Max = 50000000, Round = 0, Callback = function(Value) voidSpamRange = Value end })
+VoidGroup:AddSlider('VoidSpamDelay', { Text = 'Void Spam Delay', Default = voidSpamDelay, Min = 0.01, Max = 1, Round = 2, Callback = function(Value) voidSpamDelay = Value end })
 
--- 3. FFMode Tab
-local FFGroup = Tabs.FFMode:AddLeftGroupbox('FFMode Settings')
-FFGroup:AddToggle('FFModeEnabled', { Text = 'Enable FFMode', Default = false, Callback = function(v) ffModeEnabled = v end })
-FFGroup:AddToggle('FFTeamCheck', { Text = 'Team Check', Default = true, Callback = function(v) ffTeamCheckEnabled = v end })
-FFGroup:AddToggle('FFBaiting', { Text = 'Baiting (Fall Inducer)', Default = false, Callback = function(v) ffBaitingEnabled = v end })
+-- FFMODE TAB
+local FFGroup = Tabs.FFMode:AddLeftGroupbox('FFMode Controls')
+FFGroup:AddToggle('FFModeEnabled', { Text = 'Enable FFMode', Default = ffModeEnabled, Callback = function(Value) ffModeEnabled = Value end })
+FFGroup:AddToggle('FFTeamCheckEnabled', { Text = 'Team Check', Default = ffTeamCheckEnabled, Callback = function(Value) ffTeamCheckEnabled = Value end })
+FFGroup:AddToggle('FFBaitingEnabled', { Text = 'Baiting (Fall Inducer)', Default = ffBaitingEnabled, Callback = function(Value) ffBaitingEnabled = Value end })
 
--- 4. ESP Tab
-local ESPGroup = Tabs.ESP:AddLeftGroupbox('Visual Tracking')
-ESPGroup:AddToggle('ESPMaster', { Text = 'ESP Master Toggle', Default = false, Callback = function(v) espEnabled = v end })
-ESPGroup:AddToggle('ESPBoxes', { Text = 'ESP Boxes', Default = false, Callback = function(v) espBoxEnabled = v end })
-ESPGroup:AddToggle('ESPNames', { Text = 'ESP Names', Default = false, Callback = function(v) espNameEnabled = v end })
-ESPGroup:AddToggle('ESPHealth', { Text = 'ESP Health', Default = false, Callback = function(v) espHealthEnabled = v end })
-ESPGroup:AddToggle('GunTracer', { Text = 'Gun Tracer Line', Default = false, Callback = function(v) gunTracerEnabled = v end })
+-- ESP / MOVEMENT TAB
+local ESPGroup = Tabs.ESP:AddLeftGroupbox('ESP Settings')
+ESPGroup:AddToggle('ESPEnabled', { Text = 'Master ESP Toggle', Default = espEnabled, Callback = function(Value) espEnabled = Value end })
+ESPGroup:AddToggle('ESPBoxEnabled', { Text = 'Box ESP', Default = espBoxEnabled, Callback = function(Value) espBoxEnabled = Value end })
+ESPGroup:AddToggle('ESPNameEnabled', { Text = 'Name ESP', Default = espNameEnabled, Callback = function(Value) espNameEnabled = Value end })
+ESPGroup:AddToggle('ESPHealthEnabled', { Text = 'Health ESP', Default = espHealthEnabled, Callback = function(Value) espHealthEnabled = Value end })
+ESPGroup:AddToggle('GunTracerEnabled', { Text = 'Gun Tracer Line', Default = gunTracerEnabled, Callback = function(Value) gunTracerEnabled = Value end })
 
--- 5. Misc Tab
-local MiscGroup = Tabs.Misc:AddLeftGroupbox('Utilities & Movement')
-MiscGroup:AddToggle('MobileFly', { Text = 'Mobile Fly (Touch Move)', Default = false, Callback = function(v) mobileFlyEnabled = v end })
-MiscGroup:AddToggle('PCFly', { Text = 'PC Fly (WASD)', Default = false, Callback = function(v) pcFlyEnabled = v end })
-MiscGroup:AddToggle('SkinChanger', { Text = 'Unlock All Skins', Default = false, Callback = function(v) skinChangerEnabled = v end })
-MiscGroup:AddToggle('BulletSpeedBoost', { Text = 'Bullet Speed Boost (100k)', Default = false, Callback = function(v) bulletSpeedBoost = v end })
-MiscGroup:AddToggle('RapidSpeed', { Text = 'Rapid Speed (Speed Hack)', Default = false, Callback = function(v) rapidSpeedEnabled = v end })
-MiscGroup:AddToggle('Noclip', { Text = 'Noclip', Default = false, Callback = function(v) noclipEnabled = v end })
+local MoveGroup = Tabs.ESP:AddRightGroupbox('Movement Mods')
+MoveGroup:AddToggle('MobileFlyEnabled', { Text = 'Mobile Fly (Touch)', Default = mobileFlyEnabled, Callback = function(Value) mobileFlyEnabled = Value end })
+MoveGroup:AddToggle('PCFlyEnabled', { Text = 'PC Fly (WASD)', Default = pcFlyEnabled, Callback = function(Value) pcFlyEnabled = Value end })
+MoveGroup:AddToggle('RapidSpeedEnabled', { Text = 'Rapid Speed (Speed Hack)', Default = rapidSpeedEnabled, Callback = function(Value) rapidSpeedEnabled = Value end })
+MoveGroup:AddToggle('NoclipEnabled', { Text = 'Noclip', Default = noclipEnabled, Callback = function(Value) noclipEnabled = Value end })
 
--- 6. UI Set Tab (Crosshair & Skybox)
-local UISetLeft = Tabs.UISet:AddLeftGroupbox('Custom Overlays')
-UISetLeft:AddToggle('CircleCrosshair', { Text = 'Circle Crosshair (Gradient)', Default = false, Callback = function(v) circleCrosshairEnabled = v end })
+-- UI & VISUALS TAB
+local MiscVisualGroup = Tabs.UISet:AddLeftGroupbox('Misc / Unlockers')
+MiscVisualGroup:AddToggle('SkinChangerEnabled', { Text = 'Unlock All Skins', Default = skinChangerEnabled, Callback = function(Value) skinChangerEnabled = Value end })
+MiscVisualGroup:AddToggle('BulletSpeedBoost', { Text = 'Bullet Speed Boost (100k)', Default = bulletSpeedBoost, Callback = function(Value) bulletSpeedBoost = Value end })
+MiscVisualGroup:AddToggle('CircleCrosshairEnabled', { Text = 'Circle Crosshair (Gradient)', Default = circleCrosshairEnabled, Callback = function(Value) circleCrosshairEnabled = Value end })
 
-local UISetRight = Tabs.UISet:AddRightGroupbox('Skybox Settings')
-UISetRight:AddToggle('CustomSkybox', { Text = 'Custom Skybox Enabled', Default = false, Callback = function(v) 
-    customSkyboxEnabled = v 
-    applySkybox()
-end })
-UISetRight:AddDropdown('SkyboxTheme', {
+local SkyboxGroup = Tabs.UISet:AddRightGroupbox('Skybox Settings')
+SkyboxGroup:AddToggle('CustomSkyboxEnabled', { Text = 'Enable Custom Skybox', Default = customSkyboxEnabled, Callback = function(Value) customSkyboxEnabled = Value; applySkybox() end })
+SkyboxGroup:AddDropdown('SkyboxTheme', {
     Values = { 'Dark Sky', 'Vaporwave', 'Lake Sky', 'Black Mesa' },
-    Default = 'Vaporwave',
+    Default = 2,
     Multi = false,
     Text = 'Skybox Theme',
-    Callback = function(v)
-        skyboxTheme = v
+    Callback = function(Value)
+        skyboxTheme = Value
         applySkybox()
     end
 })
 
--- 7. Settings Tab (Linoria Original Unload & Theme & Save Manager)
-local MenuGroup = Tabs.Settings:AddLeftGroupbox('Menu Options')
-MenuGroup:AddButton('Unload', function() Library:Unload() end)
+-- SETTINGS TAB (Linoria Native)
+local MenuGroup = Tabs.Settings:AddLeftGroupbox('Menu')
+MenuGroup:AddButton('Unload Script', function() Library:Unload() end)
 MenuGroup:AddLabel('Menu Keybind'):AddKeyPicker('MenuKeybind', { Default = 'RightControl', NoUI = true, Text = 'Menu Keybind' })
 
 Library.ToggleKeybind = Options.MenuKeybind
@@ -1041,9 +1049,9 @@ ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
 SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
-ThemeManager:SetFolder('multvallk_config')
-SaveManager:SetFolder('multvallk_config')
+ThemeManager:SetFolder('multvallk')
+SaveManager:SetFolder('multvallk')
 SaveManager:BuildConfigSection(Tabs.Settings)
 ThemeManager:ApplyToTab(Tabs.Settings)
 
-print("[multvallk Premium v3] Completely Integrated with LinoriaLib.")
+print("[multvallk Premium v3] Loaded Successfully on Linoria UI!")
