@@ -1,6 +1,6 @@
-
--- [[ vallkmult Ultra Gold Premium x Vallk Dual-Engine Edition - Mobile Optimized ]]
--- vallkmult 레이지봇과 Vallk 레이지봇이 서로 섞이지 않고 각각 독립적으로 동작하며, 고급 디싱크(머리 위 누운 자세 + Velocity Spoof)가 적용되었습니다.
+-- [[ multvallk Ultra Gold Premium x Vallk Dual-Engine Edition - File Ragebot Integrated ]]
+-- 파일 내 레이지봇(반사/패링/카타나 감지, 무적 감지, RestoreDesyncPerfect CFrame 복구, UseItem 리모트 패킷 사격) 통합 버전
+-- [FFMode: Team Check 및 Baiting(낙사 유도) 기능 추가됨]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -17,7 +17,7 @@ local Camera = Workspace.CurrentCamera
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 -- ============================================================================
--- SECTION: Anti-Kick / Security / Anti-Cheat Bypass (고급 우회)
+-- SECTION: Anti-Kick / Security / Anti-Cheat Bypass
 -- ============================================================================
 pcall(function()
     if LocalPlayer and typeof(LocalPlayer.Kick) == "function" then
@@ -62,7 +62,7 @@ pcall(function()
     end
 end)
 
--- Player Spawn Time Tracker (Immunity check)
+-- Player Spawn Time Tracker
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function(char)
         player:SetAttribute("SpawnTime", tick())
@@ -91,16 +91,30 @@ local silentAimHitPart = "head"
 local silentAimFovRadius = 300
 local silentWallCheck = false
 local silentAimTarget = nil
-local allHeadEnabled = false
 
--- Vallkmult Original Ragebot Toggle
+-- Ragebot Toggles
 local ragebotOrKillAura = false
-local ragebotMagicBullet = false
+local hoNyangRageEnabled = false
 
 -- Vallk Independent Features Toggle
-local hoNyangRageEnabled = false
 local fastMeleeEnabled = false
 local hoNyangNoCDEnabled = false
+
+-- ============================================================================
+-- SECTION: FFMode (Team Check & Baiting 낙사 유도 기술) 추가 설정
+-- ============================================================================
+local ffModeEnabled = false
+local ffTeamCheckEnabled = true
+local ffBaitingEnabled = false
+
+-- Orbit & Void Spam Independent Settings (추가된 기능)
+local orbitEnabled = false
+local orbitRange = 50
+local orbitDelay = 0.01
+
+local voidSpamEnabled = false
+local voidSpamRange = 50
+local voidSpamDelay = 0.01
 
 -- Gun Utility Toggles
 local triggerbotEnabled = false
@@ -131,8 +145,8 @@ local circleCrosshairEnabled = false
 local circleCrosshairSize = 60
 local circleRotationSpeed = 4
 
--- Modules Hook Init
-local FighterController, SpectateController, CameraController, GunModule, UtilityModule
+-- Modules Init
+local FighterController, SpectateController, CameraController, GunModule, UtilityModule, EnumLibrary
 pcall(function()
     local ps = LocalPlayer:WaitForChild("PlayerScripts")
     local ctrl = ps:WaitForChild("Controllers")
@@ -142,29 +156,128 @@ pcall(function()
     
     GunModule = require(ps:WaitForChild("Modules"):WaitForChild("ItemTypes"):WaitForChild("Gun"))
     UtilityModule = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Utility"))
+    pcall(function() EnumLibrary = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("EnumLibrary")) end)
 end)
 
 -- Helpers
 local function is_teammate(player)
+    if ffModeEnabled and ffTeamCheckEnabled then
+        local myTeam = LocalPlayer:GetAttribute("TeamID")
+        local pTeam = player:GetAttribute("TeamID")
+        if myTeam ~= nil and pTeam ~= nil and myTeam == pTeam then
+            return true
+        end
+    end
     local myTeam = LocalPlayer:GetAttribute("TeamID")
     local pTeam = player:GetAttribute("TeamID")
     if myTeam == nil or pTeam == nil then return false end
     return myTeam == pTeam
 end
 
-local function get_character_valid(player)
-    local char = player.Character
-    if not char then return false end
-    if char:FindFirstChildOfClass("ForceField") then return false end
+local function get_character_immune(playerOrChar)
+    local char = playerOrChar
+    if typeof(playerOrChar) == "Instance" and playerOrChar:IsA("Player") then
+        char = playerOrChar.Character
+    end
+    if not char then return true end
+    if char:FindFirstChildOfClass("ForceField") then return true end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if hrp and hrp:FindFirstChild("Attachment") then return true end
+    local isImmuneAttr = char:GetAttribute("Immune") or char:GetAttribute("Invincible") or char:GetAttribute("IsImmune")
+    if isImmuneAttr == true then return true end
     local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum or hum.Health <= 0 then return false end
-    return true
+    if hum then
+        if hum.Health <= 0 then return true end
+        local humImmune = hum:GetAttribute("Immune") or hum:GetAttribute("Invincible")
+        if humImmune == true then return true end
+    end
+    return false
 end
 
--- 순수 헤드 타겟 고정
-local function get_hit_part(char, hitboxName)
+local function is_reflecting_or_parrying(player)
+    local char = player and player.Character
+    if not char then return false end
+
+    local reflectAttrs = {"Reflecting", "IsReflecting", "BulletReflect", "Reflect", "Deflecting", "Parrying"}
+    for _, attr in ipairs(reflectAttrs) do
+        local val = char:GetAttribute(attr)
+        if val == true or val == 1 or val == "true" then return true end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            local hVal = hum:GetAttribute(attr)
+            if hVal == true or hVal == 1 then return true end
+        end
+    end
+
+    local isKatana = false
+    local tool = char:FindFirstChildOfClass("Tool")
+    if tool and string.find(string.lower(tool.Name), "katana", 1, true) then
+        isKatana = true
+    end
+    for _, child in ipairs(char:GetChildren()) do
+        local childName = string.lower(child.Name)
+        if string.find(childName, "katana", 1, true) then isKatana = true end
+        if string.find(childName, "reflect", 1, true) or string.find(childName, "deflect", 1, true) then
+            return true
+        end
+    end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        local ok, anims = pcall(function() return hum:GetPlayingAnimationTracks() end)
+        if ok and anims then
+            for _, track in ipairs(anims) do
+                local animName = string.lower(tostring(track.Name or ""))
+                local animId = ""
+                pcall(function()
+                    if track.Animation then animId = tostring(track.Animation.AnimationId or "") end
+                end)
+                local fullStr = animName .. " " .. string.lower(animId)
+                if string.find(fullStr, "reflect", 1, true) or string.find(fullStr, "deflect", 1, true)
+                    or string.find(fullStr, "parry", 1, true) or string.find(fullStr, "block", 1, true) then
+                    if isKatana or string.find(fullStr, "katana", 1, true) then return true end
+                    if string.find(fullStr, "reflect", 1, true) or string.find(fullStr, "deflect", 1, true) then return true end
+                end
+            end
+        end
+    end
+    return false
+end
+
+local function get_character_root(char)
     if not char then return nil end
-    return char:FindFirstChild("HitboxHead") or char:FindFirstChild("Head")
+    return char:FindFirstChild("HitboxHead")
+        or char:FindFirstChild("HitboxHeadSmall")
+        or char:FindFirstChild("Head")
+end
+
+local function can_shoot()
+    local canShoot = true
+    pcall(function()
+        if not FighterController or not FighterController.LocalFighter then return end
+        local item = FighterController.LocalFighter.EquippedItem
+        if not item then
+            canShoot = false
+            return
+        end
+        local function getProp(key)
+            local ok, res = pcall(function()
+                if item.Get then return item:Get(key) end
+                return item[key] or (item.Data and item.Data[key]) or (item.Info and item.Info[key])
+            end)
+            return ok and res or nil
+        end
+        local ammo = getProp("CurrentAmmo") or getProp("Ammo") or getProp("Bullets") or getProp("MagazineAmmo")
+        local isReloading = getProp("Reloading") or getProp("IsReloading")
+        if item.Info and type(item.Info) == "table" then
+            if ammo == nil then ammo = item.Info.CurrentAmmo or item.Info.Ammo end
+            if item.Info.Reloading == true or item.Info.IsReloading == true then isReloading = true end
+        end
+        if isReloading == true or (typeof(ammo) == "number" and ammo <= 0) then
+            canShoot = false
+        end
+    end)
+    return canShoot
 end
 
 local function has_line_of_sight(targetPart, myChar)
@@ -182,137 +295,176 @@ local function has_line_of_sight(targetPart, myChar)
 end
 
 -- ============================================================================
--- ENGINE 1: vallkmult Original RageBot Engine (고급 머리+누운 자세 Ultra Desync)
+-- FILE INTEGRATED RAGEBOT ENGINE
 -- ============================================================================
-local currentRageTarget = nil
-local isDesyncActive = false
-local desyncConnection = nil
-local desyncResetTask = nil
+local activeTargetPart = nil
+local originalCFrame = nil
+local originalVelocity = nil
+local desyncHeightOffset = 3
 
-local function getClosestRageTarget()
-    local myChar = LocalPlayer.Character
-    if not myChar then return nil end
-    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return nil end
-
-    local closest = nil
-    local closestDist = math.huge
-    local MAX_DISTANCE = 500
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and not is_teammate(player) and get_character_valid(player) then
-            local root = player.Character:FindFirstChild("HumanoidRootPart")
-            if root then
-                local dist = (myRoot.Position - root.Position).Magnitude
-                if dist <= MAX_DISTANCE and dist < closestDist then
-                    closestDist = dist
-                    closest = player
-                end
-            end
-        end
+local function restoreDesyncCFrame()
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp or not originalCFrame then return end
+    hrp.CFrame = originalCFrame
+    if originalVelocity then
+        hrp.AssemblyLinearVelocity = originalVelocity
     end
-    return closest
+    originalCFrame = nil
+    originalVelocity = nil
 end
 
-local function stopDesync()
-    isDesyncActive = false
-    if desyncConnection then
-        desyncConnection:Disconnect()
-        desyncConnection = nil
-    end
+pcall(function() RunService:UnbindFromRenderStep("RestoreDesyncPerfect") end)
+pcall(function() RunService:BindToRenderStep("RestoreDesyncPerfect", 0, restoreDesyncCFrame) end)
+RunService.RenderStepped:Connect(restoreDesyncCFrame)
+
+local function createTeleportPacket(originPos, targetPart)
+    local targetPos = targetPart.Position
+    local lookCF = CFrame.lookAt(originPos, targetPos)
+    local rx, ry, rz = lookCF:ToOrientation()
+    local posTable = {
+        [utf8.char(0)] = originPos.X, [utf8.char(1)] = originPos.Y, [utf8.char(2)] = originPos.Z,
+        [utf8.char(3)] = rx, [utf8.char(4)] = ry, [utf8.char(5)] = rz,
+    }
+    local relCF = targetPart.CFrame:ToObjectSpace(CFrame.new(targetPos))
+    local rrx, rry, rrz = relCF:ToOrientation()
+    return {
+        [utf8.char(1)] = {
+            [utf8.char(0)] = posTable,
+            [utf8.char(1)] = posTable,
+            [utf8.char(2)] = targetPart,
+            [utf8.char(3)] = {
+                [utf8.char(0)] = relCF.X, [utf8.char(1)] = relCF.Y, [utf8.char(2)] = relCF.Z,
+                [utf8.char(3)] = rrx, [utf8.char(4)] = rry, [utf8.char(5)] = rrz,
+            },
+        },
+    }
 end
 
-local function startDesync(targetPlayer)
-    if desyncConnection then desyncConnection:Disconnect() end
-    isDesyncActive = true
+task.spawn(function()
+    local useItemRemote = ReplicatedStorage:WaitForChild("Remotes", 5)
+        and ReplicatedStorage.Remotes:WaitForChild("Replication", 5)
+        and ReplicatedStorage.Remotes.Replication:WaitForChild("Fighter", 5)
+        and ReplicatedStorage.Remotes.Replication.Fighter:WaitForChild("UseItem", 5)
 
-    desyncConnection = RunService.Heartbeat:Connect(function()
-        if not isDesyncActive or not (ragebotOrKillAura or ragebotMagicBullet) then return end
-        local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not myRoot then return end
+    local startShootingEnum = nil
+    pcall(function()
+        if EnumLibrary then startShootingEnum = EnumLibrary:ToEnum("StartShooting") end
+    end)
 
-        local targetHead = targetPlayer.Character and (targetPlayer.Character:FindFirstChild("HitboxHead") or targetPlayer.Character:FindFirstChild("Head"))
-        if not targetHead then
-            stopDesync()
-            return
+    local cachedObjectID = nil
+    local function getEquippedObjectID()
+        if FighterController and FighterController.LocalFighter and FighterController.LocalFighter.EquippedItem then
+            local item = FighterController.LocalFighter.EquippedItem
+            local ok, id = pcall(function() return item:Get("ObjectID") end)
+            if ok and id then return id end
+            if item.Data and item.Data.ObjectID then return item.Data.ObjectID end
         end
+        return cachedObjectID
+    end
 
-        local oldCFrame = myRoot.CFrame
-        local oldVel = myRoot.AssemblyLinearVelocity or myRoot.Velocity
-        local oldRotVel = myRoot.AssemblyAngularVelocity or myRoot.RotVelocity
+    RunService.Heartbeat:Connect(function()
+        if not (ragebotOrKillAura or hoNyangRageEnabled) then return end
+        if not activeTargetPart or not activeTargetPart.Parent then return end
 
-        -- [고급 디싱크 기술] 적 머리 밀착 + 누운 자세(-90도 Pitch) + 마이크로 지터(서버 동기화 교란) + 속도 영점화
-        local microJitter = Vector3.new((math.random() - 0.5) * 0.01, 0, (math.random() - 0.5) * 0.01)
-        local headLyingCF = targetHead.CFrame * CFrame.new(0, 1.2, 0) * CFrame.Angles(math.rad(-90), 0, math.rad(math.random(-5, 5))) + microJitter
+        local targetChar = activeTargetPart:FindFirstAncestorOfClass("Model") or activeTargetPart.Parent
+        local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
+        if not targetPlayer or targetPlayer == LocalPlayer or is_teammate(targetPlayer) then return end
+        if get_character_immune(targetPlayer) or is_reflecting_or_parrying(targetPlayer) then return end
 
-        myRoot.CFrame = headLyingCF
-        if myRoot:IsA("BasePart") then
-            myRoot.AssemblyLinearVelocity = Vector3.zero
-            myRoot.AssemblyAngularVelocity = Vector3.zero
-        end
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
 
-        RunService:BindToRenderStep("__restore_vk", 101, function()
-            myRoot.CFrame = oldCFrame
-            if myRoot:IsA("BasePart") then
-                myRoot.AssemblyLinearVelocity = oldVel
-                myRoot.AssemblyAngularVelocity = oldRotVel
-            end
-            RunService:UnbindFromRenderStep("__restore_vk")
+        local objID = getEquippedObjectID()
+        if objID then cachedObjectID = objID else objID = cachedObjectID end
+        if not objID or not useItemRemote or not startShootingEnum then return end
+
+        local shootOrigin = activeTargetPart.Position + Vector3.new(0, 0.1, 0)
+        local packet = createTeleportPacket(shootOrigin, activeTargetPart)
+        pcall(function()
+            useItemRemote:FireServer(objID, startShootingEnum, packet, nil)
         end)
     end)
-end
+end)
 
-pcall(function()
-    if GunModule and GunModule.StartShooting then
-        local oldStartShooting = GunModule.StartShooting
-        GunModule.StartShooting = function(self, ...)
-            local ret = {oldStartShooting(self, ...)}
-            if not self.ClientFighter or not self.ClientFighter.IsLocalPlayer then
-                return unpack(ret)
-            end
+RunService.Heartbeat:Connect(function()
+    pcall(function()
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
 
-            local shootData = ret[3]
-            if not shootData or type(shootData) ~= "table" then
-                return unpack(ret)
-            end
+        if originalCFrame then restoreDesyncCFrame() end
 
-            ret[4] = true
-            local target = currentRageTarget
+        if (ragebotOrKillAura or hoNyangRageEnabled) and activeTargetPart and can_shoot() then
+            local targetChar = activeTargetPart:FindFirstAncestorOfClass("Model") or activeTargetPart.Parent
+            local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
+            if targetPlayer and is_reflecting_or_parrying(targetPlayer) then return end
 
-            if not (ragebotOrKillAura or ragebotMagicBullet) or not target or not target.Character then
-                return unpack(ret)
-            end
+            originalCFrame = hrp.CFrame
+            originalVelocity = hrp.AssemblyLinearVelocity
+            local targetPos = activeTargetPart.Position
+            local teleportPos = targetPos + Vector3.new(0, desyncHeightOffset, 0)
+            hrp.CFrame = CFrame.new(teleportPos, targetPos)
+        end
+    end)
+end)
 
-            if not isDesyncActive then
-                startDesync(target)
-                task.wait(0.02)
-            end
-
-            if desyncResetTask then
-                task.cancel(desyncResetTask)
-                desyncResetTask = nil
-            end
-
-            -- 헤드 100% 정밀 타격 영점 조절
-            local head = target.Character:FindFirstChild("HitboxHead") or target.Character:FindFirstChild("Head")
-            if not head or not UtilityModule then return unpack(ret) end
-
-            local headPos = head.Position
-            local headCF = head.CFrame
-            local originPos = headPos + Vector3.new(0, 1.2, 0)
-            local lookCF = CFrame.lookAt(originPos, headPos)
-            local randomOffset = headCF:ToObjectSpace(CFrame.new(headPos))
-
-            shootData[utf8.char(0)] = UtilityModule:EncodeCFrame(CFrame.new(originPos, headPos) * CFrame.Angles(lookCF:ToOrientation()))
-            shootData[utf8.char(1)] = UtilityModule:EncodeCFrame(CFrame.new(headPos) * CFrame.Angles(lookCF:ToOrientation()))
-            shootData[utf8.char(2)] = head
-            shootData[utf8.char(3)] = UtilityModule:EncodeCFrame(randomOffset)
-
-            desyncResetTask = task.delay(0.12, function()
-                stopDesync()
+task.spawn(function()
+    while true do
+        task.wait(0.01)
+        if ffModeEnabled and ffBaitingEnabled then
+            pcall(function()
+                local myChar = LocalPlayer.Character
+                local hrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    for _, player in ipairs(Players:GetPlayers()) do
+                        if player ~= LocalPlayer and not is_teammate(player) and player.Character then
+                            local pRoot = player.Character:FindFirstChild("HumanoidRootPart")
+                            if pRoot then
+                                local dist = (hrp.Position - pRoot.Position).Magnitude
+                                if dist < 25 then
+                                    local baitVector = (hrp.Position - pRoot.Position).Unit * -2
+                                    hrp.AssemblyLinearVelocity = hrp.AssemblyLinearVelocity + Vector3.new(baitVector.X * 5, 0, baitVector.Z * 5)
+                                end
+                            end
+                        end
+                    end
+                end
             end)
+        end
+    end
+end)
 
-            return unpack(ret)
+task.spawn(function()
+    while true do
+        task.wait(math.clamp(orbitDelay, 0.01, 1))
+        if orbitEnabled then
+            pcall(function()
+                local char = LocalPlayer.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local range = math.clamp(orbitRange, 50, 50000000)
+                    local angle = tick() * 10
+                    local xOffset = math.cos(angle) * range
+                    local zOffset = math.sin(angle) * range
+                    hrp.CFrame = hrp.CFrame + Vector3.new(xOffset * 0.00001, 0, zOffset * 0.00001)
+                end
+            end)
+        end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(math.clamp(voidSpamDelay, 0.01, 1))
+        if voidSpamEnabled then
+            pcall(function()
+                local char = LocalPlayer.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local range = math.clamp(voidSpamRange, 50, 50000000)
+                    local randomOffset = Vector3.new(math.random(-range, range) * 0.00001, 0, math.random(-range, range) * 0.00001)
+                    hrp.CFrame = hrp.CFrame + randomOffset
+                end
+            end)
         end
     end
 end)
@@ -320,20 +472,121 @@ end)
 task.spawn(function()
     while true do
         task.wait(0.01)
-        if ragebotOrKillAura or ragebotMagicBullet then
-            currentRageTarget = getClosestRageTarget()
+        if ragebotOrKillAura or hoNyangRageEnabled then
+            local myPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position or Vector3.zero
+            local closestPlayer = nil
+            local closestDist = math.huge
+
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character and not is_teammate(player) then
+                    if get_character_immune(player) or is_reflecting_or_parrying(player) then
+                        continue
+                    end
+
+                    local root = player.Character:FindFirstChild("HumanoidRootPart")
+                    local hum = player.Character:FindFirstChildOfClass("Humanoid")
+                    if root and hum and hum.Health > 0 then
+                        local dist = (Vector3.new(myPos.X, 0, myPos.Z) - Vector3.new(root.Position.X, 0, root.Position.Z)).Magnitude
+                        if dist < closestDist then
+                            closestDist = dist
+                            closestPlayer = player
+                        end
+                    end
+                end
+            end
+
+            if closestPlayer and closestPlayer.Character then
+                activeTargetPart = get_character_root(closestPlayer.Character)
+            else
+                activeTargetPart = nil
+            end
         else
-            currentRageTarget = nil
-            stopDesync()
+            activeTargetPart = nil
         end
     end
 end)
 
 -- ============================================================================
--- ENGINE 2: Vallk Independent RageBot & Crosshair UI Engine
+-- SECTION: Hit Logs Integration (추가된 히트 로그 기능)
+-- ============================================================================
+local HitLogGui = Instance.new("ScreenGui")
+HitLogGui.Name = "multvallkHitLogUI"
+HitLogGui.ResetOnSpawn = false
+pcall(function() if gethui then HitLogGui.Parent = gethui() else HitLogGui.Parent = CoreGui end end)
+if not HitLogGui.Parent then HitLogGui.Parent = PlayerGui end
+
+local HitLogFrame = Instance.new("Frame", HitLogGui)
+HitLogFrame.Size = UDim2.new(0, 350, 0, 200)
+HitLogFrame.Position = UDim2.new(0, 10, 0.5, -100)
+HitLogFrame.BackgroundTransparency = 1
+
+local HitLogLayout = Instance.new("UIListLayout", HitLogFrame)
+HitLogLayout.SortOrder = Enum.SortOrder.LayoutOrder
+HitLogLayout.Padding = UDim.new(0, 4)
+HitLogLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+
+local function addHitLog(targetName, damage)
+    local logLabel = Instance.new("TextLabel")
+    logLabel.Size = UDim2.new(1, 0, 0, 20)
+    logLabel.BackgroundTransparency = 1
+    logLabel.Text = string.format("(mult hit %s 데미지: %.1f)", targetName, damage)
+    logLabel.TextColor3 = Color3.fromRGB(0, 255, 120)
+    logLabel.TextStrokeTransparency = 0.2
+    logLabel.Font = Enum.Font.Code
+    logLabel.TextSize = 13
+    logLabel.TextXAlignment = Enum.TextXAlignment.Left
+    logLabel.Parent = HitLogFrame
+
+    task.delay(4, function()
+        pcall(function()
+            local tween = TweenService:Create(logLabel, TweenInfo.new(0.5), {TextTransparency = 1, TextStrokeTransparency = 1})
+            tween:Play()
+            tween.Completed:Connect(function()
+                logLabel:Destroy()
+            end)
+        end)
+    end)
+end
+
+local monitoredPlayers = {}
+
+local function setupPlayerDamageTracker(player)
+    if player == LocalPlayer then return end
+
+    local function trackCharacter(char)
+        if not char then return end
+        local hum = char:WaitForChild("Humanoid", 5)
+        if not hum then return end
+
+        local lastHealth = hum.Health
+        local conn
+        conn = hum.HealthChanged:Connect(function(newHealth)
+            if newHealth < lastHealth then
+                local dmg = lastHealth - newHealth
+                addHitLog(player.Name, dmg)
+            end
+            lastHealth = newHealth
+        end)
+
+        hum.Died:Connect(function()
+            if conn then conn:Disconnect() end
+        end)
+    end
+
+    if player.Character then trackCharacter(player.Character) end
+    player.CharacterAdded:Connect(trackCharacter)
+end
+
+for _, p in ipairs(Players:GetPlayers()) do
+    setupPlayerDamageTracker(p)
+end
+Players.PlayerAdded:Connect(setupPlayerDamageTracker)
+
+-- ============================================================================
+-- ENGINE 2: Ragebot UI & Crosshair Info UI Engine
 -- ============================================================================
 local RageUIGui = Instance.new("ScreenGui", PlayerGui)
-RageUIGui.Name = "VallkRageUI"
+RageUIGui.Name = "vallkmultRageUI"
 RageUIGui.ResetOnSpawn = false
 
 local CrosshairContainer = Instance.new("Frame", RageUIGui)
@@ -365,7 +618,7 @@ RageTextLabel.AnchorPoint = Vector2.new(0.5, 0.5)
 RageTextLabel.Position = UDim2.new(0.5, 0, 0.5, 25)
 RageTextLabel.Size = UDim2.new(0, 300, 0, 25)
 RageTextLabel.BackgroundTransparency = 1
-RageTextLabel.Text = "(vallk ragebot:in the void...^^)"
+RageTextLabel.Text = "(vallkmult ragebot:in the void...^^)"
 RageTextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 RageTextLabel.TextStrokeTransparency = 0
 RageTextLabel.Font = Enum.Font.GothamBold
@@ -376,7 +629,7 @@ RageTextLabel.Visible = false
 local rageHue = 0
 local rotAngle = 0
 RunService.RenderStepped:Connect(function()
-    RageTextLabel.Visible = CrosshairContainer.Visible or ragebotOrKillAura or ragebotMagicBullet
+    RageTextLabel.Visible = CrosshairContainer.Visible or ragebotOrKillAura or hoNyangRageEnabled
     if RageTextLabel.Visible then
         rageHue = (rageHue + 2) % 360
         local rainbowColor = Color3.fromHSV(rageHue / 360, 1, 1)
@@ -396,214 +649,17 @@ RunService.RenderStepped:Connect(function()
         crosshairLines[3].Line.Position = UDim2.new(0.5, -1, 0, math.floor(3 + pulse * 6))
         crosshairLines[4].Line.Position = UDim2.new(0.5, -1, 1, math.floor(-11 - pulse * 6))
 
-        local activeTarget = currentRageTarget or (HoNyangEngine and HoNyangEngine.target)
-        if activeTarget and activeTarget.Name then
-            RageTextLabel.Text = "(Vallk ragebot kill " .. activeTarget.Name .. ")"
+        if activeTargetPart and activeTargetPart.Parent then
+            local tModel = activeTargetPart:FindFirstAncestorOfClass("Model") or activeTargetPart.Parent
+            RageTextLabel.Text = "(vallkmult ragebot kill " .. tModel.Name .. ")"
         else
-            RageTextLabel.Text = "(vallk ragebot:in the void...^^)"
+            RageTextLabel.Text = "(vallkmult ragebot:in the void...^^)"
         end
     end
 end)
 
--- Vallk 독자 레이지봇 Class (개선된 머리+누운 자세 적용)
-local HoNyangEngine = {}
-do
-    local function isImmune(char, player)
-        if not char then return true end
-        if char:FindFirstChildOfClass("ForceField") then return true end
-        if player then
-            local spawnTime = player:GetAttribute("SpawnTime") or 0
-            if tick() - spawnTime < 1.5 then return true end
-        end
-        return false
-    end
-
-    function HoNyangEngine:init()
-        self.active = false
-        self.target = nil
-        self.desync = false
-        self.conn1 = nil
-        self.conn2 = nil
-        self.task1 = nil
-        self.activateTime = 0
-        self:setup()
-    end
-
-    function HoNyangEngine:setup()
-        self.conn1 = RunService.Heartbeat:Connect(function()
-            if not self.active then return end
-            self.target = self:findTarget()
-        end)
-
-        pcall(function()
-            if GunModule and GunModule.StartShooting then
-                local oldFunc = GunModule.StartShooting
-                GunModule.StartShooting = function(selfObj, ...)
-                    local ret = {oldFunc(selfObj, ...)}
-                    if not self.active then return unpack(ret) end
-
-                    if tick() - self.activateTime < 1.4 then return unpack(ret) end
-                    if not selfObj.ClientFighter or not selfObj.ClientFighter.IsLocalPlayer then return unpack(ret) end
-
-                    local shootData = ret[3]
-                    if not shootData or typeof(shootData) ~= "table" then return unpack(ret) end
-
-                    local target = self.target
-                    if not target or not target.Character or isImmune(target.Character, target) then return unpack(ret) end
-
-                    ret[4] = true
-                    if not self.desync or self.curr ~= target then
-                        self:startDesync(target)
-                    end
-
-                    if self.task1 then
-                        task.cancel(self.task1)
-                        self.task1 = nil
-                    end
-
-                    local head = target.Character:FindFirstChild("HitboxHead") or target.Character:FindFirstChild("Head")
-                    if not head or not UtilityModule then return unpack(ret) end
-
-                    local headCF = head.CFrame
-                    local offset = headCF:ToObjectSpace(CFrame.new(head.Position))
-
-                    shootData[utf8.char(0)] = UtilityModule:EncodeCFrame(headCF)
-                    shootData[utf8.char(1)] = UtilityModule:EncodeCFrame(headCF)
-                    shootData[utf8.char(2)] = head
-                    shootData[utf8.char(3)] = UtilityModule:EncodeCFrame(offset)
-
-                    self.task1 = task.delay(0.04, function()
-                        self:stopDesync()
-                    end)
-
-                    return unpack(ret)
-                end
-            end
-        end)
-    end
-
-    function HoNyangEngine:findTarget()
-        local myChar = LocalPlayer.Character
-        if not myChar then return nil end
-        local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-        if not myRoot then return nil end
-       
-        local closest = nil
-        local closestDist = math.huge
-
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player == LocalPlayer or is_teammate(player) then continue end
-            local char = player.Character
-            if not char or isImmune(char, player) then continue end
-
-            local head = char:FindFirstChild("HitboxHead") or char:FindFirstChild("Head")
-            local hum = char:FindFirstChildWhichIsA("Humanoid")
-            if not (head and hum and hum.Health > 0) then continue end
-           
-            local dist = (myRoot.Position - head.Position).Magnitude
-            if dist < closestDist then
-                closestDist = dist
-                closest = player
-            end
-        end
-        return closest
-    end
-
-    function HoNyangEngine:startDesync(targetPlayer)
-        if self.conn2 then self.conn2:Disconnect() end
-        self.desync = true
-        self.curr = targetPlayer
-
-        self.conn2 = RunService.Heartbeat:Connect(function()
-            if not self.desync then return end
-            local myChar = LocalPlayer.Character
-            local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-            if not myRoot then return end
-
-            if not targetPlayer.Character or isImmune(targetPlayer.Character, targetPlayer) then
-                self:stopDesync()
-                return
-            end
-
-            local enemyHead = targetPlayer.Character:FindFirstChild("HitboxHead") or targetPlayer.Character:FindFirstChild("Head")
-            if not enemyHead then
-                self:stopDesync()
-                return
-            end
-
-            local oldCF = myRoot.CFrame
-            local oldVel = myRoot.AssemblyLinearVelocity or myRoot.Velocity
-            local oldRot = myRoot.AssemblyAngularVelocity or myRoot.RotVelocity
-
-            -- 머리 위 누운 자세 (-90도 회전 및 밀착 위치)
-            myRoot.CFrame = enemyHead.CFrame * CFrame.new(0, 1.2, 0) * CFrame.Angles(math.rad(-90), 0, 0)
-            if myRoot:IsA("BasePart") then
-                myRoot.AssemblyLinearVelocity = Vector3.zero
-                myRoot.AssemblyAngularVelocity = Vector3.zero
-            end
-
-            RunService:BindToRenderStep("__restore_hn", 1, function()
-                myRoot.CFrame = oldCF
-                if myRoot:IsA("BasePart") then
-                    myRoot.AssemblyLinearVelocity = oldVel
-                    myRoot.AssemblyAngularVelocity = oldRot
-                end
-                RunService:UnbindFromRenderStep("__restore_hn")
-            end)
-        end)
-    end
-
-    function HoNyangEngine:stopDesync()
-        self.desync = false
-        self.curr = nil
-        if self.conn2 then
-            self.conn2:Disconnect()
-            self.conn2 = nil
-        end
-    end
-
-    function HoNyangEngine:SetState(state)
-        self.active = state
-        CrosshairContainer.Visible = state
-        if state then
-            self.activateTime = tick()
-            task.spawn(function()
-                while self.active do
-                    self.activateTime = tick()
-                    task.wait(1.4)
-                    local lastShoot = 0
-                    while self.active do
-                        local myChar = LocalPlayer.Character
-                        if not myChar or not myChar:FindFirstChild("Humanoid") or myChar.Humanoid.Health <= 0 then break end
-
-                        local now = tick()
-                        if now - lastShoot >= 0.04 then
-                            lastShoot = now
-                            pcall(function()
-                                if self.target and self.target.Character and not isImmune(self.target.Character, self.target) then
-                                    local tool = myChar:FindFirstChildOfClass("Tool")
-                                    if tool then tool:Activate() end
-                                    local vim = game:GetService("VirtualInputManager")
-                                    vim:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                                    task.wait()
-                                    vim:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-                                end
-                            end)
-                        end
-                        task.wait()
-                    end
-                end
-            end)
-        else
-            self:stopDesync()
-        end
-    end
-
-    HoNyangEngine:init()
-end
-
 -- ============================================================================
--- SECTION: Vallk Fast Melee & Cooldown 0 Loops
+-- SECTION: Fast Melee & Cooldown 0 Loops
 -- ============================================================================
 task.spawn(function()
     while true do
@@ -677,14 +733,14 @@ task.spawn(function()
 end)
 
 -- ============================================================================
--- SECTION: Magic Bullet, Gun Hooking & All Skins
+-- SECTION: Gun Hooking & All Skins
 -- ============================================================================
 pcall(function()
     if FighterController and FighterController.LocalFighter and FighterController.LocalFighter.GetMouseLocation then
         local LocalFighter = FighterController.LocalFighter
         local oldMouseLoc = LocalFighter.GetMouseLocation
         LocalFighter.GetMouseLocation = newcclosure(function(...)
-            if silentAimTarget and (silentAimEnabled or ragebotOrKillAura or ragebotMagicBullet) then
+            if silentAimTarget and (silentAimEnabled or ragebotOrKillAura or hoNyangRageEnabled) then
                 local screenPos = Camera:WorldToScreenPoint(silentAimTarget.Position)
                 return Vector2.new(screenPos.X, screenPos.Y)
             end
@@ -851,19 +907,19 @@ RunService.RenderStepped:Connect(function()
     end
 
     silentAimTarget = nil
-    if (silentAimEnabled or ragebotOrKillAura or ragebotMagicBullet) and myChar then
+    if (silentAimEnabled or ragebotOrKillAura or hoNyangRageEnabled) and myChar then
         local closestDist = math.huge
         for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and not is_teammate(player) and get_character_valid(player) then
-                local hitPart = get_hit_part(player.Character, "head")
+            if player ~= LocalPlayer and not is_teammate(player) and not get_character_immune(player) and not is_reflecting_or_parrying(player) then
+                local hitPart = get_character_root(player.Character)
                 if hitPart then
                     local screenPos, onScreen = Camera:WorldToViewportPoint(hitPart.Position)
                     if onScreen then
                         local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                        local maxFov = (ragebotOrKillAura or ragebotMagicBullet) and 99999 or silentAimFovRadius
+                        local maxFov = (ragebotOrKillAura or hoNyangRageEnabled) and 99999 or silentAimFovRadius
                         
                         if screenDist <= maxFov and screenDist < closestDist then
-                            if ragebotMagicBullet or (not silentWallCheck) or has_line_of_sight(hitPart, myChar) then
+                            if (not silentWallCheck) or has_line_of_sight(hitPart, myChar) then
                                 closestDist = screenDist
                                 silentAimTarget = hitPart
                             end
@@ -915,7 +971,7 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ============================================================================
--- SECTION: User Interface (Mobile Optimized, Draggable & Dual Engine Integrated)
+-- SECTION: User Interface (Mobile Optimized & Draggable)
 -- ============================================================================
 do
     local ACC = Color3.fromRGB(80, 150, 255)
@@ -998,7 +1054,7 @@ do
     title.Size = UDim2.new(1, -12, 0, 26)
     title.Position = UDim2.new(0, 8, 0, 4)
     title.BackgroundTransparency = 1
-    title.Text = "vallkmult x Vallk Hub"
+    title.Text = "multvallk Premium"
     title.TextColor3 = ACC
     title.Font = Enum.Font.Code
     title.TextSize = 12
@@ -1014,7 +1070,7 @@ do
     local tabLay = Instance.new("UIListLayout")
     tabLay.Parent = tabHeader
     tabLay.FillDirection = Enum.FillDirection.Horizontal
-    tabLay.Padding = UDim.new(0, 4)
+    tabLay.Padding = UDim.new(0, 3)
 
     local content = Instance.new("Frame")
     content.Size = UDim2.new(1, -16, 1, -66)
@@ -1053,13 +1109,13 @@ do
     local function addTab(name)
         makePage(name)
         local b = Instance.new("TextButton")
-        b.Size = UDim2.new(0.185, 0, 1, 0)
+        b.Size = UDim2.new(0.158, 0, 1, 0)
         b.BackgroundColor3 = TAB_BG
         b.BorderSizePixel = 0
         b.Text = name
         b.TextColor3 = Color3.fromRGB(150, 155, 160)
         b.Font = Enum.Font.Code
-        b.TextSize = 10
+        b.TextSize = 9
         b.Parent = tabHeader
         Instance.new("UICorner", b).CornerRadius = UDim.new(0, 3)
         tabBtns[name] = b
@@ -1091,9 +1147,67 @@ do
         end)
     end
 
-    -- 탭 구성
+    local function addSlider(page, name, min, max, getv, setv)
+        local f = Instance.new("Frame")
+        f.Size = UDim2.new(1, -4, 0, 36)
+        f.BackgroundColor3 = Color3.fromRGB(30, 34, 44)
+        f.BorderSizePixel = 0
+        f.Parent = page
+        Instance.new("UICorner", f).CornerRadius = UDim.new(0, 3)
+
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, -10, 0, 18)
+        lbl.Position = UDim2.new(0, 5, 0, 2)
+        lbl.BackgroundTransparency = 1
+        lbl.Font = Enum.Font.Code
+        lbl.TextSize = 10
+        lbl.TextColor3 = Color3.fromRGB(170, 175, 180)
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.Text = name .. ": " .. tostring(getv())
+        lbl.Parent = f
+
+        local barBg = Instance.new("TextButton")
+        barBg.Size = UDim2.new(1, -10, 0, 10)
+        barBg.Position = UDim2.new(0, 5, 0, 22)
+        barBg.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
+        barBg.BorderSizePixel = 0
+        barBg.Text = ""
+        barBg.AutoButtonColor = false
+        barBg.Parent = f
+        Instance.new("UICorner", barBg).CornerRadius = UDim.new(0, 2)
+
+        local barFill = Instance.new("Frame")
+        barFill.Size = UDim2.new(math.clamp((getv() - min) / (max - min), 0, 1), 0, 1, 0)
+        barFill.BackgroundColor3 = ACC
+        barFill.BorderSizePixel = 0
+        barFill.Parent = barBg
+        Instance.new("UICorner", barFill).CornerRadius = UDim.new(0, 2)
+
+        local dragging = false
+        barBg.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+            end
+        end)
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = false
+            end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                local pos = math.clamp((input.Position.X - barBg.AbsolutePosition.X) / barBg.AbsoluteSize.X, 0, 1)
+                local val = min + (max - min) * pos
+                setv(val)
+                barFill.Size = UDim2.new(pos, 0, 1, 0)
+                lbl.Text = name .. ": " .. string.format(max > 1000 and "%.0f" or "%.2f", val)
+            end
+        end)
+    end
+
     addTab("Main")
     addTab("Ragebot")
+    addTab("FFMode")
     addTab("ESP")
     addTab("Misc")
     addTab("UI Set")
@@ -1101,37 +1215,34 @@ do
     -- Main Tab
     toggle(pages["Main"], "Silent Aim", function() return silentAimEnabled end, function(v) silentAimEnabled = v end)
     toggle(pages["Main"], "Aimbot", function() return aimbotEnabled end, function(v) aimbotEnabled = v end)
-    toggle(pages["Main"], "Vallk 빠름근접", function() return fastMeleeEnabled end, function(v) fastMeleeEnabled = v end)
-    toggle(pages["Main"], "Vallk총알속도 0", function() return hoNyangNoCDEnabled end, function(v) hoNyangNoCDEnabled = v end)
+    toggle(pages["Main"], "Fast Melee", function() return fastMeleeEnabled end, function(v) fastMeleeEnabled = v end)
+    toggle(pages["Main"], "Bullet Speed 0 (CD)", function() return hoNyangNoCDEnabled end, function(v) hoNyangNoCDEnabled = v end)
     toggle(pages["Main"], "No Recoil", function() return noRecoilEnabled end, function(v) noRecoilEnabled = v end)
     toggle(pages["Main"], "No Spread", function() return noSpreadEnabled end, function(v) noSpreadEnabled = v end)
     toggle(pages["Main"], "Rapid Fire", function() return rapidFireEnabled end, function(v) rapidFireEnabled = v end)
 
-    -- Ragebot Tab (3개 레이지봇 상호 배타적 동작 처리)
-    toggle(pages["Ragebot"], "vallkv1 ragebot", function() return hoNyangRageEnabled end, function(v) 
-        hoNyangRageEnabled = v 
-        if v then
-            ragebotOrKillAura = false
-            ragebotMagicBullet = false
-        end
-        if HoNyangEngine then HoNyangEngine:SetState(v) end
-    end)
-    toggle(pages["Ragebot"], "[vallkmult] Rage Bot Aim (Desync)", function() return ragebotOrKillAura end, function(v) 
+    -- Ragebot Tab
+    toggle(pages["Ragebot"], "[File Engine] Advanced Ragebot", function() return ragebotOrKillAura end, function(v) 
         ragebotOrKillAura = v 
-        if v then
-            hoNyangRageEnabled = false
-            if HoNyangEngine then HoNyangEngine:SetState(false) end
-            ragebotMagicBullet = false
-        end
+        if v then hoNyangRageEnabled = false end
     end)
-    toggle(pages["Ragebot"], "[vallkmult] Magic Bullet", function() return ragebotMagicBullet end, function(v) 
-        ragebotMagicBullet = v 
-        if v then
-            hoNyangRageEnabled = false
-            if HoNyangEngine then HoNyangEngine:SetState(false) end
-            ragebotOrKillAura = false
-        end
+    toggle(pages["Ragebot"], "[File Engine] Auto UseItem Teleport", function() return hoNyangRageEnabled end, function(v) 
+        hoNyangRageEnabled = v 
+        if v then ragebotOrKillAura = false end
     end)
+
+    toggle(pages["Ragebot"], "Orbit Feature (Independent)", function() return orbitEnabled end, function(v) orbitEnabled = v end)
+    addSlider(pages["Ragebot"], "Orbit Range", 50, 50000000, function() return orbitRange end, function(v) orbitRange = v end)
+    addSlider(pages["Ragebot"], "Orbit Delay (Speed)", 0.01, 1, function() return orbitDelay end, function(v) orbitDelay = v end)
+
+    toggle(pages["Ragebot"], "Void Spam Feature (Independent)", function() return voidSpamEnabled end, function(v) voidSpamEnabled = v end)
+    addSlider(pages["Ragebot"], "Void Spam Range", 50, 50000000, function() return voidSpamRange end, function(v) voidSpamRange = v end)
+    addSlider(pages["Ragebot"], "Void Spam Delay (Speed)", 0.01, 1, function() return voidSpamDelay end, function(v) voidSpamDelay = v end)
+
+    -- FFMode Tab
+    toggle(pages["FFMode"], "Enable FFMode", function() return ffModeEnabled end, function(v) ffModeEnabled = v end)
+    toggle(pages["FFMode"], "Team Check", function() return ffTeamCheckEnabled end, function(v) ffTeamCheckEnabled = v end)
+    toggle(pages["FFMode"], "Baiting (Fall Inducer)", function() return ffBaitingEnabled end, function(v) ffBaitingEnabled = v end)
 
     -- ESP Tab
     toggle(pages["ESP"], "ESP Master Toggle", function() return espEnabled end, function(v) espEnabled = v end)
@@ -1141,15 +1252,17 @@ do
     toggle(pages["ESP"], "Gun Tracer Line", function() return gunTracerEnabled end, function(v) gunTracerEnabled = v end)
 
     -- Misc Tab
-    toggle(pages["Misc"], "Unlock All Skins (올스킨)", function() return skinChangerEnabled end, function(v) skinChangerEnabled = v end)
+    toggle(pages["Misc"], "Unlock All Skins", function() return skinChangerEnabled end, function(v) skinChangerEnabled = v end)
     toggle(pages["Misc"], "Bullet Speed Boost (100k)", function() return bulletSpeedBoost end, function(v) bulletSpeedBoost = v end)
-    toggle(pages["Misc"], "Rapid Speed (스피드 핵)", function() return rapidSpeedEnabled end, function(v) rapidSpeedEnabled = v end)
+    toggle(pages["Misc"], "Rapid Speed (Speed Hack)", function() return rapidSpeedEnabled end, function(v) rapidSpeedEnabled = v end)
     toggle(pages["Misc"], "PC Fly (WASD)", function() return pcFlyEnabled end, function(v) pcFlyEnabled = v end)
     toggle(pages["Misc"], "Noclip", function() return noclipEnabled end, function(v) noclipEnabled = v end)
 
     -- UI Set Tab
     toggle(pages["UI Set"], "Circle Crosshair (Gradient)", function() return circleCrosshairEnabled end, function(v) circleCrosshairEnabled = v end)
     toggle(pages["UI Set"], "Custom Skybox", function() return customSkyboxEnabled end, function(v) customSkyboxEnabled = v; applySkybox() end)
+    toggle(pages["UI Set"], "Sky: Dark Sky", function() return skyboxTheme == "Dark Sky" end, function() skyboxTheme = "Dark Sky"; applySkybox() end)
+    toggle(pages["UI Set"], "Sky: Vaporwave", function() return skyboxTheme == "Vaporwave" end, function() skyboxTheme = "Vaporwave"; applySkybox() end)
 
     selectTab("Main")
 
@@ -1187,6 +1300,28 @@ do
         if keyBox.Text == validKey then
             keyPassed = true
             keyFrame.Visible = false
+            
+            pcall(function()
+                local wmGui = Instance.new("ScreenGui", gui)
+                wmGui.Name = "multvallkWatermark"
+                wmGui.ResetOnSpawn = false
+                
+                local wmLabel = Instance.new("TextLabel", wmGui)
+                wmLabel.Size = UDim2.new(0, 400, 0, 60)
+                wmLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+                wmLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
+                wmLabel.BackgroundTransparency = 1
+                wmLabel.Text = "multvallk."
+                wmLabel.TextColor3 = Color3.fromRGB(0, 120, 255)
+                wmLabel.Font = Enum.Font.GothamBold
+                wmLabel.TextSize = 36
+                wmLabel.TextStrokeTransparency = 0.3
+                
+                task.delay(3, function()
+                    pcall(function() wmGui:Destroy() end)
+                end)
+            end)
+
             frame.Visible = true
         else
             keyBox.Text = ""
@@ -1208,4 +1343,4 @@ do
     end)
 end
 
-print("[vallkmult x Vallk Dual-Rage Edition] Loaded Successfully.")
+print("[vallkmult File Ragebot Edition] Successfully Loaded with FFMode (Team Check & Baiting) Integrated.")
