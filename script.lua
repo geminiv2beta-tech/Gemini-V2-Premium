@@ -1,6 +1,5 @@
--- [[ multvallk Ultra Gold Premium x Vallk Dual-Engine Edition - File Ragebot Integrated ]]
--- 파일 내 레이지봇(반사/패링/카타나 감지, 무적 감지, RestoreDesyncPerfect CFrame 복구, UseItem 리모트 패킷 사격) 통합 버전
--- [FFMode: Team Check 및 Baiting(낙사 유도) 기능 추가됨]
+-- [[ multvallk Premium v3 - Fully Integrated Dual Engine (Mobile Responsive) ]]
+-- All Combat Mechanics, Anti-Cheat Bypass, Rage Engine, and Hit Logs Intact
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -62,7 +61,7 @@ pcall(function()
     end
 end)
 
--- Player Spawn Time Tracker
+-- Player Spawn Tracker
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function(char)
         player:SetAttribute("SpawnTime", tick())
@@ -79,13 +78,21 @@ for _, player in ipairs(Players:GetPlayers()) do
 end
 
 -- ============================================================================
--- SECTION: Key System & Global Variables
+-- SECTION: Key System & Settings Variables
 -- ============================================================================
 local validKey = "Paid_masterkey-vallkmult"
 local keyPassed = false
 
--- vallkmult Combat Settings
+-- Mobile Screen Scaling State (Default: False = Big PC Size)
+local mobileOnEnabled = false
+
+-- Aimbot & Silent Aim
 local aimbotEnabled = false
+local aimbotSmoothness = 5
+local aimbotFovRadius = 100
+local aimbotHitPart = "head"
+local aimbotWallCheck = false
+
 local silentAimEnabled = false
 local silentAimHitPart = "head"
 local silentAimFovRadius = 300
@@ -95,19 +102,20 @@ local silentAimTarget = nil
 -- Ragebot Toggles
 local ragebotOrKillAura = false
 local hoNyangRageEnabled = false
+local ragebotHeightOffset = 3
 
--- Vallk Independent Features Toggle
+-- Vallk Features & Cooldowns
 local fastMeleeEnabled = false
 local hoNyangNoCDEnabled = false
+local attackCooldownDisabled = false
+local projectileCooldownDisabled = false
 
--- ============================================================================
--- SECTION: FFMode (Team Check & Baiting 낙사 유도 기술) 추가 설정
--- ============================================================================
+-- FFMode
 local ffModeEnabled = false
 local ffTeamCheckEnabled = true
 local ffBaitingEnabled = false
 
--- Orbit & Void Spam Independent Settings (추가된 기능)
+-- Orbit & Void Spam
 local orbitEnabled = false
 local orbitRange = 50
 local orbitDelay = 0.01
@@ -116,15 +124,16 @@ local voidSpamEnabled = false
 local voidSpamRange = 50
 local voidSpamDelay = 0.01
 
--- Gun Utility Toggles
+-- Gun Utilities
 local triggerbotEnabled = false
 local rapidFireEnabled = false
 local noRecoilEnabled = false
 local noSpreadEnabled = false
+local noMuzzleFlashEnabled = false
 local bulletSpeedBoost = false
 local bulletSpeedMult = 100000
 
--- ESP & Movement & Skins
+-- ESP & Movement
 local espEnabled = false
 local espBoxEnabled = false
 local espNameEnabled = false
@@ -145,7 +154,7 @@ local circleCrosshairEnabled = false
 local circleCrosshairSize = 60
 local circleRotationSpeed = 4
 
--- Modules Init
+-- Controller Modules
 local FighterController, SpectateController, CameraController, GunModule, UtilityModule, EnumLibrary
 pcall(function()
     local ps = LocalPlayer:WaitForChild("PlayerScripts")
@@ -153,20 +162,17 @@ pcall(function()
     FighterController = require(ctrl:WaitForChild("FighterController"))
     SpectateController = require(ctrl:WaitForChild("SpectateController", 2))
     CameraController = require(ctrl:WaitForChild("CameraController", 2))
-    
     GunModule = require(ps:WaitForChild("Modules"):WaitForChild("ItemTypes"):WaitForChild("Gun"))
     UtilityModule = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Utility"))
     pcall(function() EnumLibrary = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("EnumLibrary")) end)
 end)
 
--- Helpers
+-- Helpers & Safety Checks
 local function is_teammate(player)
     if ffModeEnabled and ffTeamCheckEnabled then
         local myTeam = LocalPlayer:GetAttribute("TeamID")
         local pTeam = player:GetAttribute("TeamID")
-        if myTeam ~= nil and pTeam ~= nil and myTeam == pTeam then
-            return true
-        end
+        if myTeam ~= nil and pTeam ~= nil and myTeam == pTeam then return true end
     end
     local myTeam = LocalPlayer:GetAttribute("TeamID")
     local pTeam = player:GetAttribute("TeamID")
@@ -211,15 +217,11 @@ local function is_reflecting_or_parrying(player)
 
     local isKatana = false
     local tool = char:FindFirstChildOfClass("Tool")
-    if tool and string.find(string.lower(tool.Name), "katana", 1, true) then
-        isKatana = true
-    end
+    if tool and string.find(string.lower(tool.Name), "katana", 1, true) then isKatana = true end
     for _, child in ipairs(char:GetChildren()) do
         local childName = string.lower(child.Name)
         if string.find(childName, "katana", 1, true) then isKatana = true end
-        if string.find(childName, "reflect", 1, true) or string.find(childName, "deflect", 1, true) then
-            return true
-        end
+        if string.find(childName, "reflect", 1, true) or string.find(childName, "deflect", 1, true) then return true end
     end
 
     local hum = char:FindFirstChildOfClass("Humanoid")
@@ -256,10 +258,7 @@ local function can_shoot()
     pcall(function()
         if not FighterController or not FighterController.LocalFighter then return end
         local item = FighterController.LocalFighter.EquippedItem
-        if not item then
-            canShoot = false
-            return
-        end
+        if not item then canShoot = false; return end
         local function getProp(key)
             local ok, res = pcall(function()
                 if item.Get then return item:Get(key) end
@@ -273,9 +272,7 @@ local function can_shoot()
             if ammo == nil then ammo = item.Info.CurrentAmmo or item.Info.Ammo end
             if item.Info.Reloading == true or item.Info.IsReloading == true then isReloading = true end
         end
-        if isReloading == true or (typeof(ammo) == "number" and ammo <= 0) then
-            canShoot = false
-        end
+        if isReloading == true or (typeof(ammo) == "number" and ammo <= 0) then canShoot = false end
     end)
     return canShoot
 end
@@ -300,15 +297,12 @@ end
 local activeTargetPart = nil
 local originalCFrame = nil
 local originalVelocity = nil
-local desyncHeightOffset = 3
 
 local function restoreDesyncCFrame()
     local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not hrp or not originalCFrame then return end
     hrp.CFrame = originalCFrame
-    if originalVelocity then
-        hrp.AssemblyLinearVelocity = originalVelocity
-    end
+    if originalVelocity then hrp.AssemblyLinearVelocity = originalVelocity end
     originalCFrame = nil
     originalVelocity = nil
 end
@@ -401,12 +395,48 @@ RunService.Heartbeat:Connect(function()
             originalCFrame = hrp.CFrame
             originalVelocity = hrp.AssemblyLinearVelocity
             local targetPos = activeTargetPart.Position
-            local teleportPos = targetPos + Vector3.new(0, desyncHeightOffset, 0)
+            local teleportPos = targetPos + Vector3.new(0, ragebotHeightOffset, 0)
             hrp.CFrame = CFrame.new(teleportPos, targetPos)
         end
     end)
 end)
 
+-- Target Finder Loop
+task.spawn(function()
+    while true do
+        task.wait(0.01)
+        if ragebotOrKillAura or hoNyangRageEnabled then
+            local myPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position or Vector3.zero
+            local closestPlayer = nil
+            local closestDist = math.huge
+
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character and not is_teammate(player) then
+                    if get_character_immune(player) or is_reflecting_or_parrying(player) then continue end
+                    local root = player.Character:FindFirstChild("HumanoidRootPart")
+                    local hum = player.Character:FindFirstChildOfClass("Humanoid")
+                    if root and hum and hum.Health > 0 then
+                        local dist = (Vector3.new(myPos.X, 0, myPos.Z) - Vector3.new(root.Position.X, 0, root.Position.Z)).Magnitude
+                        if dist < closestDist then
+                            closestDist = dist
+                            closestPlayer = player
+                        end
+                    end
+                end
+            end
+
+            if closestPlayer and closestPlayer.Character then
+                activeTargetPart = get_character_root(closestPlayer.Character)
+            else
+                activeTargetPart = nil
+            end
+        else
+            activeTargetPart = nil
+        end
+    end
+end)
+
+-- Baiting, Orbit, Void Spam Loops
 task.spawn(function()
     while true do
         task.wait(0.01)
@@ -422,7 +452,7 @@ task.spawn(function()
                                 local dist = (hrp.Position - pRoot.Position).Magnitude
                                 if dist < 25 then
                                     local baitVector = (hrp.Position - pRoot.Position).Unit * -2
-                                    hrp.AssemblyLinearVelocity = hrp.AssemblyLinearVelocity + Vector3.new(baitVector.X * 5, 0, baitVector.Z * 5)
+                                    hrp.AssemblyLinearVelocity = hrp.AssemblyLinearVelocity + Vector3.new(baitVector.X * 5, -10, baitVector.Z * 5)
                                 end
                             end
                         end
@@ -461,7 +491,11 @@ task.spawn(function()
                 local hrp = char and char:FindFirstChild("HumanoidRootPart")
                 if hrp then
                     local range = math.clamp(voidSpamRange, 50, 50000000)
-                    local randomOffset = Vector3.new(math.random(-range, range) * 0.00001, 0, math.random(-range, range) * 0.00001)
+                    local randomOffset = Vector3.new(
+                        math.random(-range, range) * 0.00001,
+                        math.random(-range, range) * 0.00001,
+                        math.random(-range, range) * 0.00001
+                    )
                     hrp.CFrame = hrp.CFrame + randomOffset
                 end
             end)
@@ -469,45 +503,8 @@ task.spawn(function()
     end
 end)
 
-task.spawn(function()
-    while true do
-        task.wait(0.01)
-        if ragebotOrKillAura or hoNyangRageEnabled then
-            local myPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position or Vector3.zero
-            local closestPlayer = nil
-            local closestDist = math.huge
-
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and player.Character and not is_teammate(player) then
-                    if get_character_immune(player) or is_reflecting_or_parrying(player) then
-                        continue
-                    end
-
-                    local root = player.Character:FindFirstChild("HumanoidRootPart")
-                    local hum = player.Character:FindFirstChildOfClass("Humanoid")
-                    if root and hum and hum.Health > 0 then
-                        local dist = (Vector3.new(myPos.X, 0, myPos.Z) - Vector3.new(root.Position.X, 0, root.Position.Z)).Magnitude
-                        if dist < closestDist then
-                            closestDist = dist
-                            closestPlayer = player
-                        end
-                    end
-                end
-            end
-
-            if closestPlayer and closestPlayer.Character then
-                activeTargetPart = get_character_root(closestPlayer.Character)
-            else
-                activeTargetPart = nil
-            end
-        else
-            activeTargetPart = nil
-        end
-    end
-end)
-
 -- ============================================================================
--- SECTION: Hit Logs Integration (추가된 히트 로그 기능)
+-- SECTION: Hit Logs Integration (multvallk)
 -- ============================================================================
 local HitLogGui = Instance.new("ScreenGui")
 HitLogGui.Name = "multvallkHitLogUI"
@@ -516,8 +513,8 @@ pcall(function() if gethui then HitLogGui.Parent = gethui() else HitLogGui.Paren
 if not HitLogGui.Parent then HitLogGui.Parent = PlayerGui end
 
 local HitLogFrame = Instance.new("Frame", HitLogGui)
-HitLogFrame.Size = UDim2.new(0, 350, 0, 200)
-HitLogFrame.Position = UDim2.new(0, 10, 0.5, -100)
+HitLogFrame.Size = UDim2.new(0, 280, 0, 150)
+HitLogFrame.Position = UDim2.new(0, 10, 0.5, -75)
 HitLogFrame.BackgroundTransparency = 1
 
 local HitLogLayout = Instance.new("UIListLayout", HitLogFrame)
@@ -527,13 +524,13 @@ HitLogLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 
 local function addHitLog(targetName, damage)
     local logLabel = Instance.new("TextLabel")
-    logLabel.Size = UDim2.new(1, 0, 0, 20)
+    logLabel.Size = UDim2.new(1, 0, 0, 18)
     logLabel.BackgroundTransparency = 1
-    logLabel.Text = string.format("(mult hit %s 데미지: %.1f)", targetName, damage)
+    logLabel.Text = string.format("(mult hit %s damage: %.1f)", targetName, damage)
     logLabel.TextColor3 = Color3.fromRGB(0, 255, 120)
     logLabel.TextStrokeTransparency = 0.2
     logLabel.Font = Enum.Font.Code
-    logLabel.TextSize = 13
+    logLabel.TextSize = 11
     logLabel.TextXAlignment = Enum.TextXAlignment.Left
     logLabel.Parent = HitLogFrame
 
@@ -541,52 +538,39 @@ local function addHitLog(targetName, damage)
         pcall(function()
             local tween = TweenService:Create(logLabel, TweenInfo.new(0.5), {TextTransparency = 1, TextStrokeTransparency = 1})
             tween:Play()
-            tween.Completed:Connect(function()
-                logLabel:Destroy()
-            end)
+            tween.Completed:Connect(function() logLabel:Destroy() end)
         end)
     end)
 end
 
-local monitoredPlayers = {}
-
 local function setupPlayerDamageTracker(player)
     if player == LocalPlayer then return end
-
     local function trackCharacter(char)
         if not char then return end
         local hum = char:WaitForChild("Humanoid", 5)
         if not hum then return end
-
         local lastHealth = hum.Health
         local conn
         conn = hum.HealthChanged:Connect(function(newHealth)
             if newHealth < lastHealth then
-                local dmg = lastHealth - newHealth
-                addHitLog(player.Name, dmg)
+                addHitLog(player.Name, lastHealth - newHealth)
             end
             lastHealth = newHealth
         end)
-
-        hum.Died:Connect(function()
-            if conn then conn:Disconnect() end
-        end)
+        hum.Died:Connect(function() if conn then conn:Disconnect() end end)
     end
-
     if player.Character then trackCharacter(player.Character) end
     player.CharacterAdded:Connect(trackCharacter)
 end
 
-for _, p in ipairs(Players:GetPlayers()) do
-    setupPlayerDamageTracker(p)
-end
+for _, p in ipairs(Players:GetPlayers()) do setupPlayerDamageTracker(p) end
 Players.PlayerAdded:Connect(setupPlayerDamageTracker)
 
 -- ============================================================================
--- ENGINE 2: Ragebot UI & Crosshair Info UI Engine
+-- SECTION: Ragebot UI & Rainbow Crosshair Indicator (multvallk)
 -- ============================================================================
 local RageUIGui = Instance.new("ScreenGui", PlayerGui)
-RageUIGui.Name = "vallkmultRageUI"
+RageUIGui.Name = "multvallkRageUI"
 RageUIGui.ResetOnSpawn = false
 
 local CrosshairContainer = Instance.new("Frame", RageUIGui)
@@ -616,13 +600,13 @@ end
 local RageTextLabel = Instance.new("TextLabel", RageUIGui)
 RageTextLabel.AnchorPoint = Vector2.new(0.5, 0.5)
 RageTextLabel.Position = UDim2.new(0.5, 0, 0.5, 25)
-RageTextLabel.Size = UDim2.new(0, 300, 0, 25)
+RageTextLabel.Size = UDim2.new(0, 280, 0, 20)
 RageTextLabel.BackgroundTransparency = 1
-RageTextLabel.Text = "(vallkmult ragebot:in the void...^^)"
+RageTextLabel.Text = "(multvallk ragebot:in the void...^^)"
 RageTextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 RageTextLabel.TextStrokeTransparency = 0
 RageTextLabel.Font = Enum.Font.GothamBold
-RageTextLabel.TextSize = 13
+RageTextLabel.TextSize = 12
 RageTextLabel.TextXAlignment = Enum.TextXAlignment.Center
 RageTextLabel.Visible = false
 
@@ -633,16 +617,14 @@ RunService.RenderStepped:Connect(function()
     if RageTextLabel.Visible then
         rageHue = (rageHue + 2) % 360
         local rainbowColor = Color3.fromHSV(rageHue / 360, 1, 1)
-        for _, item in ipairs(crosshairLines) do
-            item.Line.BackgroundColor3 = rainbowColor
-        end
+        for _, item in ipairs(crosshairLines) do item.Line.BackgroundColor3 = rainbowColor end
         RageTextLabel.TextColor3 = rainbowColor
 
         rotAngle = (rotAngle + 4) % 360
         CrosshairContainer.Rotation = rotAngle
 
         local timeVal = tick() * 5
-        local pulse = (math.sin(timeVal) + 1) * 0.5 
+        local pulse = (math.sin(timeVal) + 1) * 0.5
         
         crosshairLines[1].Line.Position = UDim2.new(0, math.floor(3 + pulse * 6), 0.5, -1)
         crosshairLines[2].Line.Position = UDim2.new(1, math.floor(-11 - pulse * 6), 0.5, -1)
@@ -651,39 +633,45 @@ RunService.RenderStepped:Connect(function()
 
         if activeTargetPart and activeTargetPart.Parent then
             local tModel = activeTargetPart:FindFirstAncestorOfClass("Model") or activeTargetPart.Parent
-            RageTextLabel.Text = "(vallkmult ragebot kill " .. tModel.Name .. ")"
+            RageTextLabel.Text = "(multvallk ragebot kill " .. tModel.Name .. ")"
         else
-            RageTextLabel.Text = "(vallkmult ragebot:in the void...^^)"
+            RageTextLabel.Text = "(multvallk ragebot:in the void...^^)"
         end
     end
 end)
 
--- ============================================================================
--- SECTION: Fast Melee & Cooldown 0 Loops
--- ============================================================================
+-- Fast Melee & Cooldown Override Loops
 task.spawn(function()
     while true do
-        task.wait(1.5)
-        if fastMeleeEnabled then
+        task.wait(0.1)
+        if fastMeleeEnabled or attackCooldownDisabled or projectileCooldownDisabled then
             pcall(function()
                 for _, v in pairs(getgc(true)) do
                     if type(v) == "table" then
-                        if rawget(v, "Cooldown") then v.Cooldown = 0 end
-                        if rawget(v, "AttackCooldown") then v.AttackCooldown = 0 end
-                        if rawget(v, "SwingCooldown") then v.SwingCooldown = 0 end
-                        if rawget(v, "HitCooldown") then v.HitCooldown = 0 end
-                        if rawget(v, "Delay") then v.Delay = 0 end
+                        if attackCooldownDisabled or fastMeleeEnabled then
+                            if rawget(v, "Cooldown") then rawset(v, "Cooldown", 0) end
+                            if rawget(v, "AttackCooldown") then rawset(v, "AttackCooldown", 0) end
+                            if rawget(v, "SwingCooldown") then rawset(v, "SwingCooldown", 0) end
+                            if rawget(v, "HitCooldown") then rawset(v, "HitCooldown", 0) end
+                            if rawget(v, "Delay") then rawset(v, "Delay", 0) end
+                        end
+                        if projectileCooldownDisabled then
+                            if rawget(v, "ProjectileCooldown") then rawset(v, "ProjectileCooldown", 0) end
+                            if rawget(v, "ThrowCooldown") then rawset(v, "ThrowCooldown", 0) end
+                        end
                     end
                 end
                 
-                local char = LocalPlayer.Character
-                if char then
-                    local hum = char:FindFirstChildOfClass("Humanoid")
-                    if hum then
-                        for _, track in pairs(hum:GetPlayingAnimationTracks()) do
-                            local animName = string.lower(track.Animation.AnimationId)
-                            if animName:find("sword") or animName:find("melee") or animName:find("knife") or animName:find("slash") or animName:find("punch") or animName:find("attack") then
-                                track:AdjustSpeed(8.0)
+                if fastMeleeEnabled then
+                    local char = LocalPlayer.Character
+                    if char then
+                        local hum = char:FindFirstChildOfClass("Humanoid")
+                        if hum then
+                            for _, track in pairs(hum:GetPlayingAnimationTracks()) do
+                                local animName = string.lower(track.Animation.AnimationId)
+                                if animName:find("sword") or animName:find("melee") or animName:find("knife") or animName:find("slash") or animName:find("punch") or animName:find("attack") then
+                                    track:AdjustSpeed(8.0)
+                                end
                             end
                         end
                     end
@@ -693,48 +681,7 @@ task.spawn(function()
     end
 end)
 
-local hoNyangOriginalWeaponValues = {}
-task.spawn(function()
-    while true do
-        task.wait(1)
-        if hoNyangNoCDEnabled then
-            pcall(function()
-                for _, v in pairs(getgc(true)) do
-                    if type(v) == "table" then
-                        if rawget(v, "ShootCooldown") and not hoNyangOriginalWeaponValues[v] then
-                            hoNyangOriginalWeaponValues[v] = {Key = "ShootCooldown", Val = v.ShootCooldown}
-                        end
-                        if rawget(v, "FireRate") and not hoNyangOriginalWeaponValues[v] then
-                            hoNyangOriginalWeaponValues[v] = {Key = "FireRate", Val = v.FireRate}
-                        end
-                        if rawget(v, "Cooldown") and not hoNyangOriginalWeaponValues[v] then
-                            hoNyangOriginalWeaponValues[v] = {Key = "Cooldown", Val = v.Cooldown}
-                        end
-
-                        if rawget(v, "ShootCooldown") then v.ShootCooldown = 0 end
-                        if rawget(v, "FireRate") then v.FireRate = 0 end
-                        if rawget(v, "Cooldown") then v.Cooldown = 0 end
-                    end
-                end
-            end)
-        else
-            if next(hoNyangOriginalWeaponValues) then
-                pcall(function()
-                    for tbl, info in pairs(hoNyangOriginalWeaponValues) do
-                        if type(tbl) == "table" and info and info.Key then
-                            tbl[info.Key] = info.Val
-                        end
-                    end
-                    table.clear(hoNyangOriginalWeaponValues)
-                end)
-            end
-        end
-    end
-end)
-
--- ============================================================================
--- SECTION: Gun Hooking & All Skins
--- ============================================================================
+-- Gun Hooking & Gun Attributes Fix
 pcall(function()
     if FighterController and FighterController.LocalFighter and FighterController.LocalFighter.GetMouseLocation then
         local LocalFighter = FighterController.LocalFighter
@@ -753,11 +700,14 @@ pcall(function()
     local CosmeticLibrary = require(ReplicatedStorage.Modules:WaitForChild("CosmeticLibrary", 5))
     local DataController = require(LocalPlayer.PlayerScripts.Controllers:WaitForChild("PlayerDataController", 5))
 
-    local originalOwns = CosmeticLibrary.OwnsCosmeticNormally
-    CosmeticLibrary.OwnsCosmeticNormally = function(self, inv, name, wpn) if skinChangerEnabled then return true end return originalOwns(self, inv, name, wpn) end
+    local originalOwns = CosmeticLibrary.OwnsCosmetic
+    CosmeticLibrary.OwnsCosmetic = function(self, inv, name, wpn)
+        if skinChangerEnabled then return true end
+        return originalOwns(self, inv, name, wpn)
+    end
+    CosmeticLibrary.OwnsCosmeticNormally = function(...) if skinChangerEnabled then return true end return false end
     CosmeticLibrary.OwnsCosmeticUniversally = function(...) if skinChangerEnabled then return true end return false end
     CosmeticLibrary.OwnsCosmeticForWeapon = function(...) if skinChangerEnabled then return true end return false end
-    CosmeticLibrary.OwnsCosmetic = function(...) if skinChangerEnabled then return true end return false end
 
     local originalGet = DataController.Get
     DataController.Get = function(self, key)
@@ -771,70 +721,62 @@ pcall(function()
     end
 end)
 
-local gcCache = {
-    ShootCooldown = setmetatable({}, { __mode = "k" }),
-    ShootRecoil = setmetatable({}, { __mode = "k" }),
-}
-
-local function override_gc_attribute(attribute, value)
-    local cache = gcCache[attribute]
-    if not cache then return end
-    for _, gcVal in pairs(getgc(true)) do
-        if type(gcVal) == "table" then
-            local rawV = rawget(gcVal, attribute)
-            if rawV ~= nil then
-                if cache[gcVal] == nil then cache[gcVal] = rawV end
-                gcVal[attribute] = value
-            end
-        end
-    end
-end
-
-local function restore_gc_attribute(attribute)
-    local cache = gcCache[attribute]
-    if not cache then return end
-    for gcVal, original in pairs(cache) do
-        if type(gcVal) == "table" then
-            pcall(function() gcVal[attribute] = original end)
-        end
-        cache[gcVal] = nil
-    end
-end
-
 RunService.Heartbeat:Connect(function()
-    if rapidFireEnabled then pcall(function() override_gc_attribute("ShootCooldown", 0) end)
-    else pcall(function() restore_gc_attribute("ShootCooldown") end) end
-
-    if noRecoilEnabled then pcall(function() override_gc_attribute("ShootRecoil", 0) end)
-    else pcall(function() restore_gc_attribute("ShootRecoil") end) end
-
     pcall(function()
-        local localFighter = FighterController and FighterController.LocalFighter
-        if localFighter and localFighter.Items then
-            for _, item in pairs(localFighter.Items) do
-                if bulletSpeedBoost then
-                    if item.BulletSpeed then
-                        if not item._origBulletSpeed then item._origBulletSpeed = item.BulletSpeed end
-                        item.BulletSpeed = item._origBulletSpeed * bulletSpeedMult
-                    end
-                else
-                    if item._origBulletSpeed then item.BulletSpeed = item._origBulletSpeed end
-                end
+        if not FighterController or not FighterController.LocalFighter then return end
+        local item = FighterController.LocalFighter.EquippedItem
+        if not item then return end
+
+        if noSpreadEnabled then
+            if rawget(item, "Spread") then rawset(item, "Spread", 0) end
+            if rawget(item, "CurrentSpread") then rawset(item, "CurrentSpread", 0) end
+            if item.Info and type(item.Info) == "table" then
+                if rawget(item.Info, "Spread") then rawset(item.Info, "Spread", 0) end
             end
+        end
+
+        if rapidFireEnabled or hoNyangNoCDEnabled then
+            if rawget(item, "ShootCooldown") then rawset(item, "ShootCooldown", 0) end
+            if rawget(item, "FireRate") then rawset(item, "FireRate", 0) end
+            if rawget(item, "Cooldown") then rawset(item, "Cooldown", 0) end
+            if item.Info and type(item.Info) == "table" then
+                if rawget(item.Info, "ShootCooldown") then rawset(item.Info, "ShootCooldown", 0) end
+                if rawget(item.Info, "FireRate") then rawset(item.Info, "FireRate", 0) end
+            end
+        end
+
+        if noRecoilEnabled then
+            if rawget(item, "Recoil") then rawset(item, "Recoil", 0) end
+            if rawget(item, "CameraRecoil") then rawset(item, "CameraRecoil", 0) end
+            if item.Info and type(item.Info) == "table" then
+                if rawget(item.Info, "Recoil") then rawset(item.Info, "Recoil", 0) end
+            end
+        end
+
+        if noMuzzleFlashEnabled then
+            if rawget(item, "MuzzleFlash") then rawset(item, "MuzzleFlash", false) end
+        end
+
+        if bulletSpeedBoost then
+            if item.BulletSpeed then
+                if not item._origBulletSpeed then item._origBulletSpeed = item.BulletSpeed end
+                item.BulletSpeed = item._origBulletSpeed * bulletSpeedMult
+            end
+        else
+            if item._origBulletSpeed then item.BulletSpeed = item._origBulletSpeed end
         end
     end)
 end)
 
--- ============================================================================
--- SECTION: Render / Visuals & Skybox
--- ============================================================================
+-- Render / Visuals & Skybox Presets
 local SEGMENT_COUNT = 32
 local circleSegments = {}
+
 local circleFill = Drawing.new("Circle")
 circleFill.Thickness = 0
 circleFill.NumSides = 64
 circleFill.Filled = true
-circleFill.Transparency = 0.75
+circleFill.Transparency = 1.0
 circleFill.Visible = false
 
 for i = 1, SEGMENT_COUNT do
@@ -845,25 +787,20 @@ for i = 1, SEGMENT_COUNT do
     table.insert(circleSegments, line)
 end
 
-local function getGradientColor(factor)
-    local blue = Color3.fromRGB(30, 100, 255)
-    local lightBlue = Color3.fromRGB(120, 180, 255)
-    local lightPink = Color3.fromRGB(240, 150, 220)
-    local pink = Color3.fromRGB(255, 60, 160)
-
-    if factor < 0.25 then return blue:Lerp(lightBlue, factor * 4)
-    elseif factor < 0.5 then return lightBlue:Lerp(lightPink, (factor - 0.25) * 4)
-    elseif factor < 0.75 then return lightPink:Lerp(pink, (factor - 0.5) * 4)
-    else return pink:Lerp(blue, (factor - 0.75) * 4) end
+local function getRainbowColor(hueOffset)
+    local hue = (tick() * 0.5 + hueOffset) % 1
+    return Color3.fromHSV(hue, 1, 1)
 end
 
 local skyPresets = {
     ["Dark Sky"] = { SkyboxUp = "rbxassetid://570555929", SkyboxRt = "rbxassetid://570555882", SkyboxDn = "rbxassetid://570555964", SkyboxFt = "rbxassetid://570555800", SkyboxLf = "rbxassetid://570555840", SkyboxBk = "rbxassetid://570555736" },
-    ["Vaporwave"] = { SkyboxUp = "rbxassetid://1417494643", SkyboxRt = "rbxassetid://1417494499", SkyboxLf = "rbxassetid://1417494402", SkyboxFt = "rbxassetid://1417494253", SkyboxBk = "rbxassetid://1417494030", SkyboxDn = "rbxassetid://1417494146" }
+    ["Vaporwave"] = { SkyboxUp = "rbxassetid://1417494643", SkyboxRt = "rbxassetid://1417494499", SkyboxLf = "rbxassetid://1417494402", SkyboxFt = "rbxassetid://1417494253", SkyboxBk = "rbxassetid://1417494030", SkyboxDn = "rbxassetid://1417494146" },
+    ["Lake Sky"] = { SkyboxRt = "rbxassetid://6823531746", SkyboxUp = "rbxassetid://6823528533", SunTextureId = "rbxassetid://5392574622", SkyboxDn = "rbxassetid://6823525702", SkyboxFt = "rbxassetid://6823482923", SkyboxLf = "rbxassetid://6823530023", SkyboxBk = "rbxassetid://6823523318" },
+    ["Black Mesa"] = { SkyboxUp = "rbxassetid://9569598752", SkyboxRt = "rbxassetid://9569601267", SkyboxDn = "rbxassetid://9569613307", SkyboxFt = "rbxassetid://9569611418", SkyboxLf = "rbxassetid://9569608166", SkyboxBk = "rbxassetid://9569742122" }
 }
 
 local function applySkybox()
-    local customSky = Lighting:FindFirstChild("vallkmultCustomSky")
+    local customSky = Lighting:FindFirstChild("multvallkCustomSky")
     if not customSkyboxEnabled then
         if customSky then customSky:Destroy() end
         return
@@ -871,7 +808,7 @@ local function applySkybox()
     local skyData = skyPresets[skyboxTheme] or skyPresets["Vaporwave"]
     if not customSky then
         customSky = Instance.new("Sky")
-        customSky.Name = "vallkmultCustomSky"
+        customSky.Name = "multvallkCustomSky"
         customSky.Parent = Lighting
     end
     for prop, val in pairs(skyData) do pcall(function() customSky[prop] = val end) end
@@ -888,7 +825,7 @@ RunService.RenderStepped:Connect(function()
 
         circleFill.Position = centerPos
         circleFill.Radius = radius
-        circleFill.Color = getGradientColor((currentRot / (math.pi * 2)) % 1)
+        circleFill.Color = getRainbowColor(0)
         circleFill.Visible = true
 
         for i = 1, SEGMENT_COUNT do
@@ -898,12 +835,40 @@ RunService.RenderStepped:Connect(function()
 
             line.From = centerPos + Vector2.new(math.cos(angle1) * radius, math.sin(angle1) * radius)
             line.To = centerPos + Vector2.new(math.cos(angle2) * radius, math.sin(angle2) * radius)
-            line.Color = getGradientColor((i - 1) / SEGMENT_COUNT)
+            line.Color = getRainbowColor((i - 1) / SEGMENT_COUNT)
             line.Visible = true
         end
     else
         circleFill.Visible = false
         for _, line in ipairs(circleSegments) do line.Visible = false end
+    end
+
+    if aimbotEnabled and myChar then
+        local closestTarget = nil
+        local closestDist = math.huge
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and not is_teammate(player) and not get_character_immune(player) and not is_reflecting_or_parrying(player) then
+                local hitPart = player.Character and player.Character:FindFirstChild(aimbotHitPart)
+                if hitPart then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(hitPart.Position)
+                    if onScreen then
+                        local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                        if screenDist <= aimbotFovRadius and screenDist < closestDist then
+                            if (not aimbotWallCheck) or has_line_of_sight(hitPart, myChar) then
+                                closestDist = screenDist
+                                closestTarget = hitPart
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        if closestTarget then
+            local targetPos = Camera:WorldToScreenPoint(closestTarget.Position)
+            local currentPos = UserInputService:GetMouseLocation()
+            local moveVector = (Vector2.new(targetPos.X, targetPos.Y) - currentPos) / math.max(1, aimbotSmoothness)
+            mousemoverel(moveVector.X, moveVector.Y)
+        end
     end
 
     silentAimTarget = nil
@@ -971,7 +936,7 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ============================================================================
--- SECTION: User Interface (Mobile Optimized & Draggable)
+-- SECTION: User Interface (Dynamic Mobile Scaling Supported)
 -- ============================================================================
 do
     local ACC = Color3.fromRGB(80, 150, 255)
@@ -980,29 +945,31 @@ do
     local TAB_BG = Color3.fromRGB(14, 16, 20)
 
     local gui = Instance.new("ScreenGui")
-    gui.Name = "vallkmultIntegratedUI"
+    gui.Name = "multvallkIntegratedUI"
     gui.ResetOnSpawn = false
     gui.IgnoreGuiInset = true
     gui.DisplayOrder = 100000
     pcall(function() if gethui then gui.Parent = gethui() else gui.Parent = CoreGui end end)
     if not gui.Parent then gui.Parent = PlayerGui end
 
+    -- Mobile & PC Toggle Button
     local toggleMenuBtn = Instance.new("TextButton")
-    toggleMenuBtn.Size = UDim2.fromOffset(80, 32)
-    toggleMenuBtn.Position = UDim2.new(1, -90, 0, 10)
+    toggleMenuBtn.Size = UDim2.fromOffset(130, 36)
+    toggleMenuBtn.Position = UDim2.new(1, -140, 0, 15)
     toggleMenuBtn.BackgroundColor3 = BG
     toggleMenuBtn.TextColor3 = ACC
     toggleMenuBtn.Font = Enum.Font.Code
-    toggleMenuBtn.TextSize = 11
-    toggleMenuBtn.Text = "vallkmult"
+    toggleMenuBtn.TextSize = 12
+    toggleMenuBtn.Text = "multvallk Premium"
     toggleMenuBtn.BorderSizePixel = 0
     toggleMenuBtn.ZIndex = 999999
     toggleMenuBtn.Parent = gui
     Instance.new("UICorner", toggleMenuBtn).CornerRadius = UDim.new(0, 6)
 
+    -- Key UI Frame
     local keyFrame = Instance.new("Frame")
-    keyFrame.Size = UDim2.fromOffset(280, 150)
-    keyFrame.Position = UDim2.new(0.5, -140, 0.5, -75)
+    keyFrame.Size = UDim2.fromOffset(270, 140)
+    keyFrame.Position = UDim2.new(0.5, -135, 0.5, -70)
     keyFrame.BackgroundColor3 = BG
     keyFrame.BorderSizePixel = 0
     keyFrame.Visible = not keyPassed
@@ -1010,19 +977,19 @@ do
     Instance.new("UICorner", keyFrame).CornerRadius = UDim.new(0, 8)
 
     local keyTitle = Instance.new("TextLabel")
-    keyTitle.Size = UDim2.new(1, 0, 0, 32)
+    keyTitle.Size = UDim2.new(1, 0, 0, 30)
     keyTitle.BackgroundTransparency = 1
-    keyTitle.Text = "vallkmult - Key System"
+    keyTitle.Text = "multvallk Premium v3"
     keyTitle.TextColor3 = ACC
     keyTitle.Font = Enum.Font.Code
     keyTitle.TextSize = 12
     keyTitle.Parent = keyFrame
 
     local keyBox = Instance.new("TextBox")
-    keyBox.Size = UDim2.new(0.85, 0, 0, 32)
+    keyBox.Size = UDim2.new(0.85, 0, 0, 30)
     keyBox.Position = UDim2.new(0.075, 0, 0.32, 0)
     keyBox.BackgroundColor3 = PANEL
-    keyBox.PlaceholderText = "Enter Master Key..."
+    keyBox.PlaceholderText = "Enter Key..."
     keyBox.Text = ""
     keyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
     keyBox.Font = Enum.Font.Code
@@ -1031,7 +998,7 @@ do
     Instance.new("UICorner", keyBox).CornerRadius = UDim.new(0, 4)
 
     local submitBtn = Instance.new("TextButton")
-    submitBtn.Size = UDim2.new(0.85, 0, 0, 32)
+    submitBtn.Size = UDim2.new(0.85, 0, 0, 30)
     submitBtn.Position = UDim2.new(0.075, 0, 0.62, 0)
     submitBtn.BackgroundColor3 = ACC
     submitBtn.Text = "Submit Key"
@@ -1041,9 +1008,10 @@ do
     submitBtn.Parent = keyFrame
     Instance.new("UICorner", submitBtn).CornerRadius = UDim.new(0, 4)
 
+    -- Dynamic UI Main Frame (Default Big Size: 525x631, Mobile Size: 320x240)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.fromOffset(360, 260)
-    frame.Position = UDim2.new(0.5, -180, 0.5, -130)
+    frame.Size = UDim2.fromOffset(525, 631)
+    frame.Position = UDim2.new(0.5, -262, 0.5, -315)
     frame.BackgroundColor3 = BG
     frame.BorderSizePixel = 0
     frame.Visible = keyPassed
@@ -1051,33 +1019,48 @@ do
     Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
 
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -12, 0, 26)
+    title.Size = UDim2.new(1, -12, 0, 24)
     title.Position = UDim2.new(0, 8, 0, 4)
     title.BackgroundTransparency = 1
-    title.Text = "multvallk Premium"
+    title.Text = "multvallk Premium v3"
     title.TextColor3 = ACC
     title.Font = Enum.Font.Code
-    title.TextSize = 12
+    title.TextSize = 14
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = frame
 
     local tabHeader = Instance.new("Frame")
-    tabHeader.Size = UDim2.new(1, -16, 0, 26)
-    tabHeader.Position = UDim2.new(0, 8, 0, 30)
+    tabHeader.Size = UDim2.new(1, -16, 0, 28)
+    tabHeader.Position = UDim2.new(0, 8, 0, 28)
     tabHeader.BackgroundTransparency = 1
     tabHeader.Parent = frame
 
     local tabLay = Instance.new("UIListLayout")
     tabLay.Parent = tabHeader
     tabLay.FillDirection = Enum.FillDirection.Horizontal
-    tabLay.Padding = UDim.new(0, 3)
+    tabLay.Padding = UDim.new(0, 4)
 
     local content = Instance.new("Frame")
-    content.Size = UDim2.new(1, -16, 1, -66)
-    content.Position = UDim2.new(0, 8, 0, 60)
+    content.Size = UDim2.new(1, -16, 1, -64)
+    content.Position = UDim2.new(0, 8, 0, 58)
     content.BackgroundColor3 = PANEL
     content.Parent = frame
     Instance.new("UICorner", content).CornerRadius = UDim.new(0, 4)
+
+    -- Update Size Helper Function
+    local function updateUIScale()
+        if mobileOnEnabled then
+            -- Mobile Size (Small UI)
+            frame.Size = UDim2.fromOffset(320, 240)
+            frame.Position = UDim2.new(0.5, -160, 0.5, -120)
+            title.TextSize = 12
+        else
+            -- Original Default Size (Big PC Size)
+            frame.Size = UDim2.fromOffset(525, 631)
+            frame.Position = UDim2.new(0.5, -262, 0.5, -315)
+            title.TextSize = 14
+        end
+    end
 
     local pages = {}
     local function makePage(name)
@@ -1085,14 +1068,14 @@ do
         scroll.Size = UDim2.new(1, -8, 1, -8)
         scroll.Position = UDim2.new(0, 4, 0, 4)
         scroll.BackgroundTransparency = 1
-        scroll.ScrollBarThickness = 2
+        scroll.ScrollBarThickness = 4
         scroll.ScrollBarImageColor3 = ACC
         scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
         scroll.Visible = false
         scroll.Parent = content
         local lay = Instance.new("UIListLayout")
         lay.Parent = scroll
-        lay.Padding = UDim.new(0, 3)
+        lay.Padding = UDim.new(0, 4)
         pages[name] = scroll
         return scroll
     end
@@ -1115,7 +1098,7 @@ do
         b.Text = name
         b.TextColor3 = Color3.fromRGB(150, 155, 160)
         b.Font = Enum.Font.Code
-        b.TextSize = 9
+        b.TextSize = 10
         b.Parent = tabHeader
         Instance.new("UICorner", b).CornerRadius = UDim.new(0, 3)
         tabBtns[name] = b
@@ -1125,11 +1108,11 @@ do
     local toggleUpdaters = {}
     local function toggle(page, name, getv, setv)
         local b = Instance.new("TextButton")
-        b.Size = UDim2.new(1, -4, 0, 24)
+        b.Size = UDim2.new(1, -4, 0, 26)
         b.BackgroundColor3 = Color3.fromRGB(30, 34, 44)
         b.BorderSizePixel = 0
         b.Font = Enum.Font.Code
-        b.TextSize = 10
+        b.TextSize = 11
         b.TextXAlignment = Enum.TextXAlignment.Left
         b.Parent = page
         Instance.new("UICorner", b).CornerRadius = UDim.new(0, 3)
@@ -1149,7 +1132,7 @@ do
 
     local function addSlider(page, name, min, max, getv, setv)
         local f = Instance.new("Frame")
-        f.Size = UDim2.new(1, -4, 0, 36)
+        f.Size = UDim2.new(1, -4, 0, 38)
         f.BackgroundColor3 = Color3.fromRGB(30, 34, 44)
         f.BorderSizePixel = 0
         f.Parent = page
@@ -1212,32 +1195,46 @@ do
     addTab("Misc")
     addTab("UI Set")
 
-    -- Main Tab
+    -- Main Tab (Mobile ON Option Placed at the Top)
+    toggle(pages["Main"], "Mobile ON (Small UI Mode)", function() return mobileOnEnabled end, function(v) 
+        mobileOnEnabled = v
+        updateUIScale()
+    end)
+    toggle(pages["Main"], "Aimbot (Smooth Camera)", function() return aimbotEnabled end, function(v) aimbotEnabled = v end)
+    addSlider(pages["Main"], "Aimbot Smoothness", 1, 20, function() return aimbotSmoothness end, function(v) aimbotSmoothness = v end)
+    addSlider(pages["Main"], "Aimbot FOV", 10, 500, function() return aimbotFovRadius end, function(v) aimbotFovRadius = v end)
+    toggle(pages["Main"], "Aimbot Wall Check", function() return aimbotWallCheck end, function(v) aimbotWallCheck = v end)
+    
     toggle(pages["Main"], "Silent Aim", function() return silentAimEnabled end, function(v) silentAimEnabled = v end)
-    toggle(pages["Main"], "Aimbot", function() return aimbotEnabled end, function(v) aimbotEnabled = v end)
+    addSlider(pages["Main"], "Silent FOV", 10, 1000, function() return silentAimFovRadius end, function(v) silentAimFovRadius = v end)
+    toggle(pages["Main"], "Silent Wall Check", function() return silentWallCheck end, function(v) silentWallCheck = v end)
+    
     toggle(pages["Main"], "Fast Melee", function() return fastMeleeEnabled end, function(v) fastMeleeEnabled = v end)
-    toggle(pages["Main"], "Bullet Speed 0 (CD)", function() return hoNyangNoCDEnabled end, function(v) hoNyangNoCDEnabled = v end)
+    toggle(pages["Main"], "No Cooldown (0 Delay)", function() return hoNyangNoCDEnabled end, function(v) hoNyangNoCDEnabled = v end)
     toggle(pages["Main"], "No Recoil", function() return noRecoilEnabled end, function(v) noRecoilEnabled = v end)
     toggle(pages["Main"], "No Spread", function() return noSpreadEnabled end, function(v) noSpreadEnabled = v end)
+    toggle(pages["Main"], "No Muzzle Flash", function() return noMuzzleFlashEnabled end, function(v) noMuzzleFlashEnabled = v end)
     toggle(pages["Main"], "Rapid Fire", function() return rapidFireEnabled end, function(v) rapidFireEnabled = v end)
+    toggle(pages["Main"], "Attack Cooldown Disable", function() return attackCooldownDisabled end, function(v) attackCooldownDisabled = v end)
+    toggle(pages["Main"], "Projectile Cooldown Disable", function() return projectileCooldownDisabled end, function(v) projectileCooldownDisabled = v end)
 
     -- Ragebot Tab
-    toggle(pages["Ragebot"], "[File Engine] Advanced Ragebot", function() return ragebotOrKillAura end, function(v) 
+    toggle(pages["Ragebot"], "[Integrated Engine] Advanced Ragebot", function() return ragebotOrKillAura end, function(v) 
         ragebotOrKillAura = v 
         if v then hoNyangRageEnabled = false end
     end)
-    toggle(pages["Ragebot"], "[File Engine] Auto UseItem Teleport", function() return hoNyangRageEnabled end, function(v) 
+    toggle(pages["Ragebot"], "[Integrated Engine] Auto UseItem Teleport", function() return hoNyangRageEnabled end, function(v) 
         hoNyangRageEnabled = v 
         if v then ragebotOrKillAura = false end
     end)
 
-    toggle(pages["Ragebot"], "Orbit Feature (Independent)", function() return orbitEnabled end, function(v) orbitEnabled = v end)
+    toggle(pages["Ragebot"], "Orbit Feature", function() return orbitEnabled end, function(v) orbitEnabled = v end)
     addSlider(pages["Ragebot"], "Orbit Range", 50, 50000000, function() return orbitRange end, function(v) orbitRange = v end)
-    addSlider(pages["Ragebot"], "Orbit Delay (Speed)", 0.01, 1, function() return orbitDelay end, function(v) orbitDelay = v end)
+    addSlider(pages["Ragebot"], "Orbit Delay", 0.01, 1, function() return orbitDelay end, function(v) orbitDelay = v end)
 
-    toggle(pages["Ragebot"], "Void Spam Feature (Independent)", function() return voidSpamEnabled end, function(v) voidSpamEnabled = v end)
+    toggle(pages["Ragebot"], "Void Spam Feature (3D Y-Axis)", function() return voidSpamEnabled end, function(v) voidSpamEnabled = v end)
     addSlider(pages["Ragebot"], "Void Spam Range", 50, 50000000, function() return voidSpamRange end, function(v) voidSpamRange = v end)
-    addSlider(pages["Ragebot"], "Void Spam Delay (Speed)", 0.01, 1, function() return voidSpamDelay end, function(v) voidSpamDelay = v end)
+    addSlider(pages["Ragebot"], "Void Spam Delay", 0.01, 1, function() return voidSpamDelay end, function(v) voidSpamDelay = v end)
 
     -- FFMode Tab
     toggle(pages["FFMode"], "Enable FFMode", function() return ffModeEnabled end, function(v) ffModeEnabled = v end)
@@ -1251,11 +1248,12 @@ do
     toggle(pages["ESP"], "ESP Health", function() return espHealthEnabled end, function(v) espHealthEnabled = v end)
     toggle(pages["ESP"], "Gun Tracer Line", function() return gunTracerEnabled end, function(v) gunTracerEnabled = v end)
 
-    -- Misc Tab
-    toggle(pages["Misc"], "Unlock All Skins", function() return skinChangerEnabled end, function(v) skinChangerEnabled = v end)
+    -- Misc Tab (Mobile Fly Option Included)
+    toggle(pages["Misc"], "Mobile Fly (Touch Move)", function() return mobileFlyEnabled end, function(v) mobileFlyEnabled = v end)
+    toggle(pages["Misc"], "PC Fly (WASD)", function() return pcFlyEnabled end, function(v) pcFlyEnabled = v end)
+    toggle(pages["Misc"], "Unlock All Skins (File Integrated)", function() return skinChangerEnabled end, function(v) skinChangerEnabled = v end)
     toggle(pages["Misc"], "Bullet Speed Boost (100k)", function() return bulletSpeedBoost end, function(v) bulletSpeedBoost = v end)
     toggle(pages["Misc"], "Rapid Speed (Speed Hack)", function() return rapidSpeedEnabled end, function(v) rapidSpeedEnabled = v end)
-    toggle(pages["Misc"], "PC Fly (WASD)", function() return pcFlyEnabled end, function(v) pcFlyEnabled = v end)
     toggle(pages["Misc"], "Noclip", function() return noclipEnabled end, function(v) noclipEnabled = v end)
 
     -- UI Set Tab
@@ -1263,9 +1261,12 @@ do
     toggle(pages["UI Set"], "Custom Skybox", function() return customSkyboxEnabled end, function(v) customSkyboxEnabled = v; applySkybox() end)
     toggle(pages["UI Set"], "Sky: Dark Sky", function() return skyboxTheme == "Dark Sky" end, function() skyboxTheme = "Dark Sky"; applySkybox() end)
     toggle(pages["UI Set"], "Sky: Vaporwave", function() return skyboxTheme == "Vaporwave" end, function() skyboxTheme = "Vaporwave"; applySkybox() end)
+    toggle(pages["UI Set"], "Sky: Lake Sky", function() return skyboxTheme == "Lake Sky" end, function() skyboxTheme = "Lake Sky"; applySkybox() end)
+    toggle(pages["UI Set"], "Sky: Black Mesa", function() return skyboxTheme == "Black Mesa" end, function() skyboxTheme = "Black Mesa"; applySkybox() end)
 
     selectTab("Main")
 
+    -- Touch & Mouse Universal Drag Functionality
     local function makeDraggable(topBar, targetFrame)
         local dragging, dragInput, dragStart, startPos
         topBar.InputBegan:Connect(function(input)
@@ -1274,9 +1275,7 @@ do
                 dragStart = input.Position
                 startPos = targetFrame.Position
                 input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then
-                        dragging = false
-                    end
+                    if input.UserInputState == Enum.UserInputState.End then dragging = false end
                 end)
             end
         end)
@@ -1300,28 +1299,6 @@ do
         if keyBox.Text == validKey then
             keyPassed = true
             keyFrame.Visible = false
-            
-            pcall(function()
-                local wmGui = Instance.new("ScreenGui", gui)
-                wmGui.Name = "multvallkWatermark"
-                wmGui.ResetOnSpawn = false
-                
-                local wmLabel = Instance.new("TextLabel", wmGui)
-                wmLabel.Size = UDim2.new(0, 400, 0, 60)
-                wmLabel.AnchorPoint = Vector2.new(0.5, 0.5)
-                wmLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
-                wmLabel.BackgroundTransparency = 1
-                wmLabel.Text = "multvallk."
-                wmLabel.TextColor3 = Color3.fromRGB(0, 120, 255)
-                wmLabel.Font = Enum.Font.GothamBold
-                wmLabel.TextSize = 36
-                wmLabel.TextStrokeTransparency = 0.3
-                
-                task.delay(3, function()
-                    pcall(function() wmGui:Destroy() end)
-                end)
-            end)
-
             frame.Visible = true
         else
             keyBox.Text = ""
@@ -1330,9 +1307,7 @@ do
     end)
 
     toggleMenuBtn.MouseButton1Click:Connect(function()
-        if keyPassed then
-            frame.Visible = not frame.Visible
-        end
+        if keyPassed then frame.Visible = not frame.Visible end
     end)
 
     UserInputService.InputBegan:Connect(function(input, g)
@@ -1343,4 +1318,4 @@ do
     end)
 end
 
-print("[vallkmult File Ragebot Edition] Successfully Loaded with FFMode (Team Check & Baiting) Integrated.")
+print("[multvallk Premium v3] Loaded Successfully on Dynamic Dual Engine.")
