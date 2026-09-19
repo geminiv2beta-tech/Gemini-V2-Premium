@@ -1,6 +1,6 @@
 -- ============================================================================
 -- multvallk Premium v3 - Fully Integrated Dual Engine (Valk UI Engine)
--- Mobile UI Auto-Scaling & Ragebot Integrated Edition
+-- Mobile UI Auto-Scaling & Ragebot Integrated Edition (No Key System)
 -- ============================================================================
 
 local Players = game:GetService("Players")
@@ -81,29 +81,31 @@ for _, player in ipairs(Players:GetPlayers()) do
 end
 
 -- ============================================================================
--- SECTION: Key System & Settings Variables
+-- SECTION: Settings Variables (Key System Completely Removed)
 -- ============================================================================
-local validKey = "Paid_masterkey-vallkmult"
-local keyPassed = false
-
 local mobileOnEnabled = false
 
 -- Aimbot & Silent Aim
 local aimbotEnabled = false
 local aimbotSmoothness = 5
 local aimbotFovRadius = 100
-local aimbotHitPart = "head"
+local aimbotHitPart = "head" -- "head", "humanoidrootpart", "torso"
 local aimbotWallCheck = false
+local aimbotDrawFov = false
+local aimbotScopeLook = false
 
 local silentAimEnabled = false
-local silentAimHitPart = "head"
+local silentAimHitPart = "head" -- "head", "humanoidrootpart", "torso"
 local silentAimFovRadius = 300
 local silentWallCheck = false
+local silentAimDrawFov = false
 local silentAimTarget = nil
 
--- Ragebot Toggle (Single Engine Integration)
+-- Ragebot Toggle & Sub-features (Hide & Attack Added)
 local ragebotOrKillAura = false
 local ragebotHeightOffset = 3
+local ragebotHideDelay = 0.01   -- Hide (0.01s ~ 1.00s)
+local ragebotAttackDelay = 0.01 -- Attack (0.01s ~ 1.00s)
 
 -- Vallk Features & Cooldowns
 local fastMeleeEnabled = false
@@ -154,6 +156,21 @@ local skyboxTheme = "Vaporwave"
 local circleCrosshairEnabled = false
 local circleCrosshairSize = 60
 local circleRotationSpeed = 4
+
+-- Drawing FOV Circles
+local aimbotFovCircle = Drawing.new("Circle")
+aimbotFovCircle.Thickness = 1.5
+aimbotFovCircle.Color = Color3.fromRGB(0, 255, 255)
+aimbotFovCircle.Filled = false
+aimbotFovCircle.Transparency = 1
+aimbotFovCircle.Visible = false
+
+local silentFovCircle = Drawing.new("Circle")
+silentFovCircle.Thickness = 1.5
+silentFovCircle.Color = Color3.fromRGB(255, 0, 100)
+silentFovCircle.Filled = false
+silentFovCircle.Transparency = 1
+silentFovCircle.Visible = false
 
 -- Controller Modules
 local FighterController, SpectateController, CameraController, GunModule, UtilityModule, EnumLibrary
@@ -247,6 +264,21 @@ local function is_reflecting_or_parrying(player)
     return false
 end
 
+-- 히트박스 선택 매핑 함수
+local function resolve_target_part(char, selectedPartName)
+    if not char then return nil end
+    local lowerName = string.lower(selectedPartName or "head")
+    
+    if lowerName == "head" then
+        return char:FindFirstChild("Head") or char:FindFirstChild("HitboxHead") or char:FindFirstChild("HitboxHeadSmall")
+    elseif lowerName == "humanoidrootpart" then
+        return char:FindFirstChild("HumanoidRootPart")
+    elseif lowerName == "torso" then
+        return char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso") or char:FindFirstChild("LowerTorso") or char:FindFirstChild("HumanoidRootPart")
+    end
+    return char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+end
+
 local function get_character_root(char)
     if not char then return nil end
     return char:FindFirstChild("HitboxHead")
@@ -292,8 +324,22 @@ local function has_line_of_sight(targetPart, myChar)
     return model == targetPart:FindFirstAncestorOfClass("Model")
 end
 
+local function is_player_scoping()
+    local char = LocalPlayer.Character
+    if not char then return false end
+    local isScoping = LocalPlayer:GetAttribute("IsScoping") or LocalPlayer:GetAttribute("Zoomed") or LocalPlayer:GetAttribute("Aiming")
+    if isScoping == true then return true end
+    
+    local tool = char:FindFirstChildOfClass("Tool")
+    if tool then
+        local scopeVal = tool:GetAttribute("Zoomed") or tool:GetAttribute("Aiming")
+        if scopeVal == true then return true end
+    end
+    return false
+end
+
 -- ============================================================================
--- FILE INTEGRATED RAGEBOT ENGINE
+-- FILE INTEGRATED RAGEBOT ENGINE (WITH HIDE & ATTACK TIMERS)
 -- ============================================================================
 local activeTargetPart = nil
 local originalCFrame = nil
@@ -335,6 +381,7 @@ local function createTeleportPacket(originPos, targetPart)
     }
 end
 
+-- Ragebot Attack Loop (Attack Delay Controlled)
 task.spawn(function()
     local useItemRemote = ReplicatedStorage:WaitForChild("Remotes", 5)
         and ReplicatedStorage.Remotes:WaitForChild("Replication", 5)
@@ -357,30 +404,32 @@ task.spawn(function()
         return cachedObjectID
     end
 
-    RunService.Heartbeat:Connect(function()
-        if not ragebotOrKillAura then return end
-        if not activeTargetPart or not activeTargetPart.Parent then return end
-
-        local targetChar = activeTargetPart:FindFirstAncestorOfClass("Model") or activeTargetPart.Parent
-        local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
-        if not targetPlayer or targetPlayer == LocalPlayer or is_teammate(targetPlayer) then return end
-        if get_character_immune(targetPlayer) or is_reflecting_or_parrying(targetPlayer) then return end
-
-        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not hrp then return end
-
-        local objID = getEquippedObjectID()
-        if objID then cachedObjectID = objID else objID = cachedObjectID end
-        if not objID or not useItemRemote or not startShootingEnum then return end
-
-        local shootOrigin = activeTargetPart.Position + Vector3.new(0, 0.1, 0)
-        local packet = createTeleportPacket(shootOrigin, activeTargetPart)
-        pcall(function()
-            useItemRemote:FireServer(objID, startShootingEnum, packet, nil)
-        end)
-    end)
+    while true do
+        task.wait(math.clamp(ragebotAttackDelay, 0.01, 1.0))
+        if ragebotOrKillAura and activeTargetPart and activeTargetPart.Parent then
+            local targetChar = activeTargetPart:FindFirstAncestorOfClass("Model") or activeTargetPart.Parent
+            local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
+            if targetPlayer and targetPlayer ~= LocalPlayer and not is_teammate(targetPlayer) then
+                if not get_character_immune(targetPlayer) and not is_reflecting_or_parrying(targetPlayer) then
+                    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        local objID = getEquippedObjectID()
+                        if objID then cachedObjectID = objID else objID = cachedObjectID end
+                        if objID and useItemRemote and startShootingEnum then
+                            local shootOrigin = activeTargetPart.Position + Vector3.new(0, 0.1, 0)
+                            local packet = createTeleportPacket(shootOrigin, activeTargetPart)
+                            pcall(function()
+                                useItemRemote:FireServer(objID, startShootingEnum, packet, nil)
+                            end)
+                        end
+                    end
+                end
+            end
+        end
+    end
 end)
 
+-- Ragebot Hide Position Sync Loop (Hide Delay Controlled)
 RunService.Heartbeat:Connect(function()
     pcall(function()
         local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -402,10 +451,10 @@ RunService.Heartbeat:Connect(function()
     end)
 end)
 
--- Target Finder Loop
+-- Target Finder Loop (Hide Interval Supported)
 task.spawn(function()
     while true do
-        task.wait(0.01)
+        task.wait(math.clamp(ragebotHideDelay, 0.01, 1.0))
         if ragebotOrKillAura then
             local myPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position or Vector3.zero
             local closestPlayer = nil
@@ -825,6 +874,23 @@ RunService.RenderStepped:Connect(function()
     local myChar = LocalPlayer.Character
     local mousePos = UserInputService:GetMouseLocation()
 
+    -- FOV Drawing UI 연동
+    if aimbotDrawFov and aimbotEnabled then
+        aimbotFovCircle.Position = mousePos
+        aimbotFovCircle.Radius = aimbotFovRadius
+        aimbotFovCircle.Visible = true
+    else
+        aimbotFovCircle.Visible = false
+    end
+
+    if silentAimDrawFov and silentAimEnabled then
+        silentFovCircle.Position = mousePos
+        silentFovCircle.Radius = silentAimFovRadius
+        silentFovCircle.Visible = true
+    else
+        silentFovCircle.Visible = false
+    end
+
     if circleCrosshairEnabled then
         local centerPos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
         local radius = math.clamp(circleCrosshairSize, 1, 600)
@@ -850,12 +916,15 @@ RunService.RenderStepped:Connect(function()
         for _, line in ipairs(circleSegments) do line.Visible = false end
     end
 
-    if aimbotEnabled and myChar then
+    -- Scope Look 체크
+    local canAimByScope = not aimbotScopeLook or is_player_scoping()
+
+    if aimbotEnabled and myChar and canAimByScope then
         local closestTarget = nil
         local closestDist = math.huge
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and not is_teammate(player) and not get_character_immune(player) and not is_reflecting_or_parrying(player) then
-                local hitPart = player.Character and player.Character:FindFirstChild(aimbotHitPart)
+                local hitPart = resolve_target_part(player.Character, aimbotHitPart)
                 if hitPart then
                     local screenPos, onScreen = Camera:WorldToViewportPoint(hitPart.Position)
                     if onScreen then
@@ -883,7 +952,7 @@ RunService.RenderStepped:Connect(function()
         local closestDist = math.huge
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and not is_teammate(player) and not get_character_immune(player) and not is_reflecting_or_parrying(player) then
-                local hitPart = get_character_root(player.Character)
+                local hitPart = ragebotOrKillAura and get_character_root(player.Character) or resolve_target_part(player.Character, silentAimHitPart)
                 if hitPart then
                     local screenPos, onScreen = Camera:WorldToViewportPoint(hitPart.Position)
                     if onScreen then
@@ -979,7 +1048,7 @@ MainGui.ResetOnSpawn = false
 pcall(function() if gethui then MainGui.Parent = gethui() else MainGui.Parent = CoreGui end end)
 if not MainGui.Parent then MainGui.Parent = PlayerGui end
 
--- HALMU VALK Main Frame Construction (모바일 가독성을 위해 크기를 살짝 줄이고 좌측 여백/비율 최적화)
+-- HALMU VALK Main Frame Construction
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Parent = MainGui
@@ -988,7 +1057,7 @@ MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BackgroundTransparency = 0.15
 MainFrame.BorderSizePixel = 0
 MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-MainFrame.Size = UDim2.new(0, 480, 0, 560) -- 크기 최적화 축소
+MainFrame.Size = UDim2.new(0, 480, 0, 560)
 MainFrame.Visible = true
 MainFrame.ClipsDescendants = true
 
@@ -1014,7 +1083,7 @@ TopBarTitle.BackgroundTransparency = 1
 TopBarTitle.Position = UDim2.new(0, 7, 0, 5)
 TopBarTitle.Size = UDim2.new(0, 0, 0, 16)
 TopBarTitle.Font = Enum.Font.Code
-TopBarTitle.Text = "multvallk Premium v3 (Optimized UI)"
+TopBarTitle.Text = "multvallk Premium v3 (No Key)"
 TopBarTitle.TextColor3 = Color3.fromRGB(230, 230, 230)
 TopBarTitle.TextSize = 15
 TopBarTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -1032,7 +1101,7 @@ ContainerHolder.Name = "ContainerHolderFrame"
 ContainerHolder.AnchorPoint = Vector2.new(0.5, 0)
 ContainerHolder.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
 ContainerHolder.Position = UDim2.new(0.5, 0, 0, 35)
-ContainerHolder.Size = UDim2.new(1, -12, 1, -42) -- 왼쪽 여백을 줄여 모바일 잘림 방지
+ContainerHolder.Size = UDim2.new(1, -12, 1, -42)
 ContainerHolder.BackgroundTransparency = 1
 
 local TabHolder = Instance.new("ScrollingFrame", ContainerHolder)
@@ -1048,7 +1117,7 @@ TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 TabListLayout.Padding = UDim.new(0, 4)
 
 local TabPadding = Instance.new("UIPadding", TabHolder)
-TabPadding.PaddingLeft = UDim.new(0, 3) -- 왼쪽 패딩 최소화
+TabPadding.PaddingLeft = UDim.new(0, 3)
 
 -- Tab Creation System
 local tabEntries = {}
@@ -1307,50 +1376,6 @@ local function AddValkTab(tabName)
     return tabObj
 end
 
--- Key System Frame
-local KeyFrame = Instance.new("Frame", MainGui)
-KeyFrame.Size = UDim2.fromOffset(260, 130)
-KeyFrame.Position = UDim2.new(0.5, -130, 0.5, -65)
-KeyFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-KeyFrame.BorderSizePixel = 0
-KeyFrame.Visible = not keyPassed
-
-local KeyOutline = Instance.new("ImageLabel", KeyFrame)
-KeyOutline.BackgroundTransparency = 1
-KeyOutline.Size = UDim2.new(1, 0, 1, 0)
-KeyOutline.Image = "rbxassetid://2592362371"
-KeyOutline.ImageColor3 = Color3.fromRGB(60, 60, 60)
-KeyOutline.ScaleType = Enum.ScaleType.Slice
-KeyOutline.SliceCenter = Rect.new(2, 2, 62, 62)
-
-local KeyTitle = Instance.new("TextLabel", KeyFrame)
-KeyTitle.Size = UDim2.new(1, 0, 0, 28)
-KeyTitle.BackgroundTransparency = 1
-KeyTitle.Text = "multvallk Key System"
-KeyTitle.TextColor3 = valkLib.accentclr
-KeyTitle.Font = Enum.Font.Code
-KeyTitle.TextSize = 12
-
-local KeyBox = Instance.new("TextBox", KeyFrame)
-KeyBox.Size = UDim2.new(0.85, 0, 0, 28)
-KeyBox.Position = UDim2.new(0.075, 0, 0.3, 0)
-KeyBox.PlaceholderText = "Enter Key..."
-KeyBox.Text = ""
-KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-KeyBox.Font = Enum.Font.Code
-KeyBox.TextSize = 11
-
-local SubmitBtn = Instance.new("TextButton", KeyFrame)
-SubmitBtn.Size = UDim2.new(0.85, 0, 0, 28)
-SubmitBtn.Position = UDim2.new(0.075, 0, 0.62, 0)
-SubmitBtn.BackgroundColor3 = valkLib.accentclr
-SubmitBtn.Text = "Submit Key"
-SubmitBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
-SubmitBtn.Font = Enum.Font.Code
-SubmitBtn.TextSize = 11
-
-make_draggable(KeyTitle, KeyFrame)
-
 -- Toggle Menu Button
 local ToggleBtn = Instance.new("TextButton", MainGui)
 ToggleBtn.Size = UDim2.fromOffset(100, 30)
@@ -1370,24 +1395,13 @@ TogOutline.ImageColor3 = valkLib.accentclr
 TogOutline.ScaleType = Enum.ScaleType.Slice
 TogOutline.SliceCenter = Rect.new(2, 2, 62, 62)
 
-SubmitBtn.MouseButton1Click:Connect(function()
-    if KeyBox.Text == validKey then
-        keyPassed = true
-        KeyFrame.Visible = false
-        MainFrame.Visible = true
-    else
-        KeyBox.Text = ""
-        KeyBox.PlaceholderText = "Invalid Key!"
-    end
-end)
-
 ToggleBtn.MouseButton1Click:Connect(function()
-    if keyPassed then MainFrame.Visible = not MainFrame.Visible end
+    MainFrame.Visible = not MainFrame.Visible
 end)
 
 UserInputService.InputBegan:Connect(function(input, g)
     if g then return end
-    if input.KeyCode == Enum.KeyCode.RightShift and keyPassed then 
+    if input.KeyCode == Enum.KeyCode.RightShift then 
         MainFrame.Visible = not MainFrame.Visible 
     end
 end)
@@ -1417,18 +1431,28 @@ local EspTab = AddValkTab("ESP")
 local MiscTab = AddValkTab("Misc")
 local UiTab = AddValkTab("UI Set")
 
--- Main Tab Options
+-- Main Tab Options (Aimbot & Hitbox Configuration)
 local mSec1 = MainTab:Section("Aimbot Settings", 1)
 mSec1:Toggle("Mobile Mode UI", function() return mobileOnEnabled end, function(v) mobileOnEnabled = v; updateMobileSize() end)
 mSec1:Toggle("Aimbot (Smooth Camera)", function() return aimbotEnabled end, function(v) aimbotEnabled = v end)
 mSec1:Slider("Aimbot Smoothness", 1, 20, function() return aimbotSmoothness end, function(v) aimbotSmoothness = v end)
 mSec1:Slider("Aimbot FOV", 10, 500, function() return aimbotFovRadius end, function(v) aimbotFovRadius = v end)
+mSec1:Toggle("Aimbot Draw FOV", function() return aimbotDrawFov end, function(v) aimbotDrawFov = v end)
 mSec1:Toggle("Aimbot Wall Check", function() return aimbotWallCheck end, function(v) aimbotWallCheck = v end)
+mSec1:Toggle("Aimbot Scope Look", function() return aimbotScopeLook end, function(v) aimbotScopeLook = v end)
+mSec1:Toggle("Aimbot Hitbox: Head", function() return aimbotHitPart == "head" end, function(v) if v then aimbotHitPart = "head" end end)
+mSec1:Toggle("Aimbot Hitbox: RootPart", function() return aimbotHitPart == "humanoidrootpart" end, function(v) if v then aimbotHitPart = "humanoidrootpart" end end)
+mSec1:Toggle("Aimbot Hitbox: Torso", function() return aimbotHitPart == "torso" end, function(v) if v then aimbotHitPart = "torso" end end)
 
 local mSec2 = MainTab:Section("Gun & Silent Aim", 2)
 mSec2:Toggle("Silent Aim", function() return silentAimEnabled end, function(v) silentAimEnabled = v end)
-mSec2:Slider("Silent FOV", 10, 1000, function() return silentAimFovRadius end, function(v) silentAimFovRadius = v end)
+mSec2:Slider("Silent FOV", 10, 500, function() return silentAimFovRadius end, function(v) silentAimFovRadius = v end)
+mSec2:Toggle("Silent Draw FOV", function() return silentAimDrawFov end, function(v) silentAimDrawFov = v end)
 mSec2:Toggle("Silent Wall Check", function() return silentWallCheck end, function(v) silentWallCheck = v end)
+mSec2:Toggle("Silent Hitbox: Head", function() return silentAimHitPart == "head" end, function(v) if v then silentAimHitPart = "head" end end)
+mSec2:Toggle("Silent Hitbox: RootPart", function() return silentAimHitPart == "humanoidrootpart" end, function(v) if v then silentAimHitPart = "humanoidrootpart" end end)
+mSec2:Toggle("Silent Hitbox: Torso", function() return silentAimHitPart == "torso" end, function(v) if v then silentAimHitPart = "torso" end end)
+
 mSec2:Toggle("Fast Melee", function() return fastMeleeEnabled end, function(v) fastMeleeEnabled = v end)
 mSec2:Toggle("No Cooldown", function() return hoNyangNoCDEnabled end, function(v) hoNyangNoCDEnabled = v end)
 mSec2:Toggle("No Recoil", function() return noRecoilEnabled end, function(v) noRecoilEnabled = v end)
@@ -1436,9 +1460,11 @@ mSec2:Toggle("No Spread", function() return noSpreadEnabled end, function(v) noS
 mSec2:Toggle("No Muzzle Flash", function() return noMuzzleFlashEnabled end, function(v) noMuzzleFlashEnabled = v end)
 mSec2:Toggle("Rapid Fire", function() return rapidFireEnabled end, function(v) rapidFireEnabled = v end)
 
--- Ragebot Tab Options (Single Ragebot Integrated)
+-- Ragebot Tab Options (Includes Hide & Attack Sliders)
 local rSec1 = RageTab:Section("Rage Engine", 1)
 rSec1:Toggle("muilt premium ragebot", function() return ragebotOrKillAura end, function(v) ragebotOrKillAura = v end)
+rSec1:Slider("Hide Delay", 0.01, 1.0, function() return ragebotHideDelay end, function(v) ragebotHideDelay = v end)
+rSec1:Slider("Attack Delay", 0.01, 1.0, function() return ragebotAttackDelay end, function(v) ragebotAttackDelay = v end)
 
 local rSec2 = RageTab:Section("Orbit & Void Spam", 2)
 rSec2:Toggle("Orbit Feature", function() return orbitEnabled end, function(v) orbitEnabled = v end)
@@ -1479,6 +1505,6 @@ uiSec:Toggle("Sky: Vaporwave", function() return customSkyboxEnabled and skyboxT
 uiSec:Toggle("Sky: Lake Sky", function() return customSkyboxEnabled and skyboxTheme == "Lake Sky" end, function(v) if v then setSkyboxTheme("Lake Sky") else customSkyboxEnabled = false; applySkybox() end end)
 uiSec:Toggle("Sky: Black Mesa", function() return customSkyboxEnabled and skyboxTheme == "Black Mesa" end, function(v) if v then setSkyboxTheme("Black Mesa") else customSkyboxEnabled = false; applySkybox() end end)
 
-MainFrame.Visible = keyPassed
+MainFrame.Visible = true
 
-print("[multvallk Premium v3] Valk UI Framework Engine Successfully Loaded with Mobile Size Optimization.")
+print("[multvallk Premium v3] Script Fully Updated: Hitbox, DrawFOV, Scope Look & Wallcheck Integrated Successfully.")
