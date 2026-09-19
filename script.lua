@@ -1,5 +1,7 @@
--- [[ multvallk Premium v3 - Fully Integrated Dual Engine (Mobile Responsive) ]]
--- All Combat Mechanics, Anti-Cheat Bypass, Rage Engine, and Hit Logs Intact
+-- ============================================================================
+-- multvallk Premium v3 - Fully Integrated Dual Engine (Valk UI Engine)
+-- Mobile UI Auto-Scaling & Ragebot Integrated Edition
+-- ============================================================================
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -10,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoreGui = game:GetService("CoreGui")
 local Lighting = game:GetService("Lighting")
 local TweenService = game:GetService("TweenService")
+local TextService = game:GetService("TextService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
@@ -83,7 +86,6 @@ end
 local validKey = "Paid_masterkey-vallkmult"
 local keyPassed = false
 
--- Mobile Screen Scaling State (Default: False = Big PC Size)
 local mobileOnEnabled = false
 
 -- Aimbot & Silent Aim
@@ -99,9 +101,8 @@ local silentAimFovRadius = 300
 local silentWallCheck = false
 local silentAimTarget = nil
 
--- Ragebot Toggles
+-- Ragebot Toggle (Single Engine Integration)
 local ragebotOrKillAura = false
-local hoNyangRageEnabled = false
 local ragebotHeightOffset = 3
 
 -- Vallk Features & Cooldowns
@@ -357,7 +358,7 @@ task.spawn(function()
     end
 
     RunService.Heartbeat:Connect(function()
-        if not (ragebotOrKillAura or hoNyangRageEnabled) then return end
+        if not ragebotOrKillAura then return end
         if not activeTargetPart or not activeTargetPart.Parent then return end
 
         local targetChar = activeTargetPart:FindFirstAncestorOfClass("Model") or activeTargetPart.Parent
@@ -387,7 +388,7 @@ RunService.Heartbeat:Connect(function()
 
         if originalCFrame then restoreDesyncCFrame() end
 
-        if (ragebotOrKillAura or hoNyangRageEnabled) and activeTargetPart and can_shoot() then
+        if ragebotOrKillAura and activeTargetPart and can_shoot() then
             local targetChar = activeTargetPart:FindFirstAncestorOfClass("Model") or activeTargetPart.Parent
             local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
             if targetPlayer and is_reflecting_or_parrying(targetPlayer) then return end
@@ -405,7 +406,7 @@ end)
 task.spawn(function()
     while true do
         task.wait(0.01)
-        if ragebotOrKillAura or hoNyangRageEnabled then
+        if ragebotOrKillAura then
             local myPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position or Vector3.zero
             local closestPlayer = nil
             local closestDist = math.huge
@@ -613,7 +614,7 @@ RageTextLabel.Visible = false
 local rageHue = 0
 local rotAngle = 0
 RunService.RenderStepped:Connect(function()
-    RageTextLabel.Visible = CrosshairContainer.Visible or ragebotOrKillAura or hoNyangRageEnabled
+    RageTextLabel.Visible = CrosshairContainer.Visible or ragebotOrKillAura
     if RageTextLabel.Visible then
         rageHue = (rageHue + 2) % 360
         local rainbowColor = Color3.fromHSV(rageHue / 360, 1, 1)
@@ -681,13 +682,13 @@ task.spawn(function()
     end
 end)
 
--- Gun Hooking & Gun Attributes Fix
+-- Gun Hooking & Silent Aim Mechanics
 pcall(function()
     if FighterController and FighterController.LocalFighter and FighterController.LocalFighter.GetMouseLocation then
         local LocalFighter = FighterController.LocalFighter
         local oldMouseLoc = LocalFighter.GetMouseLocation
         LocalFighter.GetMouseLocation = newcclosure(function(...)
-            if silentAimTarget and (silentAimEnabled or ragebotOrKillAura or hoNyangRageEnabled) then
+            if silentAimTarget and (silentAimEnabled or ragebotOrKillAura) then
                 local screenPos = Camera:WorldToScreenPoint(silentAimTarget.Position)
                 return Vector2.new(screenPos.X, screenPos.Y)
             end
@@ -814,6 +815,12 @@ local function applySkybox()
     for prop, val in pairs(skyData) do pcall(function() customSky[prop] = val end) end
 end
 
+local function setSkyboxTheme(selectedTheme)
+    skyboxTheme = selectedTheme
+    customSkyboxEnabled = true
+    applySkybox()
+end
+
 RunService.RenderStepped:Connect(function()
     local myChar = LocalPlayer.Character
     local mousePos = UserInputService:GetMouseLocation()
@@ -872,7 +879,7 @@ RunService.RenderStepped:Connect(function()
     end
 
     silentAimTarget = nil
-    if (silentAimEnabled or ragebotOrKillAura or hoNyangRageEnabled) and myChar then
+    if (silentAimEnabled or ragebotOrKillAura) and myChar then
         local closestDist = math.huge
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and not is_teammate(player) and not get_character_immune(player) and not is_reflecting_or_parrying(player) then
@@ -881,7 +888,7 @@ RunService.RenderStepped:Connect(function()
                     local screenPos, onScreen = Camera:WorldToViewportPoint(hitPart.Position)
                     if onScreen then
                         local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                        local maxFov = (ragebotOrKillAura or hoNyangRageEnabled) and 99999 or silentAimFovRadius
+                        local maxFov = ragebotOrKillAura and 99999 or silentAimFovRadius
                         
                         if screenDist <= maxFov and screenDist < closestDist then
                             if (not silentWallCheck) or has_line_of_sight(hitPart, myChar) then
@@ -936,386 +943,542 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ============================================================================
--- SECTION: User Interface (Dynamic Mobile Scaling Supported)
+-- SECTION: User Interface Framework (Optimized Size & Left Margin Applied)
 -- ============================================================================
-do
-    local ACC = Color3.fromRGB(80, 150, 255)
-    local BG = Color3.fromRGB(18, 20, 26)
-    local PANEL = Color3.fromRGB(24, 28, 36)
-    local TAB_BG = Color3.fromRGB(14, 16, 20)
+local valkLib = { accentclr = Color3.fromRGB(128, 213, 247) }
 
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "multvallkIntegratedUI"
-    gui.ResetOnSpawn = false
-    gui.IgnoreGuiInset = true
-    gui.DisplayOrder = 100000
-    pcall(function() if gethui then gui.Parent = gethui() else gui.Parent = CoreGui end end)
-    if not gui.Parent then gui.Parent = PlayerGui end
-
-    -- Mobile & PC Toggle Button
-    local toggleMenuBtn = Instance.new("TextButton")
-    toggleMenuBtn.Size = UDim2.fromOffset(130, 36)
-    toggleMenuBtn.Position = UDim2.new(1, -140, 0, 15)
-    toggleMenuBtn.BackgroundColor3 = BG
-    toggleMenuBtn.TextColor3 = ACC
-    toggleMenuBtn.Font = Enum.Font.Code
-    toggleMenuBtn.TextSize = 12
-    toggleMenuBtn.Text = "multvallk Premium"
-    toggleMenuBtn.BorderSizePixel = 0
-    toggleMenuBtn.ZIndex = 999999
-    toggleMenuBtn.Parent = gui
-    Instance.new("UICorner", toggleMenuBtn).CornerRadius = UDim.new(0, 6)
-
-    -- Key UI Frame
-    local keyFrame = Instance.new("Frame")
-    keyFrame.Size = UDim2.fromOffset(270, 140)
-    keyFrame.Position = UDim2.new(0.5, -135, 0.5, -70)
-    keyFrame.BackgroundColor3 = BG
-    keyFrame.BorderSizePixel = 0
-    keyFrame.Visible = not keyPassed
-    keyFrame.Parent = gui
-    Instance.new("UICorner", keyFrame).CornerRadius = UDim.new(0, 8)
-
-    local keyTitle = Instance.new("TextLabel")
-    keyTitle.Size = UDim2.new(1, 0, 0, 30)
-    keyTitle.BackgroundTransparency = 1
-    keyTitle.Text = "multvallk Premium v3"
-    keyTitle.TextColor3 = ACC
-    keyTitle.Font = Enum.Font.Code
-    keyTitle.TextSize = 12
-    keyTitle.Parent = keyFrame
-
-    local keyBox = Instance.new("TextBox")
-    keyBox.Size = UDim2.new(0.85, 0, 0, 30)
-    keyBox.Position = UDim2.new(0.075, 0, 0.32, 0)
-    keyBox.BackgroundColor3 = PANEL
-    keyBox.PlaceholderText = "Enter Key..."
-    keyBox.Text = ""
-    keyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    keyBox.Font = Enum.Font.Code
-    keyBox.TextSize = 11
-    keyBox.Parent = keyFrame
-    Instance.new("UICorner", keyBox).CornerRadius = UDim.new(0, 4)
-
-    local submitBtn = Instance.new("TextButton")
-    submitBtn.Size = UDim2.new(0.85, 0, 0, 30)
-    submitBtn.Position = UDim2.new(0.075, 0, 0.62, 0)
-    submitBtn.BackgroundColor3 = ACC
-    submitBtn.Text = "Submit Key"
-    submitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    submitBtn.Font = Enum.Font.Code
-    submitBtn.TextSize = 11
-    submitBtn.Parent = keyFrame
-    Instance.new("UICorner", submitBtn).CornerRadius = UDim.new(0, 4)
-
-    -- Dynamic UI Main Frame (Default Big Size: 525x631, Mobile Size: 320x240)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.fromOffset(525, 631)
-    frame.Position = UDim2.new(0.5, -262, 0.5, -315)
-    frame.BackgroundColor3 = BG
-    frame.BorderSizePixel = 0
-    frame.Visible = keyPassed
-    frame.Parent = gui
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -12, 0, 24)
-    title.Position = UDim2.new(0, 8, 0, 4)
-    title.BackgroundTransparency = 1
-    title.Text = "multvallk Premium v3"
-    title.TextColor3 = ACC
-    title.Font = Enum.Font.Code
-    title.TextSize = 14
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = frame
-
-    local tabHeader = Instance.new("Frame")
-    tabHeader.Size = UDim2.new(1, -16, 0, 28)
-    tabHeader.Position = UDim2.new(0, 8, 0, 28)
-    tabHeader.BackgroundTransparency = 1
-    tabHeader.Parent = frame
-
-    local tabLay = Instance.new("UIListLayout")
-    tabLay.Parent = tabHeader
-    tabLay.FillDirection = Enum.FillDirection.Horizontal
-    tabLay.Padding = UDim.new(0, 4)
-
-    local content = Instance.new("Frame")
-    content.Size = UDim2.new(1, -16, 1, -64)
-    content.Position = UDim2.new(0, 8, 0, 58)
-    content.BackgroundColor3 = PANEL
-    content.Parent = frame
-    Instance.new("UICorner", content).CornerRadius = UDim.new(0, 4)
-
-    -- Update Size Helper Function
-    local function updateUIScale()
-        if mobileOnEnabled then
-            -- Mobile Size (Small UI)
-            frame.Size = UDim2.fromOffset(320, 240)
-            frame.Position = UDim2.new(0.5, -160, 0.5, -120)
-            title.TextSize = 12
-        else
-            -- Original Default Size (Big PC Size)
-            frame.Size = UDim2.fromOffset(525, 631)
-            frame.Position = UDim2.new(0.5, -262, 0.5, -315)
-            title.TextSize = 14
-        end
-    end
-
-    local pages = {}
-    local function makePage(name)
-        local scroll = Instance.new("ScrollingFrame")
-        scroll.Size = UDim2.new(1, -8, 1, -8)
-        scroll.Position = UDim2.new(0, 4, 0, 4)
-        scroll.BackgroundTransparency = 1
-        scroll.ScrollBarThickness = 4
-        scroll.ScrollBarImageColor3 = ACC
-        scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        scroll.Visible = false
-        scroll.Parent = content
-        local lay = Instance.new("UIListLayout")
-        lay.Parent = scroll
-        lay.Padding = UDim.new(0, 4)
-        pages[name] = scroll
-        return scroll
-    end
-
-    local tabBtns = {}
-    local function selectTab(name)
-        for n, pg in pairs(pages) do pg.Visible = (n == name) end
-        for n, btn in pairs(tabBtns) do
-            btn.TextColor3 = (n == name) and ACC or Color3.fromRGB(150, 155, 160)
-            btn.BackgroundColor3 = (n == name) and Color3.fromRGB(30, 36, 48) or TAB_BG
-        end
-    end
-
-    local function addTab(name)
-        makePage(name)
-        local b = Instance.new("TextButton")
-        b.Size = UDim2.new(0.158, 0, 1, 0)
-        b.BackgroundColor3 = TAB_BG
-        b.BorderSizePixel = 0
-        b.Text = name
-        b.TextColor3 = Color3.fromRGB(150, 155, 160)
-        b.Font = Enum.Font.Code
-        b.TextSize = 10
-        b.Parent = tabHeader
-        Instance.new("UICorner", b).CornerRadius = UDim.new(0, 3)
-        tabBtns[name] = b
-        b.MouseButton1Click:Connect(function() selectTab(name) end)
-    end
-
-    local toggleUpdaters = {}
-    local function toggle(page, name, getv, setv)
-        local b = Instance.new("TextButton")
-        b.Size = UDim2.new(1, -4, 0, 26)
-        b.BackgroundColor3 = Color3.fromRGB(30, 34, 44)
-        b.BorderSizePixel = 0
-        b.Font = Enum.Font.Code
-        b.TextSize = 11
-        b.TextXAlignment = Enum.TextXAlignment.Left
-        b.Parent = page
-        Instance.new("UICorner", b).CornerRadius = UDim.new(0, 3)
-
-        local function update()
-            local on = getv()
-            b.Text = "  " .. (on and "☑ " or "☐ ") .. name
-            b.TextColor3 = on and ACC or Color3.fromRGB(170, 175, 180)
-        end
-        update()
-        table.insert(toggleUpdaters, update)
-        b.MouseButton1Click:Connect(function()
-            setv(not getv())
-            for _, u in ipairs(toggleUpdaters) do u() end
-        end)
-    end
-
-    local function addSlider(page, name, min, max, getv, setv)
-        local f = Instance.new("Frame")
-        f.Size = UDim2.new(1, -4, 0, 38)
-        f.BackgroundColor3 = Color3.fromRGB(30, 34, 44)
-        f.BorderSizePixel = 0
-        f.Parent = page
-        Instance.new("UICorner", f).CornerRadius = UDim.new(0, 3)
-
-        local lbl = Instance.new("TextLabel")
-        lbl.Size = UDim2.new(1, -10, 0, 18)
-        lbl.Position = UDim2.new(0, 5, 0, 2)
-        lbl.BackgroundTransparency = 1
-        lbl.Font = Enum.Font.Code
-        lbl.TextSize = 10
-        lbl.TextColor3 = Color3.fromRGB(170, 175, 180)
-        lbl.TextXAlignment = Enum.TextXAlignment.Left
-        lbl.Text = name .. ": " .. tostring(getv())
-        lbl.Parent = f
-
-        local barBg = Instance.new("TextButton")
-        barBg.Size = UDim2.new(1, -10, 0, 10)
-        barBg.Position = UDim2.new(0, 5, 0, 22)
-        barBg.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
-        barBg.BorderSizePixel = 0
-        barBg.Text = ""
-        barBg.AutoButtonColor = false
-        barBg.Parent = f
-        Instance.new("UICorner", barBg).CornerRadius = UDim.new(0, 2)
-
-        local barFill = Instance.new("Frame")
-        barFill.Size = UDim2.new(math.clamp((getv() - min) / (max - min), 0, 1), 0, 1, 0)
-        barFill.BackgroundColor3 = ACC
-        barFill.BorderSizePixel = 0
-        barFill.Parent = barBg
-        Instance.new("UICorner", barFill).CornerRadius = UDim.new(0, 2)
-
+local function make_draggable(clickObject, dragObject)
+    pcall(function()
         local dragging = false
-        barBg.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
-            end
-        end)
-        UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = false
-            end
-        end)
-        UserInputService.InputChanged:Connect(function(input)
-            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                local pos = math.clamp((input.Position.X - barBg.AbsolutePosition.X) / barBg.AbsoluteSize.X, 0, 1)
-                local val = min + (max - min) * pos
-                setv(val)
-                barFill.Size = UDim2.new(pos, 0, 1, 0)
-                lbl.Text = name .. ": " .. string.format(max > 1000 and "%.0f" or "%.2f", val)
-            end
-        end)
-    end
-
-    addTab("Main")
-    addTab("Ragebot")
-    addTab("FFMode")
-    addTab("ESP")
-    addTab("Misc")
-    addTab("UI Set")
-
-    -- Main Tab (Mobile ON Option Placed at the Top)
-    toggle(pages["Main"], "Mobile ON (Small UI Mode)", function() return mobileOnEnabled end, function(v) 
-        mobileOnEnabled = v
-        updateUIScale()
-    end)
-    toggle(pages["Main"], "Aimbot (Smooth Camera)", function() return aimbotEnabled end, function(v) aimbotEnabled = v end)
-    addSlider(pages["Main"], "Aimbot Smoothness", 1, 20, function() return aimbotSmoothness end, function(v) aimbotSmoothness = v end)
-    addSlider(pages["Main"], "Aimbot FOV", 10, 500, function() return aimbotFovRadius end, function(v) aimbotFovRadius = v end)
-    toggle(pages["Main"], "Aimbot Wall Check", function() return aimbotWallCheck end, function(v) aimbotWallCheck = v end)
-    
-    toggle(pages["Main"], "Silent Aim", function() return silentAimEnabled end, function(v) silentAimEnabled = v end)
-    addSlider(pages["Main"], "Silent FOV", 10, 1000, function() return silentAimFovRadius end, function(v) silentAimFovRadius = v end)
-    toggle(pages["Main"], "Silent Wall Check", function() return silentWallCheck end, function(v) silentWallCheck = v end)
-    
-    toggle(pages["Main"], "Fast Melee", function() return fastMeleeEnabled end, function(v) fastMeleeEnabled = v end)
-    toggle(pages["Main"], "No Cooldown (0 Delay)", function() return hoNyangNoCDEnabled end, function(v) hoNyangNoCDEnabled = v end)
-    toggle(pages["Main"], "No Recoil", function() return noRecoilEnabled end, function(v) noRecoilEnabled = v end)
-    toggle(pages["Main"], "No Spread", function() return noSpreadEnabled end, function(v) noSpreadEnabled = v end)
-    toggle(pages["Main"], "No Muzzle Flash", function() return noMuzzleFlashEnabled end, function(v) noMuzzleFlashEnabled = v end)
-    toggle(pages["Main"], "Rapid Fire", function() return rapidFireEnabled end, function(v) rapidFireEnabled = v end)
-    toggle(pages["Main"], "Attack Cooldown Disable", function() return attackCooldownDisabled end, function(v) attackCooldownDisabled = v end)
-    toggle(pages["Main"], "Projectile Cooldown Disable", function() return projectileCooldownDisabled end, function(v) projectileCooldownDisabled = v end)
-
-    -- Ragebot Tab
-    toggle(pages["Ragebot"], "[Integrated Engine] Advanced Ragebot", function() return ragebotOrKillAura end, function(v) 
-        ragebotOrKillAura = v 
-        if v then hoNyangRageEnabled = false end
-    end)
-    toggle(pages["Ragebot"], "[Integrated Engine] Auto UseItem Teleport", function() return hoNyangRageEnabled end, function(v) 
-        hoNyangRageEnabled = v 
-        if v then ragebotOrKillAura = false end
-    end)
-
-    toggle(pages["Ragebot"], "Orbit Feature", function() return orbitEnabled end, function(v) orbitEnabled = v end)
-    addSlider(pages["Ragebot"], "Orbit Range", 50, 50000000, function() return orbitRange end, function(v) orbitRange = v end)
-    addSlider(pages["Ragebot"], "Orbit Delay", 0.01, 1, function() return orbitDelay end, function(v) orbitDelay = v end)
-
-    toggle(pages["Ragebot"], "Void Spam Feature (3D Y-Axis)", function() return voidSpamEnabled end, function(v) voidSpamEnabled = v end)
-    addSlider(pages["Ragebot"], "Void Spam Range", 50, 50000000, function() return voidSpamRange end, function(v) voidSpamRange = v end)
-    addSlider(pages["Ragebot"], "Void Spam Delay", 0.01, 1, function() return voidSpamDelay end, function(v) voidSpamDelay = v end)
-
-    -- FFMode Tab
-    toggle(pages["FFMode"], "Enable FFMode", function() return ffModeEnabled end, function(v) ffModeEnabled = v end)
-    toggle(pages["FFMode"], "Team Check", function() return ffTeamCheckEnabled end, function(v) ffTeamCheckEnabled = v end)
-    toggle(pages["FFMode"], "Baiting (Fall Inducer)", function() return ffBaitingEnabled end, function(v) ffBaitingEnabled = v end)
-
-    -- ESP Tab
-    toggle(pages["ESP"], "ESP Master Toggle", function() return espEnabled end, function(v) espEnabled = v end)
-    toggle(pages["ESP"], "ESP Boxes", function() return espBoxEnabled end, function(v) espBoxEnabled = v end)
-    toggle(pages["ESP"], "ESP Names", function() return espNameEnabled end, function(v) espNameEnabled = v end)
-    toggle(pages["ESP"], "ESP Health", function() return espHealthEnabled end, function(v) espHealthEnabled = v end)
-    toggle(pages["ESP"], "Gun Tracer Line", function() return gunTracerEnabled end, function(v) gunTracerEnabled = v end)
-
-    -- Misc Tab (Mobile Fly Option Included)
-    toggle(pages["Misc"], "Mobile Fly (Touch Move)", function() return mobileFlyEnabled end, function(v) mobileFlyEnabled = v end)
-    toggle(pages["Misc"], "PC Fly (WASD)", function() return pcFlyEnabled end, function(v) pcFlyEnabled = v end)
-    toggle(pages["Misc"], "Unlock All Skins (File Integrated)", function() return skinChangerEnabled end, function(v) skinChangerEnabled = v end)
-    toggle(pages["Misc"], "Bullet Speed Boost (100k)", function() return bulletSpeedBoost end, function(v) bulletSpeedBoost = v end)
-    toggle(pages["Misc"], "Rapid Speed (Speed Hack)", function() return rapidSpeedEnabled end, function(v) rapidSpeedEnabled = v end)
-    toggle(pages["Misc"], "Noclip", function() return noclipEnabled end, function(v) noclipEnabled = v end)
-
-    -- UI Set Tab
-    toggle(pages["UI Set"], "Circle Crosshair (Gradient)", function() return circleCrosshairEnabled end, function(v) circleCrosshairEnabled = v end)
-    toggle(pages["UI Set"], "Custom Skybox", function() return customSkyboxEnabled end, function(v) customSkyboxEnabled = v; applySkybox() end)
-    toggle(pages["UI Set"], "Sky: Dark Sky", function() return skyboxTheme == "Dark Sky" end, function() skyboxTheme = "Dark Sky"; applySkybox() end)
-    toggle(pages["UI Set"], "Sky: Vaporwave", function() return skyboxTheme == "Vaporwave" end, function() skyboxTheme = "Vaporwave"; applySkybox() end)
-    toggle(pages["UI Set"], "Sky: Lake Sky", function() return skyboxTheme == "Lake Sky" end, function() skyboxTheme = "Lake Sky"; applySkybox() end)
-    toggle(pages["UI Set"], "Sky: Black Mesa", function() return skyboxTheme == "Black Mesa" end, function() skyboxTheme = "Black Mesa"; applySkybox() end)
-
-    selectTab("Main")
-
-    -- Touch & Mouse Universal Drag Functionality
-    local function makeDraggable(topBar, targetFrame)
-        local dragging, dragInput, dragStart, startPos
-        topBar.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        local dragInput, dragStart, startPos
+        clickObject.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
                 dragging = true
                 dragStart = input.Position
-                startPos = targetFrame.Position
+                startPos = dragObject.Position
                 input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then dragging = false end
+                    if input.UserInputState == Enum.UserInputState.End then dragging = false end 
                 end)
-            end
+            end 
         end)
-        topBar.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-                dragInput = input
-            end
+        clickObject.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end 
         end)
         UserInputService.InputChanged:Connect(function(input)
-            if input == dragInput and dragging then
+            if input == dragInput and dragging then 
                 local delta = input.Position - dragStart
-                targetFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            end
+                dragObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end 
         end)
-    end
-
-    makeDraggable(title, frame)
-    makeDraggable(keyTitle, keyFrame)
-
-    submitBtn.MouseButton1Click:Connect(function()
-        if keyBox.Text == validKey then
-            keyPassed = true
-            keyFrame.Visible = false
-            frame.Visible = true
-        else
-            keyBox.Text = ""
-            keyBox.PlaceholderText = "Invalid Key! Try Again."
-        end
-    end)
-
-    toggleMenuBtn.MouseButton1Click:Connect(function()
-        if keyPassed then frame.Visible = not frame.Visible end
-    end)
-
-    UserInputService.InputBegan:Connect(function(input, g)
-        if g then return end
-        if input.KeyCode == Enum.KeyCode.RightShift and keyPassed then 
-            frame.Visible = not frame.Visible 
-        end
     end)
 end
 
-print("[multvallk Premium v3] Loaded Successfully on Dynamic Dual Engine.")
+local MainGui = Instance.new("ScreenGui")
+MainGui.Name = "multvallkHalmuUI"
+MainGui.ResetOnSpawn = false
+pcall(function() if gethui then MainGui.Parent = gethui() else MainGui.Parent = CoreGui end end)
+if not MainGui.Parent then MainGui.Parent = PlayerGui end
+
+-- HALMU VALK Main Frame Construction (모바일 가독성을 위해 크기를 살짝 줄이고 좌측 여백/비율 최적화)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = MainGui
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BackgroundTransparency = 0.15
+MainFrame.BorderSizePixel = 0
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.Size = UDim2.new(0, 480, 0, 560) -- 크기 최적화 축소
+MainFrame.Visible = true
+MainFrame.ClipsDescendants = true
+
+local Outline1 = Instance.new("ImageLabel", MainFrame)
+Outline1.BackgroundTransparency = 1
+Outline1.Position = UDim2.new(0, 1, 0, 1)
+Outline1.Size = UDim2.new(1, -2, 1, -2)
+Outline1.Image = "rbxassetid://2592362371"
+Outline1.ImageColor3 = Color3.fromRGB(60, 60, 60)
+Outline1.ScaleType = Enum.ScaleType.Slice
+Outline1.SliceCenter = Rect.new(2, 2, 62, 62)
+
+local TopBar = Instance.new("Frame", MainFrame)
+TopBar.Name = "TopBar"
+TopBar.AnchorPoint = Vector2.new(0.5, 0)
+TopBar.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
+TopBar.BorderSizePixel = 0
+TopBar.Position = UDim2.new(0.5, 0, 0, 2)
+TopBar.Size = UDim2.new(1, -5, 0, 28)
+
+local TopBarTitle = Instance.new("TextLabel", TopBar)
+TopBarTitle.BackgroundTransparency = 1
+TopBarTitle.Position = UDim2.new(0, 7, 0, 5)
+TopBarTitle.Size = UDim2.new(0, 0, 0, 16)
+TopBarTitle.Font = Enum.Font.Code
+TopBarTitle.Text = "multvallk Premium v3 (Optimized UI)"
+TopBarTitle.TextColor3 = Color3.fromRGB(230, 230, 230)
+TopBarTitle.TextSize = 15
+TopBarTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+local TopBarLine = Instance.new("Frame", TopBar)
+TopBarLine.BackgroundColor3 = valkLib.accentclr
+TopBarLine.BorderSizePixel = 0
+TopBarLine.Position = UDim2.new(0, 0, 0, 27)
+TopBarLine.Size = UDim2.new(1, 0, 0, 1)
+
+make_draggable(TopBar, MainFrame)
+
+local ContainerHolder = Instance.new("Frame", MainFrame)
+ContainerHolder.Name = "ContainerHolderFrame"
+ContainerHolder.AnchorPoint = Vector2.new(0.5, 0)
+ContainerHolder.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
+ContainerHolder.Position = UDim2.new(0.5, 0, 0, 35)
+ContainerHolder.Size = UDim2.new(1, -12, 1, -42) -- 왼쪽 여백을 줄여 모바일 잘림 방지
+ContainerHolder.BackgroundTransparency = 1
+
+local TabHolder = Instance.new("ScrollingFrame", ContainerHolder)
+TabHolder.Name = "TabHolderFrame"
+TabHolder.BackgroundTransparency = 1
+TabHolder.Size = UDim2.new(1, 0, 0, 32)
+TabHolder.CanvasSize = UDim2.new(0, 700, 0, 0)
+TabHolder.ScrollBarThickness = 0
+
+local TabListLayout = Instance.new("UIListLayout", TabHolder)
+TabListLayout.FillDirection = Enum.FillDirection.Horizontal
+TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+TabListLayout.Padding = UDim.new(0, 4)
+
+local TabPadding = Instance.new("UIPadding", TabHolder)
+TabPadding.PaddingLeft = UDim.new(0, 3) -- 왼쪽 패딩 최소화
+
+-- Tab Creation System
+local tabEntries = {}
+local isFirstTab = true
+
+local function AddValkTab(tabName)
+    local btn = Instance.new("TextButton", TabHolder)
+    btn.Name = tabName .. "_TabBtn"
+    btn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    btn.BorderSizePixel = 0
+    btn.Font = Enum.Font.Code
+    btn.Text = tabName
+    btn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    btn.TextSize = 13
+    btn.AutoButtonColor = false
+    
+    local txtSize = TextService:GetTextSize(tabName, 13, Enum.Font.Code, Vector2.new(500, 500))
+    btn.Size = UDim2.new(0, txtSize.X + 22, 0, 26)
+    
+    local topLine = Instance.new("Frame", btn)
+    topLine.BackgroundColor3 = valkLib.accentclr
+    topLine.BorderSizePixel = 0
+    topLine.Position = UDim2.new(0, 0, 0, 0)
+    topLine.Size = UDim2.new(1, 0, 0, 2)
+    topLine.Visible = false
+    
+    local outline = Instance.new("ImageLabel", btn)
+    outline.BackgroundTransparency = 1
+    outline.Size = UDim2.new(1, 0, 1, 0)
+    outline.Image = "rbxassetid://2592362371"
+    outline.ImageColor3 = Color3.fromRGB(45, 45, 45)
+    outline.ScaleType = Enum.ScaleType.Slice
+    outline.SliceCenter = Rect.new(2, 2, 62, 62)
+
+    local holder1 = Instance.new("ScrollingFrame", ContainerHolder)
+    holder1.Name = tabName .. "_Holder1"
+    holder1.BackgroundTransparency = 1
+    holder1.Position = UDim2.new(0, 1, 0, 35)
+    holder1.Size = UDim2.new(0.49, -2, 1, -40)
+    holder1.Visible = false
+    holder1.ScrollBarThickness = 3
+
+    local h1Padding = Instance.new("UIPadding", holder1)
+    h1Padding.PaddingTop = UDim.new(0, 5)
+    local h1Layout = Instance.new("UIListLayout", holder1)
+    h1Layout.SortOrder = Enum.SortOrder.LayoutOrder
+    h1Layout.Padding = UDim.new(0, 8)
+
+    local holder2 = Instance.new("ScrollingFrame", ContainerHolder)
+    holder2.Name = tabName .. "_Holder2"
+    holder2.BackgroundTransparency = 1
+    holder2.Position = UDim2.new(0.51, 1, 0, 35)
+    holder2.Size = UDim2.new(0.49, -2, 1, -40)
+    holder2.Visible = false
+    holder2.ScrollBarThickness = 3
+
+    local h2Padding = Instance.new("UIPadding", holder2)
+    h2Padding.PaddingTop = UDim.new(0, 5)
+    local h2Layout = Instance.new("UIListLayout", holder2)
+    h2Layout.SortOrder = Enum.SortOrder.LayoutOrder
+    h2Layout.Padding = UDim.new(0, 8)
+
+    local entry = {btn = btn, topLine = topLine, outline = outline, h1 = holder1, h2 = holder2}
+    table.insert(tabEntries, entry)
+
+    if isFirstTab then
+        isFirstTab = false
+        holder1.Visible = true
+        holder2.Visible = true
+        btn.BackgroundColor3 = Color3.fromRGB(33, 33, 33)
+        btn.TextColor3 = Color3.fromRGB(230, 230, 230)
+        topLine.Visible = true
+        outline.ImageColor3 = Color3.fromRGB(65, 65, 65)
+    end
+
+    btn.MouseButton1Click:Connect(function()
+        for _, t in ipairs(tabEntries) do
+            if t.btn == btn then
+                t.btn.BackgroundColor3 = Color3.fromRGB(33, 33, 33)
+                t.btn.TextColor3 = Color3.fromRGB(230, 230, 230)
+                t.topLine.Visible = true
+                t.outline.ImageColor3 = Color3.fromRGB(65, 65, 65)
+                t.h1.Visible = true
+                t.h2.Visible = true
+            else
+                t.btn.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+                t.btn.TextColor3 = Color3.fromRGB(150, 150, 150)
+                t.topLine.Visible = false
+                t.outline.ImageColor3 = Color3.fromRGB(45, 45, 45)
+                t.h1.Visible = false
+                t.h2.Visible = false
+            end
+        end
+    end)
+
+    local tabObj = {}
+    function tabObj:Section(sectionName, side)
+        local parentHolder = (side == 2) and holder2 or holder1
+
+        local secFrame = Instance.new("Frame", parentHolder)
+        secFrame.Name = "Section"
+        secFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        secFrame.BorderSizePixel = 0
+        secFrame.Size = UDim2.new(1, -2, 0, 24)
+
+        local secOutline = Instance.new("ImageLabel", secFrame)
+        secOutline.BackgroundTransparency = 1
+        secOutline.Size = UDim2.new(1, 0, 1, 0)
+        secOutline.Image = "rbxassetid://2592362371"
+        secOutline.ImageColor3 = Color3.fromRGB(60, 60, 60)
+        secOutline.ScaleType = Enum.ScaleType.Slice
+        secOutline.SliceCenter = Rect.new(2, 2, 62, 62)
+
+        local secTitleFrame = Instance.new("Frame", secFrame)
+        secTitleFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        secTitleFrame.BorderSizePixel = 0
+        secTitleFrame.Position = UDim2.new(0, 8, 0, 0)
+
+        local secTitle = Instance.new("TextLabel", secTitleFrame)
+        secTitle.BackgroundTransparency = 1
+        secTitle.Position = UDim2.new(0, 0, 0, -3)
+        secTitle.Size = UDim2.new(1, 0, 0, 7)
+        secTitle.Font = Enum.Font.Code
+        secTitle.Text = sectionName
+        secTitle.TextColor3 = Color3.fromRGB(230, 230, 230)
+        secTitle.TextSize = 13
+        secTitleFrame.Size = UDim2.new(0, secTitle.TextBounds.X + 6, 0, 7)
+
+        local itemHolder = Instance.new("Frame", secFrame)
+        itemHolder.AnchorPoint = Vector2.new(0.5, 0)
+        itemHolder.BackgroundTransparency = 1
+        itemHolder.Position = UDim2.new(0.5, 0, 0, 14)
+        itemHolder.Size = UDim2.new(1, -12, 0, 0)
+
+        local itemLayout = Instance.new("UIListLayout", itemHolder)
+        itemLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        itemLayout.Padding = UDim.new(0, 4)
+
+        local function updateSize()
+            secFrame.Size = UDim2.new(1, -2, 0, itemLayout.AbsoluteContentSize.Y + 22)
+            holder1.CanvasSize = UDim2.new(0, 0, 0, holder1:FindFirstChildOfClass("UIListLayout").AbsoluteContentSize.Y + 20)
+            holder2.CanvasSize = UDim2.new(0, 0, 0, holder2:FindFirstChildOfClass("UIListLayout").AbsoluteContentSize.Y + 20)
+        end
+
+        itemLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateSize)
+
+        local secObj = {}
+        function secObj:Toggle(text, getv, setv)
+            local toggleBtn = Instance.new("TextButton", itemHolder)
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
+            toggleBtn.BorderSizePixel = 0
+            toggleBtn.Size = UDim2.new(1, 0, 0, 21)
+            toggleBtn.Text = ""
+
+            local btnOutline = Instance.new("ImageLabel", toggleBtn)
+            btnOutline.BackgroundTransparency = 1
+            btnOutline.Size = UDim2.new(1, 0, 1, 0)
+            btnOutline.Image = "rbxassetid://2592362371"
+            btnOutline.ImageColor3 = Color3.fromRGB(60, 60, 60)
+            btnOutline.ScaleType = Enum.ScaleType.Slice
+            btnOutline.SliceCenter = Rect.new(2, 2, 62, 62)
+
+            local indicator = Instance.new("Frame", toggleBtn)
+            indicator.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+            indicator.Position = UDim2.new(1, -16, 0, 3)
+            indicator.Size = UDim2.new(0, 14, 0, 14)
+            indicator.BorderSizePixel = 0
+
+            local indColor = Instance.new("Frame", indicator)
+            indColor.Size = UDim2.new(1, -4, 1, -4)
+            indColor.Position = UDim2.new(0, 2, 0, 2)
+            indColor.BorderSizePixel = 0
+            indColor.BackgroundColor3 = getv() and valkLib.accentclr or Color3.fromRGB(40, 40, 40)
+
+            local label = Instance.new("TextLabel", toggleBtn)
+            label.BackgroundTransparency = 1
+            label.Position = UDim2.new(0, 5, 0, 0)
+            label.Size = UDim2.new(1, -22, 1, 0)
+            label.Font = Enum.Font.Code
+            label.Text = text
+            label.TextColor3 = Color3.fromRGB(200, 200, 200)
+            label.TextSize = 11
+            label.TextXAlignment = Enum.TextXAlignment.Left
+
+            local function refreshToggleUI()
+                indColor.BackgroundColor3 = getv() and valkLib.accentclr or Color3.fromRGB(40, 40, 40)
+            end
+
+            toggleBtn.MouseButton1Click:Connect(function()
+                setv(not getv())
+                refreshToggleUI()
+            end)
+
+            RunService.RenderStepped:Connect(refreshToggleUI)
+            updateSize()
+        end
+
+        function secObj:Slider(text, min, max, getv, setv)
+            local sliderFrame = Instance.new("Frame", itemHolder)
+            sliderFrame.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
+            sliderFrame.BorderSizePixel = 0
+            sliderFrame.Size = UDim2.new(1, 0, 0, 30)
+
+            local sOutline = Instance.new("ImageLabel", sliderFrame)
+            sOutline.BackgroundTransparency = 1
+            sOutline.Size = UDim2.new(1, 0, 1, 0)
+            sOutline.Image = "rbxassetid://2592362371"
+            sOutline.ImageColor3 = Color3.fromRGB(60, 60, 60)
+            sOutline.ScaleType = Enum.ScaleType.Slice
+            sOutline.SliceCenter = Rect.new(2, 2, 62, 62)
+
+            local lbl = Instance.new("TextLabel", sliderFrame)
+            lbl.BackgroundTransparency = 1
+            lbl.Position = UDim2.new(0, 5, 0, 2)
+            lbl.Size = UDim2.new(1, -10, 0, 12)
+            lbl.Font = Enum.Font.Code
+            lbl.Text = text .. ": " .. string.format(max > 1000 and "%.0f" or "%.2f", getv())
+            lbl.TextColor3 = Color3.fromRGB(200, 200, 200)
+            lbl.TextSize = 10
+            lbl.TextXAlignment = Enum.TextXAlignment.Left
+
+            local barBg = Instance.new("TextButton", sliderFrame)
+            barBg.Position = UDim2.new(0, 5, 0, 16)
+            barBg.Size = UDim2.new(1, -10, 0, 8)
+            barBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+            barBg.BorderSizePixel = 0
+            barBg.Text = ""
+
+            local barFill = Instance.new("Frame", barBg)
+            barFill.BackgroundColor3 = valkLib.accentclr
+            barFill.BorderSizePixel = 0
+            barFill.Size = UDim2.new(math.clamp((getv() - min) / (max - min), 0, 1), 0, 1, 0)
+
+            local dragging = false
+            barBg.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true end
+            end)
+            UserInputService.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
+            end)
+            UserInputService.InputChanged:Connect(function(input)
+                if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                    local pos = math.clamp((input.Position.X - barBg.AbsolutePosition.X) / barBg.AbsoluteSize.X, 0, 1)
+                    local val = min + (max - min) * pos
+                    setv(val)
+                    barFill.Size = UDim2.new(pos, 0, 1, 0)
+                    lbl.Text = text .. ": " .. string.format(max > 1000 and "%.0f" or "%.2f", val)
+                end
+            end)
+            updateSize()
+        end
+
+        return secObj
+    end
+
+    return tabObj
+end
+
+-- Key System Frame
+local KeyFrame = Instance.new("Frame", MainGui)
+KeyFrame.Size = UDim2.fromOffset(260, 130)
+KeyFrame.Position = UDim2.new(0.5, -130, 0.5, -65)
+KeyFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+KeyFrame.BorderSizePixel = 0
+KeyFrame.Visible = not keyPassed
+
+local KeyOutline = Instance.new("ImageLabel", KeyFrame)
+KeyOutline.BackgroundTransparency = 1
+KeyOutline.Size = UDim2.new(1, 0, 1, 0)
+KeyOutline.Image = "rbxassetid://2592362371"
+KeyOutline.ImageColor3 = Color3.fromRGB(60, 60, 60)
+KeyOutline.ScaleType = Enum.ScaleType.Slice
+KeyOutline.SliceCenter = Rect.new(2, 2, 62, 62)
+
+local KeyTitle = Instance.new("TextLabel", KeyFrame)
+KeyTitle.Size = UDim2.new(1, 0, 0, 28)
+KeyTitle.BackgroundTransparency = 1
+KeyTitle.Text = "multvallk Key System"
+KeyTitle.TextColor3 = valkLib.accentclr
+KeyTitle.Font = Enum.Font.Code
+KeyTitle.TextSize = 12
+
+local KeyBox = Instance.new("TextBox", KeyFrame)
+KeyBox.Size = UDim2.new(0.85, 0, 0, 28)
+KeyBox.Position = UDim2.new(0.075, 0, 0.3, 0)
+KeyBox.PlaceholderText = "Enter Key..."
+KeyBox.Text = ""
+KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyBox.Font = Enum.Font.Code
+KeyBox.TextSize = 11
+
+local SubmitBtn = Instance.new("TextButton", KeyFrame)
+SubmitBtn.Size = UDim2.new(0.85, 0, 0, 28)
+SubmitBtn.Position = UDim2.new(0.075, 0, 0.62, 0)
+SubmitBtn.BackgroundColor3 = valkLib.accentclr
+SubmitBtn.Text = "Submit Key"
+SubmitBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+SubmitBtn.Font = Enum.Font.Code
+SubmitBtn.TextSize = 11
+
+make_draggable(KeyTitle, KeyFrame)
+
+-- Toggle Menu Button
+local ToggleBtn = Instance.new("TextButton", MainGui)
+ToggleBtn.Size = UDim2.fromOffset(100, 30)
+ToggleBtn.Position = UDim2.new(0, 10, 0, 10)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+ToggleBtn.TextColor3 = valkLib.accentclr
+ToggleBtn.Font = Enum.Font.Code
+ToggleBtn.TextSize = 11
+ToggleBtn.Text = "multvallk UI"
+ToggleBtn.BorderSizePixel = 0
+
+local TogOutline = Instance.new("ImageLabel", ToggleBtn)
+TogOutline.BackgroundTransparency = 1
+TogOutline.Size = UDim2.new(1, 0, 1, 0)
+TogOutline.Image = "rbxassetid://2592362371"
+TogOutline.ImageColor3 = valkLib.accentclr
+TogOutline.ScaleType = Enum.ScaleType.Slice
+TogOutline.SliceCenter = Rect.new(2, 2, 62, 62)
+
+SubmitBtn.MouseButton1Click:Connect(function()
+    if KeyBox.Text == validKey then
+        keyPassed = true
+        KeyFrame.Visible = false
+        MainFrame.Visible = true
+    else
+        KeyBox.Text = ""
+        KeyBox.PlaceholderText = "Invalid Key!"
+    end
+end)
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    if keyPassed then MainFrame.Visible = not MainFrame.Visible end
+end)
+
+UserInputService.InputBegan:Connect(function(input, g)
+    if g then return end
+    if input.KeyCode == Enum.KeyCode.RightShift and keyPassed then 
+        MainFrame.Visible = not MainFrame.Visible 
+    end
+end)
+
+-- Mobile Scaling Adjuster
+local function updateMobileSize()
+    if mobileOnEnabled then
+        MainFrame.Size = UDim2.fromOffset(560, 320)
+    else
+        MainFrame.Size = UDim2.fromOffset(480, 560)
+    end
+    for _, t in ipairs(tabEntries) do
+        if t.h1 and t.h1:FindFirstChildOfClass("UIListLayout") then
+            t.h1.CanvasSize = UDim2.new(0, 0, 0, t.h1:FindFirstChildOfClass("UIListLayout").AbsoluteContentSize.Y + 20)
+        end
+        if t.h2 and t.h2:FindFirstChildOfClass("UIListLayout") then
+            t.h2.CanvasSize = UDim2.new(0, 0, 0, t.h2:FindFirstChildOfClass("UIListLayout").AbsoluteContentSize.Y + 20)
+        end
+    end
+end
+
+-- Tab Setup & Feature Assignments
+local MainTab = AddValkTab("Main")
+local RageTab = AddValkTab("Ragebot")
+local FFTab = AddValkTab("FFMode")
+local EspTab = AddValkTab("ESP")
+local MiscTab = AddValkTab("Misc")
+local UiTab = AddValkTab("UI Set")
+
+-- Main Tab Options
+local mSec1 = MainTab:Section("Aimbot Settings", 1)
+mSec1:Toggle("Mobile Mode UI", function() return mobileOnEnabled end, function(v) mobileOnEnabled = v; updateMobileSize() end)
+mSec1:Toggle("Aimbot (Smooth Camera)", function() return aimbotEnabled end, function(v) aimbotEnabled = v end)
+mSec1:Slider("Aimbot Smoothness", 1, 20, function() return aimbotSmoothness end, function(v) aimbotSmoothness = v end)
+mSec1:Slider("Aimbot FOV", 10, 500, function() return aimbotFovRadius end, function(v) aimbotFovRadius = v end)
+mSec1:Toggle("Aimbot Wall Check", function() return aimbotWallCheck end, function(v) aimbotWallCheck = v end)
+
+local mSec2 = MainTab:Section("Gun & Silent Aim", 2)
+mSec2:Toggle("Silent Aim", function() return silentAimEnabled end, function(v) silentAimEnabled = v end)
+mSec2:Slider("Silent FOV", 10, 1000, function() return silentAimFovRadius end, function(v) silentAimFovRadius = v end)
+mSec2:Toggle("Silent Wall Check", function() return silentWallCheck end, function(v) silentWallCheck = v end)
+mSec2:Toggle("Fast Melee", function() return fastMeleeEnabled end, function(v) fastMeleeEnabled = v end)
+mSec2:Toggle("No Cooldown", function() return hoNyangNoCDEnabled end, function(v) hoNyangNoCDEnabled = v end)
+mSec2:Toggle("No Recoil", function() return noRecoilEnabled end, function(v) noRecoilEnabled = v end)
+mSec2:Toggle("No Spread", function() return noSpreadEnabled end, function(v) noSpreadEnabled = v end)
+mSec2:Toggle("No Muzzle Flash", function() return noMuzzleFlashEnabled end, function(v) noMuzzleFlashEnabled = v end)
+mSec2:Toggle("Rapid Fire", function() return rapidFireEnabled end, function(v) rapidFireEnabled = v end)
+
+-- Ragebot Tab Options (Single Ragebot Integrated)
+local rSec1 = RageTab:Section("Rage Engine", 1)
+rSec1:Toggle("muilt premium ragebot", function() return ragebotOrKillAura end, function(v) ragebotOrKillAura = v end)
+
+local rSec2 = RageTab:Section("Orbit & Void Spam", 2)
+rSec2:Toggle("Orbit Feature", function() return orbitEnabled end, function(v) orbitEnabled = v end)
+rSec2:Slider("Orbit Range", 50, 50000000, function() return orbitRange end, function(v) orbitRange = v end)
+rSec2:Slider("Orbit Delay", 0.01, 1, function() return orbitDelay end, function(v) orbitDelay = v end)
+rSec2:Toggle("Void Spam (3D Axis)", function() return voidSpamEnabled end, function(v) voidSpamEnabled = v end)
+rSec2:Slider("Void Range", 50, 50000000, function() return voidSpamRange end, function(v) voidSpamRange = v end)
+rSec2:Slider("Void Delay", 0.01, 1, function() return voidSpamDelay end, function(v) voidSpamDelay = v end)
+
+-- FFMode Tab Options
+local ffSec = FFTab:Section("FF Mode Mechanics", 1)
+ffSec:Toggle("Enable FFMode", function() return ffModeEnabled end, function(v) ffModeEnabled = v end)
+ffSec:Toggle("Team Check", function() return ffTeamCheckEnabled end, function(v) ffTeamCheckEnabled = v end)
+ffSec:Toggle("Baiting (Fall Inducer)", function() return ffBaitingEnabled end, function(v) ffBaitingEnabled = v end)
+
+-- ESP Tab Options
+local espSec = EspTab:Section("Visual ESP", 1)
+espSec:Toggle("Master ESP Toggle", function() return espEnabled end, function(v) espEnabled = v end)
+espSec:Toggle("ESP Boxes", function() return espBoxEnabled end, function(v) espBoxEnabled = v end)
+espSec:Toggle("ESP Names", function() return espNameEnabled end, function(v) espNameEnabled = v end)
+espSec:Toggle("ESP Health", function() return espHealthEnabled end, function(v) espHealthEnabled = v end)
+espSec:Toggle("Gun Tracer Line", function() return gunTracerEnabled end, function(v) gunTracerEnabled = v end)
+
+-- Misc Tab Options
+local miscSec = MiscTab:Section("Movement & Mods", 1)
+miscSec:Toggle("Mobile Fly (Touch)", function() return mobileFlyEnabled end, function(v) mobileFlyEnabled = v end)
+miscSec:Toggle("PC Fly (WASD)", function() return pcFlyEnabled end, function(v) pcFlyEnabled = v end)
+miscSec:Toggle("Unlock All Skins", function() return skinChangerEnabled end, function(v) skinChangerEnabled = v end)
+miscSec:Toggle("Bullet Speed Boost", function() return bulletSpeedBoost end, function(v) bulletSpeedBoost = v end)
+miscSec:Toggle("Rapid Speed Hack", function() return rapidSpeedEnabled end, function(v) rapidSpeedEnabled = v end)
+miscSec:Toggle("Noclip", function() return noclipEnabled end, function(v) noclipEnabled = v end)
+
+-- UI Set Tab Options
+local uiSec = UiTab:Section("Skybox & Crosshair", 1)
+uiSec:Toggle("Circle Crosshair", function() return circleCrosshairEnabled end, function(v) circleCrosshairEnabled = v end)
+uiSec:Toggle("Sky: Dark Sky", function() return customSkyboxEnabled and skyboxTheme == "Dark Sky" end, function(v) if v then setSkyboxTheme("Dark Sky") else customSkyboxEnabled = false; applySkybox() end end)
+uiSec:Toggle("Sky: Vaporwave", function() return customSkyboxEnabled and skyboxTheme == "Vaporwave" end, function(v) if v then setSkyboxTheme("Vaporwave") else customSkyboxEnabled = false; applySkybox() end end)
+uiSec:Toggle("Sky: Lake Sky", function() return customSkyboxEnabled and skyboxTheme == "Lake Sky" end, function(v) if v then setSkyboxTheme("Lake Sky") else customSkyboxEnabled = false; applySkybox() end end)
+uiSec:Toggle("Sky: Black Mesa", function() return customSkyboxEnabled and skyboxTheme == "Black Mesa" end, function(v) if v then setSkyboxTheme("Black Mesa") else customSkyboxEnabled = false; applySkybox() end end)
+
+MainFrame.Visible = keyPassed
+
+print("[multvallk Premium v3] Valk UI Framework Engine Successfully Loaded with Mobile Size Optimization.")
