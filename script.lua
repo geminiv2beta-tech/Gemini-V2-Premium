@@ -1,6 +1,7 @@
 -- ============================================================================
 -- multvallk Premium v3 - Fully Integrated Dual Engine (Valk UI Engine)
 -- Mobile UI Auto-Scaling & Ragebot Integrated Edition (No Key System)
+-- Integrated Feature: Advanced Device Spoofer Engine & Hit Sounds (UI Set)
 -- ============================================================================
 
 local Players = game:GetService("Players")
@@ -13,10 +14,51 @@ local CoreGui = game:GetService("CoreGui")
 local Lighting = game:GetService("Lighting")
 local TweenService = game:GetService("TweenService")
 local TextService = game:GetService("TextService")
+local VRService = game:GetService("VRService")
+local SoundService = game:GetService("SoundService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- ============================================================================
+-- SECTION: Intro UI (2초 후 등장, 3초간 유지 후 파란색으로 사라짐)
+-- ============================================================================
+task.spawn(function()
+    task.wait(2) -- 2초 대기
+    
+    local IntroGui = Instance.new("ScreenGui")
+    IntroGui.Name = "multvallkIntroUI"
+    IntroGui.ResetOnSpawn = false
+    pcall(function() if gethui then IntroGui.Parent = gethui() else IntroGui.Parent = CoreGui end end)
+    if not IntroGui.Parent then IntroGui.Parent = PlayerGui end
+    
+    local IntroLabel = Instance.new("TextLabel", IntroGui)
+    IntroLabel.Size = UDim2.new(1, 0, 0, 80)
+    IntroLabel.Position = UDim2.new(0, 0, 0.4, 0)
+    IntroLabel.BackgroundTransparency = 1
+    IntroLabel.Text = "multvallk Premium"
+    IntroLabel.TextColor3 = Color3.fromRGB(0, 150, 255) -- 파란색 계열
+    IntroLabel.TextStrokeTransparency = 0.5
+    IntroLabel.Font = Enum.Font.GothamBold
+    IntroLabel.TextSize = 36
+    IntroLabel.TextXAlignment = Enum.TextXAlignment.Center
+    IntroLabel.TextYAlignment = Enum.TextYAlignment.Center
+    
+    task.wait(3) -- 3초 동안 유지
+    
+    -- 파란색으로 부드럽게 사라지기 (Fade-out)
+    local tweenInfo = TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local tween = TweenService:Create(IntroLabel, tweenInfo, {
+        TextTransparency = 1,
+        TextStrokeTransparency = 1
+    })
+    
+    tween:Play()
+    tween.Completed:Connect(function()
+        IntroGui:Destroy()
+    end)
+end)
 
 -- ============================================================================
 -- SECTION: Anti-Kick / Security / Anti-Cheat Bypass
@@ -78,6 +120,112 @@ for _, player in ipairs(Players:GetPlayers()) do
     if player.Character then
         player:SetAttribute("SpawnTime", tick())
     end
+end
+
+-- ============================================================================
+-- SECTION: Device Spoofer Engine & State Configuration
+-- ============================================================================
+local deviceSpooferEnabled = false
+local spoofedDeviceMode = "Touch" -- Options: "Touch", "Gamepad", "MouseKeyboard", "VR"
+
+pcall(function()
+    if hookmetamethod and getnamecallmethod then
+        local oldIndex
+        oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, index)
+            if deviceSpooferEnabled and not checkcaller() then
+                if self == UserInputService then
+                    if index == "TouchEnabled" then
+                        return spoofedDeviceMode == "Touch"
+                    elseif index == "KeyboardEnabled" or index == "MouseEnabled" then
+                        return spoofedDeviceMode == "MouseKeyboard"
+                    elseif index == "GamepadEnabled" then
+                        return spoofedDeviceMode == "Gamepad"
+                    elseif index == "VREnabled" then
+                        return spoofedDeviceMode == "VR"
+                    elseif index == "GyroscopesEnabled" or index == "AccelerometerEnabled" then
+                        return spoofedDeviceMode == "Touch"
+                    end
+                elseif self == VRService then
+                    if index == "VREnabled" then
+                        return spoofedDeviceMode == "VR"
+                    end
+                end
+            end
+            return oldIndex(self, index)
+        end))
+
+        local oldNamecall
+        oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            if deviceSpooferEnabled and not checkcaller() then
+                if self == UserInputService then
+                    if method == "GetPlatform" then
+                        if spoofedDeviceMode == "Touch" then
+                            return Enum.Platform.IOS
+                        elseif spoofedDeviceMode == "Gamepad" then
+                            return Enum.Platform.XBoxOne
+                        elseif spoofedDeviceMode == "MouseKeyboard" then
+                            return Enum.Platform.Windows
+                        elseif spoofedDeviceMode == "VR" then
+                            return Enum.Platform.None
+                        end
+                    elseif method == "GetLastInputType" then
+                        if spoofedDeviceMode == "Touch" then
+                            return Enum.UserInputType.Touch
+                        elseif spoofedDeviceMode == "Gamepad" then
+                            return Enum.UserInputType.Gamepad1
+                        elseif spoofedDeviceMode == "MouseKeyboard" then
+                            return Enum.UserInputType.MouseButton1
+                        elseif spoofedDeviceMode == "VR" then
+                            return Enum.UserInputType.UserFocus
+                        end
+                    end
+                end
+            end
+            return oldNamecall(self, ...)
+        end))
+    end
+end)
+
+-- ============================================================================
+-- SECTION: Hit Sound System Setup
+-- ============================================================================
+local hitSoundEnabled = true
+local selectedHitSound = "bell" -- Default sound
+local hitSoundVolume = 2.0
+
+local hitSoundList = {
+    ["rush hs"]      = "rbxassetid://7234320803",
+    ["neverlose"]    = "rbxassetid://8679627751",
+    ["sparkle"]      = "rbxassetid://9114223177",
+    ["minecraft hit"]= "rbxassetid://4018616850",
+    ["bonk"]         = "rbxassetid://6382086918",
+    ["osu"]          = "rbxassetid://7147454322",
+    ["among us"]     = "rbxassetid://5800030712",
+    ["bruh"]         = "rbxassetid://4292881112",
+    ["vine"]         = "rbxassetid://5332612338",
+    ["gamesense"]    = "rbxassetid://4817809188"
+}
+
+local function playHitSound()
+    if not hitSoundEnabled then return end
+    local soundId = hitSoundList[selectedHitSound]
+    if not soundId then return end
+
+    task.spawn(function()
+        local sound = Instance.new("Sound")
+        sound.SoundId = soundId
+        sound.Volume = hitSoundVolume
+        sound.PlayOnRemove = false
+        sound.Parent = SoundService
+        sound:Play()
+        sound.Ended:Connect(function()
+            sound:Destroy()
+        end)
+        task.delay(3, function()
+            if sound and sound.Parent then sound:Destroy() end
+        end)
+    end)
 end
 
 -- ============================================================================
@@ -554,7 +702,7 @@ task.spawn(function()
 end)
 
 -- ============================================================================
--- SECTION: Hit Logs Integration (multvallk)
+-- SECTION: Hit Logs & Sound Integration (multvallk)
 -- ============================================================================
 local HitLogGui = Instance.new("ScreenGui")
 HitLogGui.Name = "multvallkHitLogUI"
@@ -573,6 +721,8 @@ HitLogLayout.Padding = UDim.new(0, 4)
 HitLogLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 
 local function addHitLog(targetName, damage)
+    playHitSound() -- Hit Sound Triggers Here!
+
     local logLabel = Instance.new("TextLabel")
     logLabel.Size = UDim2.new(1, 0, 0, 18)
     logLabel.BackgroundTransparency = 1
@@ -1497,8 +1647,30 @@ miscSec:Toggle("Bullet Speed Boost", function() return bulletSpeedBoost end, fun
 miscSec:Toggle("Rapid Speed Hack", function() return rapidSpeedEnabled end, function(v) rapidSpeedEnabled = v end)
 miscSec:Toggle("Noclip", function() return noclipEnabled end, function(v) noclipEnabled = v end)
 
--- UI Set Tab Options
-local uiSec = UiTab:Section("Skybox & Crosshair", 1)
+local spooferSec = MiscTab:Section("Device Spoofer", 2)
+spooferSec:Toggle("Enable Device Spoofer", function() return deviceSpooferEnabled end, function(v) deviceSpooferEnabled = v end)
+spooferSec:Toggle("Spoof: VR", function() return spoofedDeviceMode == "VR" end, function(v) if v then spoofedDeviceMode = "VR" end end)
+spooferSec:Toggle("Spoof: Touch (Mobile)", function() return spoofedDeviceMode == "Touch" end, function(v) if v then spoofedDeviceMode = "Touch" end end)
+spooferSec:Toggle("Spoof: Gamepad (Console)", function() return spoofedDeviceMode == "Gamepad" end, function(v) if v then spoofedDeviceMode = "Gamepad" end end)
+spooferSec:Toggle("Spoof: Mouse & Keyboard", function() return spoofedDeviceMode == "MouseKeyboard" end, function(v) if v then spoofedDeviceMode = "MouseKeyboard" end end)
+
+-- UI Set Tab Options (Hit Sounds & Skybox Included)
+local hitSoundSec = UiTab:Section("Hit Sound Settings", 1)
+hitSoundSec:Toggle("Enable Hit Sound", function() return hitSoundEnabled end, function(v) hitSoundEnabled = v end)
+hitSoundSec:Slider("Sound Volume", 0.1, 10.0, function() return hitSoundVolume end, function(v) hitSoundVolume = v end)
+
+hitSoundSec:Toggle("HS: rush hs", function() return selectedHitSound == "rush hs" end, function(v) if v then selectedHitSound = "rush hs"; playHitSound() end end)
+hitSoundSec:Toggle("HS: neverlose", function() return selectedHitSound == "neverlose" end, function(v) if v then selectedHitSound = "neverlose"; playHitSound() end end)
+hitSoundSec:Toggle("HS: sparkle", function() return selectedHitSound == "sparkle" end, function(v) if v then selectedHitSound = "sparkle"; playHitSound() end end)
+hitSoundSec:Toggle("HS: minecraft hit", function() return selectedHitSound == "minecraft hit" end, function(v) if v then selectedHitSound = "minecraft hit"; playHitSound() end end)
+hitSoundSec:Toggle("HS: bonk", function() return selectedHitSound == "bonk" end, function(v) if v then selectedHitSound = "bonk"; playHitSound() end end)
+hitSoundSec:Toggle("HS: osu", function() return selectedHitSound == "osu" end, function(v) if v then selectedHitSound = "osu"; playHitSound() end end)
+hitSoundSec:Toggle("HS: among us", function() return selectedHitSound == "among us" end, function(v) if v then selectedHitSound = "among us"; playHitSound() end end)
+hitSoundSec:Toggle("HS: bruh", function() return selectedHitSound == "bruh" end, function(v) if v then selectedHitSound = "bruh"; playHitSound() end end)
+hitSoundSec:Toggle("HS: vine", function() return selectedHitSound == "vine" end, function(v) if v then selectedHitSound = "vine"; playHitSound() end end)
+hitSoundSec:Toggle("HS: gamesense", function() return selectedHitSound == "gamesense" end, function(v) if v then selectedHitSound = "gamesense"; playHitSound() end end)
+
+local uiSec = UiTab:Section("Skybox & Crosshair", 2)
 uiSec:Toggle("Circle Crosshair", function() return circleCrosshairEnabled end, function(v) circleCrosshairEnabled = v end)
 uiSec:Toggle("Sky: Dark Sky", function() return customSkyboxEnabled and skyboxTheme == "Dark Sky" end, function(v) if v then setSkyboxTheme("Dark Sky") else customSkyboxEnabled = false; applySkybox() end end)
 uiSec:Toggle("Sky: Vaporwave", function() return customSkyboxEnabled and skyboxTheme == "Vaporwave" end, function(v) if v then setSkyboxTheme("Vaporwave") else customSkyboxEnabled = false; applySkybox() end end)
@@ -1507,4 +1679,4 @@ uiSec:Toggle("Sky: Black Mesa", function() return customSkyboxEnabled and skybox
 
 MainFrame.Visible = true
 
-print("[multvallk Premium v3] Script Fully Updated: Hitbox, DrawFOV, Scope Look & Wallcheck Integrated Successfully.")
+print("[multvallk Premium v3] Script Fully Updated: Intro Added & Features Intact.")
