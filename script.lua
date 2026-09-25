@@ -1,3206 +1,1274 @@
+--[[
+  vallkmult free v1 | sealed runtime
+  unauthorized decompile / dump will not recover clean source
+]]
 
--- ============================================================================
+local _GENV = (getgenv and getgenv()) or _G
+if _GENV.__vallk_locked then return end
+_GENV.__vallk_locked = true
 
--- ============================================================================
-
--- ============================================================================
-
--- ============================================================================
-
--- ============================================================================
-
--- ============================================================================
-
--- ============================================================================
-
--- ============================================================================
--- 諛붿씠�⑥뒪 FULL (�덉쟾 踰꾩쟾 �� overflow �좊컻 ��ぉ �쒖쇅)
--- �ы븿: Kick, setmetatable, namecall Kick, GetMouse, Ping, CameraSecurity soft
--- �쒖쇅: FireServer 愿묒뿭 李⑤떒, CameraSecurity __index=nil, getgc 媛뺤젣 ��
--- ============================================================================
-task.defer(function()
-    if getgenv().__VallkBypassFullSafe then return end
-    getgenv().__VallkBypassFullSafe = true
-
-    local function sc(fn)
-        return newcclosure and newcclosure(fn) or fn
-    end
-
-    pcall(function()
-        if setthreadidentity then setthreadidentity(8) end
-    end)
-
-    local LP = game:GetService("Players").LocalPlayer
-
-    -- Kick
-    pcall(function()
-        if not LP then return end
-        if hookfunction and typeof(LP.Kick) == "function" then
-            local oldKick
-            oldKick = hookfunction(LP.Kick, sc(function(self, ...)
-                if self == LP then return nil end
-                return oldKick(self, ...)
-            end))
-        else
-            pcall(function() LP.Kick = function() end end)
-        end
-    end)
-
-    -- setmetatable weak-mode (original only)
-    pcall(function()
-        local okEnv, renv = pcall(getrenv)
-        local sm = okEnv and renv and renv.setmetatable
-        if not (hookfunction and sm) then return end
-        local oldSM
-        oldSM = hookfunction(sm, sc(function(tbl, mt)
-            -- pass-through by default to avoid lobby pairs(nil) breakage
-            if type(oldSM) ~= "function" then
-                return tbl
-            end
-            if mt and type(mt) == "table" then
-                local mode = rawget(mt, "__mode")
-                if mode == "kv" or mode == "v" or mode == "k" then
-                    local ok, tr = pcall(debug.traceback)
-                    tr = ok and tr or ""
-                    -- only CameraSecurity / Analytics �� avoid Lobby/Misc lobby paths
-                    if tr:find("CameraSecurity", 1, true)
-                        or tr:find("AnalyticsPipelineController", 1, true) then
-                        if not tr:find("Lobby", 1, true) and not tr:find("LobbyElements", 1, true) then
-                            return oldSM({1, 2, 3}, {})
-                        end
-                    end
-                end
-            end
-            return oldSM(tbl, mt)
-        end))
-    end)
-
-    -- namecall Kick only
-    pcall(function()
-        if getgenv().__VallkNCFull then return end
-        if not (hookmetamethod and getnamecallmethod) then return end
-        local old
-        old = hookmetamethod(game, "__namecall", sc(function(self, ...)
-            local method = getnamecallmethod()
-            if method == "Kick" or method == "kick" then
-                return
-            end
-            return old(self, ...)
-        end))
-        getgenv().__VallkNCFull = true
-    end)
-
-    -- GetMouse (Misc only) �� return real mouse, no fake mt
-    task.delay(1, function()
-        pcall(function()
-            if not (LP and hookfunction) then return end
-            local oldGetMouse
-            oldGetMouse = hookfunction(LP.GetMouse, sc(function(self, ...)
-                return oldGetMouse(self, ...)
-            end))
-        end)
-    end)
-
-    -- CameraSecurity soft (tostring only, no __index nil)
-    task.delay(2, function()
-        pcall(function()
-            local ps = LP and LP:FindFirstChild("PlayerScripts")
-            local mod = ps and ps:FindFirstChild("Modules") and ps.Modules:FindFirstChild("CameraSecurity")
-            if not mod then return end
-            local ok, cs = pcall(require, mod)
-            if not ok or not cs then return end
-            local mt = getrawmetatable and getrawmetatable(cs)
-            if not mt then return end
-            if setreadonly then pcall(setreadonly, mt, false) end
-            pcall(function()
-                mt.__tostring = function() return "CameraSecurity" end
-            end)
-        end)
-    end)
-
-    -- Ping
-    task.delay(4, function()
-        pcall(function()
-            local RS = game:GetService("ReplicatedStorage")
-            local ServerPing = workspace:FindFirstChild("ServerPing")
-            local Remotes = RS and RS:FindFirstChild("Remotes")
-            local PingRemote = Remotes and Remotes:FindFirstChild("Ping")
-            if not PingRemote then return end
-            while true do
-                task.wait(15 + math.random() * 10)
-                local rnd = math.random(1, 9999)
-                local sp = ServerPing and ServerPing.Value
-                local value = rnd == 6961 and 2137 or (sp and rnd == sp and 2138 or rnd)
-                pcall(function() PingRemote:FireServer(value) end)
-            end
-        end)
-    end)
-end)
-
--- SECTION: Anti-Kick / Security / Anti-Cheat Bypass
--- ============================================================================
-pcall(function()
-    if LocalPlayer and typeof(LocalPlayer.Kick) == "function" then
-        LocalPlayer.Kick = function(...) end
-    end
-end)
-
--- Anti-Kick namecall block removed (syntax fix + overflow)
-
--- Player Spawn Tracker
-local _Players = game:GetService("Players")
-_Players.PlayerAdded:Connect(function(player)
-    player.CharacterAdded:Connect(function(char)
-        player:SetAttribute("SpawnTime", tick())
-    end)
-end)
-
-for _, player in ipairs(_Players:GetPlayers()) do
-    player.CharacterAdded:Connect(function(char)
-        player:SetAttribute("SpawnTime", tick())
-    end)
-    if player.Character then
-        player:SetAttribute("SpawnTime", tick())
-    end
-end
-
--- ============================================================================
-
--- Services
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local TextService = game:GetService("TextService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
-local Lighting = game:GetService("Lighting")
-local CoreGui = game:GetService("CoreGui")
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-local Camera = Workspace.CurrentCamera
-Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
-    Camera = Workspace.CurrentCamera
-end)
-
--- SECTION: Key System & Settings Variables
--- ============================================================================
-local validKey = "Paid_masterkey-vallkmult"
-local keyPassed = false
-
-local mobileOnEnabled = false
-
--- Aimbot & Silent Aim
-local aimbotEnabled = false
-local aimbotSmoothness = 5
-local aimbotFovRadius = 100
-local aimbotHitPart = "head"
-local aimbotWallCheck = false
-
-local silentAimEnabled = false
-local wallbangEnabled = false
-local silentAimHitPart = "head"
-local silentAimFovRadius = 300
-local silentWallCheck = false
-local silentAimTarget = nil
-
--- Ragebot Toggle (Single Engine Integration)
-local ragebotOrKillAura = false
-local ragebotHeightOffset = 3
-
--- Vallk Features & Cooldowns
-local fastMeleeEnabled = false
-local hoNyangNoCDEnabled = false
-local attackCooldownDisabled = false
-local projectileCooldownDisabled = false
-
--- FFMode
-local ffModeEnabled = false
-local ffTeamCheckEnabled = true
-local ffBaitingEnabled = false
-
--- Orbit & Void Spam
-local orbitEnabled = false
-local orbitRange = 50
-local orbitDelay = 0.01
-
-local voidSpamEnabled = false
-local voidSpamRange = 50
-local voidSpamDelay = 0.01
-local voidHideTime = 0.25
-local voidShootTime = 0.03
-local voidAttackAttempts = 1
-local hitNotifyEnabled = true
-local ragebotIndicatorEnabled = true
-local ammoIndicatorEnabled = true
-local hitSoundVolume = 0.7
-local hitSoundEnabled = false
-local hitSoundName = "neverlose"
-local HIT_SOUND_IDS = {
-    neverlose = "rbxassetid://6607204501",
-    gamesense = "rbxassetid://4817809188",
-    skeet = "rbxassetid://5447626464",
-    rust = "rbxassetid://5043539486",
-    bell = "rbxassetid://6534947240",
-    bubble = "rbxassetid://6534947588",
-    minecraft = "rbxassetid://4018616850",
-    osu = "rbxassetid://7149255551",
-    tf2 = "rbxassetid://2868331684",
-    ["�μ땐�� �뺤”諛� 蹂댁뙂"] = "rbxassetid://85775332966635",
+local _Z30595={
+{858033119,182823127,1748763643,6886325,-798060850,-408777843,-786720591,-794486930,2099557098,-1810585907},
+{-746155386,43577607,-1142854146,-667145513,-1474497875,-2021280818,-514099100,1818454270,656705039,-1256109293},
+{-1557308376,797919051,-557751404,-255462355,-1984736834,155524625,-1957438606,1394088028,-1195353167,-532863733},
+{-55135047,-1056062217,-1340191939,-1963723016,-1702175254,1345869916,2036346181,-958113462,-547569824,91861821},
+{120231327,-1628376394,523436885,-1485528269,2056984691,-1863746897,564744674,-761926301,502594954,634478829},
+{775491772,-1458995436,2023158102,-1206824502,77523255,411407360,-1077111502,1073546349,-1487410797,529436808},
+{1405609011,221550651,516340225,485750151,-1147762892,1168264701,-1032604372,-1881347794,-52891842,-378105728},
+{-562356206,1177824208,-1853269469,-125496477,-2073695905,-1994945780,-1834012948,-841979614,-562095434,-3325454},
+{484808540,471106381,1107325721,1695854649,2011757282,1420228224,1596982072,555509592,-819603410,-1454809530},
+{-165027863,1029365571,1592227370,-801247406,-470930638,-1465733234,623446517,-1862989956,1916573962,-2014266597},
+{-2110078097,-1720766210,1492127740,624265703,-2022576503,-1697362424,1508871572,1257096463,2061574975,1190862760},
+{-612685431,1148729361,1378030525,1765582459,-561579880,-861986941,-422684135,-1489872929,-1013722963,271904508},
+{1326299548,-1345340752,1253131125,351643778,403286167,2054790211,534768844,398563938,-1923263137,-915226},
+{-385541180,-374924944,-577111475,2135624694,-1473188603,-1858200389,-2062747303,2128043045,1955497617,-2029207959},
+{-1376527937,-676849018,-324815545,1315695143,-1242300021,-1472689418,958317251,26018418,-206037412,1222562406},
+{-1773926392,2060713493,688235856,-1970220019,1967193961,-1921443912,-290838806,-506200881,-587856114,877412842},
+{-397176520,-256240777,281780559,-1931882101,1296802450,-2058333964,-1658221677,-1335617895,-60804356,1029001677},
+{877617819,-2126763867,-1003301484,-121519550,-187040669,375289552,361066830,1894827675,1354005106,1555300035},
+{-2135456976,504224909,-338659520,945951781,980938503,969612765,1961791692,-1729018810,-1119817404,-1860221818},
+{-2099450473,894295091,263852667,-1535501134,-296773246,-94756523,-2092017739,-1822670323,-1513864039,-2098285192},
+{-565327689,90321308,581210963,1764318675,-714059748,301087459,-466352327,-1620646367,2145000755,-1478637717},
+{-703143300,-843817478,-2120815748,864395340,1628728691,-802399656,-416541039,960872719,156038966,741878944},
+{-1213985379,-576022455,623557374,949894981,-1374896943,-1420098778,631781516,1851751915,363518406,-84020098},
+{-1854660176,-1735743838,-424627799,-1751504781,604073991,-82064565,-495943225,-1371278536,1380041963,1092236028},
+{170261499,-886434039,-946442466,966148832,-1199372691,-521761057,-1531639317,585317631,2119964199,1966937051},
+{1889858148,-1594311748,700036483,2053044778,-798289651,957602727,1941606322,-934810679,1986735997,750714458},
+{197888449,-254610686,-1062428355,-652227288,-1247773967,221992683,-1315792942,16747993,-508286156,-1162341312},
+{705040551,-95071732,860871028,-1185346619,-987465053,-1834277217,242303426,-519670638,1564792450,-985399670},
+{2097477755,474852422,-1576334028,1427468841,-1399022770,1150901198,-673707997,782048636,-1245059913,-745332876},
+{721838158,-1760101070,-1379042650,637525915,606681137,-1812239176,-1261674454,1072553325,-1061139562,354003609},
 }
-local HIT_SOUND_LIST = {"neverlose","gamesense","skeet","rust","bell","bubble","minecraft","osu","tf2","�μ땐�� �뺤”諛� 蹂댁뙂"}
-
-local hideCrosshairEnabled = false
-
--- Gun Utilities
-local triggerbotEnabled = false
-local rapidFireEnabled = false
-local noRecoilEnabled = false
-local noSpreadEnabled = false
-local noMuzzleFlashEnabled = false
-local bulletSpeedBoost = false
-local bulletSpeedMult = 100000
-
--- ESP & Movement
-local espEnabled = false
-local espBoxEnabled = false
-local espNameEnabled = false
-local espHealthEnabled = false
-local gunTracerEnabled = false
-
-local pcFlyEnabled = false
-local mobileFlyEnabled = false
-local noclipEnabled = false
-local rapidSpeedEnabled = false
-local rapidSpeedMultiplier = 2.5
-
-local skinChangerEnabled = false
-local autoRespawnEnabled = false
-local collectDropsEnabled = false
-local arcadeEnabled = false
-local customSkyboxEnabled = false
-local skyboxTheme = "Vaporwave"
-
-local circleCrosshairEnabled = false
-local circleCrosshairSize = 60
-local circleRotationSpeed = 4
-
--- Controller Modules
-local FighterController, SpectateController, CameraController, GunModule, UtilityModule, EnumLibrary
-task.defer(function()
-    pcall(function()
-        local ps = LocalPlayer:WaitForChild("PlayerScripts", 10)
-        if not ps then return end
-        local ctrl = ps:WaitForChild("Controllers", 10)
-        if not ctrl then return end
-        pcall(function() FighterController = require(ctrl:WaitForChild("FighterController", 5)) end)
-        pcall(function() SpectateController = require(ctrl:WaitForChild("SpectateController", 2)) end)
-        pcall(function() CameraController = require(ctrl:WaitForChild("CameraController", 2)) end)
-        pcall(function() GunModule = require(ps:WaitForChild("Modules"):WaitForChild("ItemTypes"):WaitForChild("Gun")) end)
-        pcall(function() UtilityModule = require(ReplicatedStorage:WaitForChild("Modules", 5):WaitForChild("Utility", 5)) end)
-        pcall(function() EnumLibrary = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("EnumLibrary")) end)
-    end)
-end)
-
--- Helpers & Safety Checks
-local function is_teammate(player)
-    if ffModeEnabled and ffTeamCheckEnabled then
-        local myTeam = LocalPlayer:GetAttribute("TeamID")
-        local pTeam = player:GetAttribute("TeamID")
-        if myTeam ~= nil and pTeam ~= nil and myTeam == pTeam then return true end
-    end
-    local myTeam = LocalPlayer:GetAttribute("TeamID")
-    local pTeam = player:GetAttribute("TeamID")
-    if myTeam == nil or pTeam == nil then return false end
-    return myTeam == pTeam
-end
-
-local function get_character_immune(playerOrChar)
-    local char = playerOrChar
-    if typeof(playerOrChar) == "Instance" and playerOrChar:IsA("Player") then
-        char = playerOrChar.Character
-    end
-    if not char then return true end
-    if char:FindFirstChildOfClass("ForceField") then return true end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if hrp and hrp:FindFirstChild("Attachment") then return true end
-    local isImmuneAttr = char:GetAttribute("Immune") or char:GetAttribute("Invincible") or char:GetAttribute("IsImmune")
-    if isImmuneAttr == true then return true end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if hum then
-        if hum.Health <= 0 then return true end
-        local humImmune = hum:GetAttribute("Immune") or hum:GetAttribute("Invincible")
-        if humImmune == true then return true end
-    end
-    return false
-end
-
-local function is_reflecting_or_parrying(player)
-    local char = player and player.Character
-    if not char then return false end
-
-    local reflectAttrs = {"Reflecting", "IsReflecting", "BulletReflect", "Reflect", "Deflecting", "Parrying"}
-    for _, attr in ipairs(reflectAttrs) do
-        local val = char:GetAttribute(attr)
-        if val == true or val == 1 or val == "true" then return true end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then
-            local hVal = hum:GetAttribute(attr)
-            if hVal == true or hVal == 1 then return true end
-        end
-    end
-
-    local isKatana = false
-    local tool = char:FindFirstChildOfClass("Tool")
-    if tool and string.find(string.lower(tool.Name), "katana", 1, true) then isKatana = true end
-    for _, child in ipairs(char:GetChildren()) do
-        local childName = string.lower(child.Name)
-        if string.find(childName, "katana", 1, true) then isKatana = true end
-        if string.find(childName, "reflect", 1, true) or string.find(childName, "deflect", 1, true) then return true end
-    end
-
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if hum then
-        local ok, anims = pcall(function() return hum:GetPlayingAnimationTracks() end)
-        if ok and anims then
-            for _, track in ipairs(anims) do
-                local animName = string.lower(tostring(track.Name or ""))
-                local animId = ""
-                pcall(function()
-                    if track.Animation then animId = tostring(track.Animation.AnimationId or "") end
-                end)
-                local fullStr = animName .. " " .. string.lower(animId)
-                if string.find(fullStr, "reflect", 1, true) or string.find(fullStr, "deflect", 1, true)
-                    or string.find(fullStr, "parry", 1, true) or string.find(fullStr, "block", 1, true) then
-                    if isKatana or string.find(fullStr, "katana", 1, true) then return true end
-                    if string.find(fullStr, "reflect", 1, true) or string.find(fullStr, "deflect", 1, true) then return true end
-                end
-            end
-        end
-    end
-    return false
-end
-
-local function get_character_root(char)
-    if not char then return nil end
-    return char:FindFirstChild("HitboxHead")
-        or char:FindFirstChild("HitboxHeadSmall")
-        or char:FindFirstChild("Head")
-end
-
-local function can_shoot()
-    local canShoot = true
-    pcall(function()
-        if not FighterController or not FighterController.LocalFighter then return end
-        local item = FighterController.LocalFighter.EquippedItem
-        if not item then canShoot = false; return end
-        local function getProp(key)
-            local ok, res = pcall(function()
-                if item.Get then return item:Get(key) end
-                return item[key] or (item.Data and item.Data[key]) or (item.Info and item.Info[key])
-            end)
-            return ok and res or nil
-        end
-        local ammo = getProp("CurrentAmmo") or getProp("Ammo") or getProp("Bullets") or getProp("MagazineAmmo")
-        local isReloading = getProp("Reloading") or getProp("IsReloading")
-        if item.Info and type(item.Info) == "table" then
-            if ammo == nil then ammo = item.Info.CurrentAmmo or item.Info.Ammo end
-            if item.Info.Reloading == true or item.Info.IsReloading == true then isReloading = true end
-        end
-        if isReloading == true or (typeof(ammo) == "number" and ammo <= 0) then canShoot = false end
-    end)
-    return canShoot
-end
-
-local function has_line_of_sight(targetPart, myChar)
-    if not targetPart then return false end
-    local origin = Camera.CFrame.Position
-    local dir = targetPart.Position - origin
-    local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = { myChar, Camera }
-    params.IgnoreWater = true
-    local result = Workspace:Raycast(origin, dir, params)
-    if not result then return true end
-    local model = result.Instance and result.Instance:FindFirstAncestorOfClass("Model")
-    return model == targetPart:FindFirstAncestorOfClass("Model")
-end
-
--- ============================================================================
-
-
--- ============================================================================
--- PASTED RAGEBOT ENGINE (no dual UI �� wired to Valk toggles)
--- ============================================================================
-local function setRagebotStatus(active, target)
-    -- indicator uses activeTargetPart / ragebotOrKillAura
-    if active and target and target.Character then
-        activeTargetPart = target.Character:FindFirstChild("HitboxHead")
-            or target.Character:FindFirstChild("Head")
-    elseif not active then
-        activeTargetPart = nil
-    end
-end
-
--- RAGEBOT SETTINGS
--- ============================================================================
-local RagebotSettings = {
-    on = false,
-    targetMode = "Closest",
-    autoSwitch = true,
-    autoSwapSecondary = true,
-    autoReloadPrimary = true,
-    primarySlot = 1,
-    secondarySlot = 2,
-    acSpd = 0.05,
-    shootDelay = 0,
-    teleportDelay = 0.04,
-    orbitDist = 3,
-    orbitHeight = 2,
-    randomMovement = false,
-    randomRefresh = 0.08,
-    mode = "Orbit",
-    strafeSpeed = 5,
-    undergroundDepth = 6,
-    behindDist = 4,
-    antiAim = false,
-    hyper = false,
-    useManipulation = true,
-    voidSpam = true,
-    voidHideTime = 0.25,
-    voidShootTime = 0.03,
-    shootAttempts = 1,
-    otherMatchAvoidDistance = 1000,
-    settleUntil = 0,
-    dirBack = true, dirFront = false, dirLeft = true, dirRight = true, dirUp = true, dirDown = false,
+local _s0=0 for _i=1,#_Z30595 do _s0=(_s0+(_Z30595[_i][1] or 0))%2147483647 end
+local _Z35538={
+{-2142086967,615215109,-673082509,-1837566004,640683667,-514921614,-1374882922,-207167442,912690622,1333275727},
+{-1356282502,1476205152,225709732,-253565923,1108709356,1460112319,518957925,2016711153,301941072,1606440829},
+{-24875121,1415973533,-113087672,725877177,-1447305196,-1918039190,-1453543404,-169554226,723027610,1868313701},
+{1925126520,-758017156,1859824549,-1767472009,153908960,394718266,431942732,-463161069,1035880583,-610670881},
+{404006343,-1943663430,1242409541,-930564402,-2655066,1938202309,2134334255,121215841,1062670051,-1947568526},
+{-769999760,-1974952335,1205494921,122219053,1312997221,-824818811,-39247215,-1848615568,-445108355,-909996455},
+{-1701288590,669111144,-1142196205,-1163610263,1183119024,1691877664,-215824782,-2084200233,-1651923358,1100788149},
+{1715037153,471949095,-40776352,-1200859258,190830256,-1264408522,-1505580037,-1988800239,-196498560,1920132089},
+{-1711612417,-1023063468,616956818,1550025838,-991643559,1126767183,-1912145289,1231832856,246938811,1217898784},
+{-982743462,1420118389,-971707656,-1642577452,1615460904,484754797,-1818395639,956025884,-1518066501,-610008747},
+{260134650,-1019869212,1264042250,1854475343,-1440970244,-921536132,1704477208,320166220,-1649659096,-2589829},
+{-923119970,614700898,585994279,-1154295594,-1979061399,-1109548645,472312945,-802578378,108800770,1496580900},
+{1877337155,814401169,-717227933,-1688454733,-432317966,214793907,-674425871,-1580148478,-2088251854,-865036287},
+{1292188294,500180365,-1436635291,1335178502,169596294,-1171571648,1230933025,-1555261863,-1651512272,677679981},
+{-1965328372,1675910190,-311034807,-1141334119,-1263852081,2101479976,1832172700,83314215,-546056159,-1308566264},
+{-1490220819,-697332068,1233004371,1486495662,-1892721247,852515359,1701499027,48060974,1837447677,-1025017281},
+{329605640,-416213320,1289576482,-1877044639,1700137240,1822946204,2015490900,1010230327,-1048361131,1386614731},
+{-442902450,-769286566,-1659628001,-2078773266,-2100629130,-1778761517,-700342290,1245920398,-1860772555,1126315754},
+{-1992444070,1893283272,-1028969152,-1455191325,-1354634697,-1824935417,-180439789,-608428028,-462771162,-839034874},
+{-124727209,-36167440,-226357788,-836976930,1865430358,-125447126,577181171,1252653956,386805604,1564565880},
+{1427982612,597388542,1869591736,-829660765,49734759,-1646998691,1023174458,-1477159571,81267377,2492169},
+{-2076617298,-406944803,1190745717,977497970,-2128340459,-301430227,177096759,-72451816,1004809804,1828094665},
+{-2114158449,1894196085,1672660489,599999498,-1269871812,-1995793802,1374439199,1979547201,-1335307326,-1399675359},
+{306474821,-1568481556,1531435791,-777795081,644549330,1229786398,335479245,-1682567729,455614445,-1248911140},
+{-113068419,-711328105,803596605,450008688,1962671480,-1856085109,-765805494,1328612003,-1091341643,-745507395},
+{-1893153169,-1522679071,-252208995,579048502,-1618006833,-355032114,-267189022,-893205214,1460442360,551939130},
+{-1671225097,-1360555370,330332939,1226333240,203948387,1342232735,-1851175739,130678048,-782493216,1648890207},
+{1262104585,-2068103906,1827589546,-862008619,500022277,-1436381829,-212163029,-244644040,-1894432973,-798496554},
+{1664847238,1083277078,1027561983,1706692017,691021772,-859389757,-1223065659,1431902264,1915667673,257161705},
+{-366752442,-521664916,450149207,-311261527,-627863562,-736630650,1645342069,-324426572,1361613230,550314743},
 }
-
-local rbGen = 0
-local rbDuelMod, rbInMatchT, rbInMatch = nil, 0, false
-local rbTgtT = 0
-local slotKey = {[1] = Enum.KeyCode.One, [2] = Enum.KeyCode.Two, [3] = Enum.KeyCode.Three, [4] = Enum.KeyCode.Four}
-
-local util, enums, useItemRemote, fighterCtrl
-pcall(function()
-    util = require(ReplicatedStorage.Modules.Utility)
-    enums = require(ReplicatedStorage.Modules.EnumLibrary)
-    useItemRemote = ReplicatedStorage.Remotes.Replication.Fighter.UseItem
-    fighterCtrl = require(LocalPlayer.PlayerScripts.Controllers.FighterController)
-end)
-
-local function isShootingRange()
-    local function matches(value)
-        if value == nil then return false end
-        local text = tostring(value):lower():gsub("[%s_%-]", "")
-        return text:find("shootingrange", 1, true) ~= nil
-            or text:find("firingrange", 1, true) ~= nil
-            or text:find("�ш꺽��", 1, true) ~= nil
-    end
-    for _, object in ipairs({workspace, LocalPlayer}) do
-        for _, attribute in ipairs({"Map","MapName","Mode","GameMode","Arena","Environment","EnvironmentName","ShootingRange"}) do
-            local value = object:GetAttribute(attribute)
-            if (value == true and attribute == "ShootingRange") or matches(value) then
-                return true
-            end
-        end
-    end
-    return false
-end
-
-local IDKRagebotState = {
-    active = false, target = nil, conn = nil, ammoThread = nil, voidThread = nil,
-    voidHbConn = nil, csyncHbConn = nil, voidExposed = false, voidTargetCF = nil,
-    nextTeleportAt = 0, ammoActionAt = 0, hideOrbitUntil = 0, randPos = nil, randT = 0,
-    lastFakePos = nil, csyncCF = nil, csyncLV = nil, csyncAV = nil,
-    csyncLocalCF = nil, csyncLocalLV = nil, csyncLocalAV = nil, csyncWroteFake = false,
-    noclipConn = nil, orbitClientCF = nil, orbitRenderRunning = false, suspended = false,
+local _s1=0 for _i=1,#_Z35538 do _s1=(_s1+(_Z35538[_i][1] or 0))%2147483647 end
+local _Z42840={
+{-726656340,-1340725405,-451231430,-1725580663,159975908,-495269631,1001236804,-775687027,459257071,-1806996587},
+{712250299,-69756559,1321154773,1670869406,-272572181,-1275682878,-1277742271,-2043688143,1590891044,-1254505887},
+{-806226710,440087487,-709756354,1787700460,817866766,893926451,-306343374,-1856084533,541914599,572021972},
+{1063790354,1673482943,-1203678493,1709767076,-1974094196,1216603047,152455666,-1579808918,2050513632,630511552},
+{662368931,1802898874,1892727255,-1147984021,1296437994,1963137981,-1862366971,1826218711,-993827355,-1549497147},
+{-1442393390,-1139236956,1673439779,1984882527,1456332076,65951872,-1252759207,-1203620838,-672447101,-289025137},
+{-305760002,-485210855,-1717854523,1799416008,1185037878,-2106488367,-1623411948,-1968395304,1742027870,330676509},
+{-1872608627,1407035867,707057952,883072563,-1333094960,211725173,-1333023619,2092503420,-732482037,-1124003132},
+{1602065274,-1759787599,-1994170222,-1564161314,-1012476047,-400283541,807420286,2027965545,1312860514,1747626394},
+{1956446966,61708628,-171350111,550317741,-1220562224,790556761,-152167839,-385360883,906592851,478508371},
+{1976101186,298499615,1003079609,647306185,184746305,-1948577469,-1602035916,-540843944,-1324540642,659802454},
+{1464623895,395961256,720896149,-1744151377,-63550619,-2079741354,683289707,1671563323,1864962456,-1388320955},
+{313523604,-1263677763,-1704841968,-393850315,113905145,-1417333004,955590160,-869613305,800811621,1213580600},
+{-382438346,-554898056,-1020813340,758596744,24400324,-381116750,1230921817,-600958500,-1144263695,309927152},
+{718385910,940473627,1142956230,-1732780105,-801979321,1828102775,543206642,365792273,1996637459,1260957168},
+{1508412503,-1337186707,399019706,-2144304507,1140652580,1313289455,163335663,2007264306,261201411,1027454078},
+{1107299323,-494736826,519478464,-899978521,456345365,-35532811,1086600569,158354229,-86887256,-828052030},
+{-2092612198,1757687795,-357565782,247725800,1625958806,1618682968,1940562300,-1478383832,774279640,1061852196},
+{2127934903,-124310277,-2014013489,-642577995,81831461,-1806231948,-1969031947,-861365599,1987034970,-2034757324},
+{1605739207,597888725,2095136328,680300358,1594797503,-1068977188,-1664520437,645713477,-1664705152,1238625391},
+{2007971779,1841526527,-1801199897,1305808911,919142302,-962453669,-86629601,1300689121,-915469943,1564293855},
+{-1261412214,61938591,1291665560,-2066572282,1167928077,-1998953283,694783541,1737841121,1645760973,1224450811},
+{-1185065037,57759331,-1255615276,-525971128,297014030,-2129481610,1902929409,-1074949,-949421568,1028266797},
+{-379391133,-646822196,897622485,339260239,1832057713,-485286376,-509012451,2090837583,1602680226,-1442112606},
+{-1114162756,-827114919,1742450538,-1163467457,-1872566698,2097288737,1620565465,1460514737,-1700296417,-1765072642},
+{1690476840,-739568991,-1277859208,1374711834,-543486303,-1463638631,1816810848,559578388,-1211477164,-2066887518},
+{1048570936,-2134539927,-1195029524,-614241008,-1484535983,49177338,1357916632,-1377490352,-1987162912,1247370883},
+{-343878105,1271763659,141559752,-2136232248,-1412652820,2048372876,-345716970,-768274465,1615534845,-1676834811},
+{-2130285550,420057515,-2072600906,402954860,-124160934,1320156714,732560412,-876471700,1955708971,-1542757643},
+{1982814389,377340264,590720061,409116249,-1550457153,593118433,-97792014,-1266764173,-964145923,-1053770063},
 }
+local _s2=0 for _i=1,#_Z42840 do _s2=(_s2+(_Z42840[_i][1] or 0))%2147483647 end
+local _Z30652={
+{2045865200,-2043344588,872741411,631648696,2021718986,429196736,-961140705,40520339,-807178827,425764598},
+{1601751421,-392298315,-963222198,-358852526,-246512841,605809834,-371090114,-71952485,-168098684,1595333235},
+{897488038,-1136352768,-1052296313,2146998347,-1544729389,-1371442133,-941560164,-719364401,-1338752770,346905094},
+{-579262232,1527079706,921674181,1910020122,604303258,-1894305423,-456896617,12256450,-1095108920,288255771},
+{-472410278,-1194242546,1023959155,803978934,806547030,1461646757,-2124899627,1986290162,-499095525,1486684694},
+{1327007433,1022666657,1958810169,-1400994906,-172030802,1083103172,-1299310705,-1056090833,683606144,-35971551},
+{-688352487,-694222056,-1631320001,483713616,-1202305195,-1385465447,-1146632046,1817935452,-1280480382,-926309029},
+{1828915408,-728319739,473734836,867096821,-2035539759,-1928585575,2099399850,-1889323322,-1540236798,1851176888},
+{127064817,999486799,121175858,-1422555030,-1966082946,-698601785,147632621,-928951614,1222268912,-856780424},
+{729319836,1352620441,455349308,1983150300,-1869480156,-1713967317,1275827,404880670,308391030,1315197095},
+{2061512773,-1400842127,1442187611,-1749499136,667493213,-487703296,905774225,1177077815,-1773661809,1680306554},
+{-2139534428,-850919519,1429268879,-1272824265,502898293,2108962643,1801386468,-1784033968,-1798986765,1118045317},
+{-650294611,1154228826,-1228484652,1985643539,2068026629,379474449,-961510411,207873870,510129465,-1998378800},
+{-1665452162,1394446161,-896465349,610790101,1682393307,-107604605,-1450217000,-1860716788,1684008401,2130546057},
+{985395525,-1309298922,-198438302,-1590081168,-1068981396,1709992348,-438480734,-1967831142,-443603133,-715351165},
+{-1730894234,1027630607,-722170925,1460762837,-1824862344,1989512242,1435583040,1424516552,-148619705,-2075853652},
+{1034447442,-1058215176,489190160,51107795,1004528269,1018488711,-1453251988,-240666755,26603544,-1609335127},
+{1053571012,1362788435,541303417,-1797680186,-596483269,-319636696,718572316,-948972337,162170219,-31950119},
+{1098092912,-2087277730,-790968494,-82511606,-34036956,1186381778,859528656,592126179,717738083,1251984072},
+{1775329441,1210008989,1813268639,-622616740,1033567609,867556878,-1379781816,-1266362712,-1841331477,-1740287628},
+{-1905374118,-898664128,978267397,1200916215,1387302363,296669578,1133670775,1672495666,168074379,553171427},
+{1865760542,330860226,1371248496,-681595332,-1293043594,-1178948347,-613277338,-170596270,-1029631673,1864216435},
+{623047918,942469584,214114265,2003865532,-319515295,-1153501210,613198890,-243630320,1628804053,1866005364},
+{-1204398533,-1190642909,-90642144,-1975284993,568402267,-2065589262,1769074768,72745827,1553051354,1030302861},
+{-2112959682,2146868583,-390030412,-1912486613,-1149236264,-139300911,-191361447,993306265,-1550149543,47810554},
+{-2075120356,238214950,-1664569029,-1246049237,1116347022,-1801965667,-1678055354,-511773684,147904179,-1970940815},
+{-1768619817,-1149584953,-501375550,467528167,1454508062,-1589406304,-249797742,-492508888,-908748996,2146059286},
+{141281253,495468679,1440251157,292062107,360935520,221196360,-307704523,1265227414,-1967838811,-875314758},
+{-935907152,-1829478468,222313676,825494581,-998232070,-686996880,2099915239,1079513767,1933435120,832114211},
+{-1134870968,773192283,-2087206261,140183722,269634747,-744762507,-972470299,-1478015775,962128872,-18806959},
+}
+local _s3=0 for _i=1,#_Z30652 do _s3=(_s3+(_Z30652[_i][1] or 0))%2147483647 end
+local _Z27006={
+{-1245305179,1857934513,-1307761120,241000697,799243941,-2146871628,-2032420550,-1006242743,-878016328,1378318723},
+{2112366886,1584540477,-1073349142,273022574,-1903199618,-1178402326,1079157017,982849487,-2120307581,6259947},
+{-1251717396,379925686,1190953583,-1391359466,1865024825,1047949100,-1968376286,-1408258809,-1033529877,-1424698427},
+{-51107638,757457352,-1475802732,1345171893,-369766529,-2123254827,1428929171,-2012156110,-426032668,-1522235850},
+{-741358183,1556535228,674016361,1880833557,1893384083,204413009,-71419111,-1043621146,1259410662,1803577316},
+{1465617202,-443961122,1117787379,-1801779756,-1444875343,429716510,-1351374099,-730848121,-386525441,95488973},
+{-728412139,97871677,-494248442,1667147198,-1102727265,1490442480,-2079278290,-1788823288,1622886055,-488905131},
+{1986970708,1105044908,543950968,843368441,-2055489008,1801631215,1215627566,-1164043742,174939354,-1956330181},
+{1910507967,857285033,-955036684,-291606577,851215598,220146441,-409290979,-378948580,-2011070550,1477890861},
+{-436195411,986940465,969206220,-1323052842,-1901607251,-830197600,-1437708833,512106491,-413911717,-1467311918},
+{1015065765,463468456,-1011800041,-231922244,1304390249,317995842,-528858817,-334532422,2114120393,-1115683159},
+{871718405,389934697,630931578,506692080,-304153962,511695960,1166856369,1434186747,-285701929,-1348724245},
+{2120378181,764723234,1743381980,1478383750,1819346168,-1372601390,-85168185,-737373158,375584661,1187510157},
+{195893512,277519395,1144389451,351187425,-980852284,-1550870423,-2021735461,-679892193,1264747511,-270524564},
+{709373500,1851412355,1452306737,-646649770,-1669736504,1803241793,-605655832,-232260834,1145717904,-753814187},
+{-241417045,-1616787920,-975028159,-1983666937,-846316099,-1650802255,-1843820831,-56240714,673346641,-1446999275},
+{763496074,418177405,94962151,1631166121,-575446852,1134038761,428550858,976977527,1723272844,-1419446137},
+{472023364,-708328243,327365690,-768602699,1189839776,-1041575427,-1726892638,1221553848,-552439808,1392437073},
+{476486470,-87635495,-1742860633,-1132844085,-337911428,1874587512,1394997058,326130900,-1106174586,-1233654263},
+{-1616679079,-1642632949,-938434438,1878346027,-1447534321,336347277,1556437283,-1751632796,1014934630,2144772371},
+{2078584814,-1473524908,2005433793,1363041093,1081764381,-1398440046,1094910285,1340861758,-1096059520,980068879},
+{794251212,738773003,2134489395,-628083433,-1507828090,1935795053,1959541869,-1470643569,-943446090,-20747053},
+{1305541209,485322733,741593774,-353670052,-842313174,1549337920,-872696052,1117941037,270752853,-2116400382},
+{-1787034977,1564379825,-913915084,991540842,-1786631200,480942454,2102585337,-1917678858,1124999802,-1320428026},
+{-1751604253,431223329,-1505223008,-1907357112,1615199052,-1086270435,-1608613725,-936841371,1278967276,1273391945},
+{-1319829813,1626163162,159886295,1701606954,489679264,783086993,1916876409,4607426,-549075387,-2141037644},
+{100551050,-339321730,1589945348,600530178,1401248534,-1063650040,734244696,1292372827,1077656627,-1726874823},
+{1300476634,1796217322,-677968431,-78683974,2016690305,591049379,-1545270547,-1432290509,29940974,1025977421},
+{582106788,-1037309527,1160381655,-1345409616,744468137,532511808,-264758160,1673052735,1374716339,-1043151357},
+{9533011,-105432394,-2108878283,90826973,272264353,-1089965820,1863872924,-1238381794,-904673288,-2056632015},
+}
+local _s4=0 for _i=1,#_Z27006 do _s4=(_s4+(_Z27006[_i][1] or 0))%2147483647 end
+local _Z52332={
+{12343367,855979948,2073170773,-566312299,1928580397,1503377291,-228096980,-885143706,1317916452,-302939486},
+{1484644519,1864894775,-691056306,612338451,-1511077659,773438669,-538330821,1746590839,410120178,2092682192},
+{546280641,-980903241,581241876,522153146,-266638955,152500457,1475238870,-322045953,-2133713458,2007101993},
+{-1833557921,917117166,868280447,767083681,-1760722173,-1091901902,290730269,1558283015,-1814526918,-1258346550},
+{-457219999,711329154,53997457,1432976890,-595234515,942228036,1548786607,-430430753,610385110,-1200427335},
+{-1769219040,2059553687,1973248011,-464569481,-296360067,-1410891932,42614630,-669787405,-1073975403,947776708},
+{-206734623,-1843392386,1385608559,-142299992,-2032721924,-394078363,-327006395,1189703430,-453266256,-1155508758},
+{-88531799,349386442,-1262034357,289783989,1781760183,48877327,-1375835595,885431753,-745715003,-765709379},
+{1373559971,785002837,1497368242,-2065211774,-232168083,-196924832,1988010576,366740656,302746999,754476167},
+{126859865,-559963239,276263722,-386497035,-728556762,-1805718350,-2134662784,-90806742,-2043583078,-789073574},
+{782578883,-683861371,2010825233,1923733630,1955051614,1230378497,-819414208,2106091182,-762276651,1827814249},
+{-794086194,-1097129895,-1208292939,-1418374984,703550228,-1483594160,-325878332,1331763159,-101255713,-133225354},
+{-2104010735,-1170625743,1196159164,-1280189581,315276724,1772757426,2019560742,231365785,-511258659,-263663241},
+{-1665227776,-618337447,-1805992348,-1852835535,1973958139,-261986354,1474364898,1559888169,592184520,-1880080918},
+{-497045847,430709773,-731088994,271401707,459834875,-1370948055,1300256244,-2062514744,1802866079,-1732756906},
+{686815992,368751299,675451899,-731896945,-2096784402,1241221576,-490701947,1980921877,753529474,566061595},
+{-1533401704,-1632213391,-956146844,2001199826,-1811868843,1123244395,1269959894,662158128,-812080691,206822970},
+{-196752186,-1379436497,-2047147482,-2091046938,-421905500,1513504001,-297207966,1005666548,-204909050,1036416681},
+{1999239485,-1096753695,996174255,1824591087,1417615136,438262269,1719423046,2094567430,-92761544,-1908255292},
+{-607525814,1704490003,-506834948,1606835871,141355633,911728380,-1074849543,63828572,-121199191,-923987061},
+{-72258601,378492233,1963182278,270666732,819022734,910327136,-1302502778,176069461,-1845551513,-1738221539},
+{-1566413996,-408484990,-688058352,1707149744,-837808937,-395088018,1983604809,-358495061,392699200,861491169},
+{359861422,1850999542,-1925625850,-618188570,-967556182,917007896,123036682,1405872723,-900691671,297757315},
+{-1228157438,-1212727779,1782349017,-1266130686,-1923285237,-78792000,-1949125192,-3272306,703734302,182593767},
+{223682797,-1978829130,1966934149,328158332,-311682998,-1322060638,-580105429,-2086427035,1885344199,-705095273},
+{2040965806,1330317815,-458228688,1635155311,-1469306332,-54384309,-1928754530,1767856058,-1939030191,-1248895266},
+{-146430279,-1008128897,1792905390,-866801192,-46647172,276487536,1800002375,-1866056213,97038235,689565470},
+{-1883250313,803723037,614686258,1658497146,-1887086309,1735618300,1638903458,496994819,-897501968,-386521246},
+{1762905160,-1531876281,-660362245,1461370941,302459524,-452346153,-1589031581,317577277,-1315134120,-2133722556},
+{-1234659555,-1313559825,-1221508873,-33047074,-585564699,1109937607,1147627706,-1845974496,1072488440,1902908342},
+}
+local _s5=0 for _i=1,#_Z52332 do _s5=(_s5+(_Z52332[_i][1] or 0))%2147483647 end
+local _Z13044={
+{-1792421053,2079731103,-203291719,-167644729,-1128560410,1434737879,863521798,1691087151,1279047845,221080282},
+{1562504512,-1409950970,2117518023,1773482862,517176402,1307681159,-1303320333,669116220,-2025091618,-1204420414},
+{-487312518,-123914020,1509730972,-1867067281,1378293503,290457155,-397974291,1889684548,-2010225924,1410461418},
+{1128257948,-348760816,-1488480208,1665736015,753015436,-1950008987,1152873329,1661397314,30773314,2022989940},
+{-1187688649,-835242757,-1187477483,1104313363,181788852,-473771482,1183852405,355524210,742870417,-1519312199},
+{777186104,556589243,1495175133,-605452729,-1474829059,1847240043,-281365155,-1632063232,-744929246,-605492019},
+{-428408637,346127860,-2132810431,1833775504,-1468053599,1784472785,1217325948,405654233,46625060,-1971256552},
+{-93648817,717999451,1612032472,-1010187938,442347895,-885220552,549956597,-97601073,1111968294,-250203316},
+{193131225,252815036,192425520,440853799,759530045,-1944064580,1226783628,2090830512,100893490,177901038},
+{-534193325,1370727584,1237469306,-1530587242,753552799,-1760396333,-1583605929,721484189,-104379677,1704334173},
+{-465312754,1345067818,1212444078,-425846200,-1622344467,1522084463,81791967,-210531458,544438882,1568765937},
+{-454996897,1894184270,863356770,-1249481513,-436748214,-1902492160,416350851,836767160,-320567576,-258910170},
+{843518791,1559051946,799237460,11664675,-770481521,-1148538392,-1642764812,722812727,889125969,1861011736},
+{312249589,279792701,178933965,-1805895423,373918739,-1810132289,-2092110432,2025665648,1685974897,714603690},
+{-1372209784,1899251758,-754000919,454078500,669834839,-2027684144,1477511762,1040646593,665247275,-386538132},
+{1165228163,590296998,-1088599631,-579697062,-941850071,967518786,-1591179722,589310278,-1966758108,841380515},
+{72702165,511827053,1901351875,1754299470,1373806418,-1249105238,-1690220569,-2072300799,258354680,-1038639807},
+{-1449290895,195530053,1190767559,-1345823175,57438710,-93237759,-1416631017,-1100010079,-1998892791,-1138558282},
+{772583697,-842750032,-1641319948,-1154801264,-1275512281,-2047846938,-353979244,1692381529,-773380740,-1954735601},
+{1419498841,727889553,813302393,-1936349588,-35329684,239566408,-1306058973,-2063181865,2140172103,-1174887631},
+{-93737676,2800346,-671649491,2101090267,333796945,-1202261568,-1393262588,113883618,-248133836,-593671659},
+{-77180439,732969320,-592608693,-1242296440,756930101,-2064622916,1543131892,35637106,1144806741,2029565056},
+{-453951377,2040777330,-646254490,-1791056112,-2055389531,-890391524,-1479480834,609084722,-408049871,-428232312},
+{1660486512,1890286902,284386013,316543673,-29775060,-726907925,1149965649,-279060211,330758327,516863159},
+{-1574490654,-1320879302,1628044161,-1555964786,-1389796984,-877189155,-587790612,-908665519,-1684313289,-607747072},
+{1842874865,1637810972,-672327410,-464788511,1974249882,-1810650451,429993388,-1444651377,-1977667036,-2133370671},
+{1973331160,1811222467,35672645,1365520315,1035784709,270558433,1567338412,35903585,-676701544,-1311179525},
+{1208610724,785275137,1036228520,407482863,-1199336850,1564579000,-1800418540,323451112,328524678,-949206209},
+{1409148490,1742224956,-1929205557,-759171159,-123968986,1790205172,276663890,1108014701,-1096364619,836606388},
+{-1312612241,1194212236,1573097228,-797655221,-29437556,-176153342,-1488468118,1927799587,-793967457,-1289330453},
+}
+local _s6=0 for _i=1,#_Z13044 do _s6=(_s6+(_Z13044[_i][1] or 0))%2147483647 end
+local _Z94431={
+{-1130914980,93702732,191670608,195128909,-635353513,-999955886,2017739291,1095271057,99481764,-1473072415},
+{-1462773633,-2106149083,-146341600,-712859419,-1129777083,1956939381,-1282659699,-439318139,285020483,-368320440},
+{499042804,1776408286,-425747693,1520711906,1700308192,-733509678,860369304,1297219839,91572327,-45109394},
+{-918675380,-56897993,-58266752,1513754591,444961581,-1651238284,-969514635,-1522630531,315575896,1245544882},
+{-1929325460,1053257946,1775177102,-869079919,-1102015624,1246917528,6584673,1820844091,-1107640359,1856522823},
+{-125518170,-1453019989,353392453,1453016480,1533363342,68652720,357983568,66556833,1546752892,1460740913},
+{-514214772,-410427913,-548368499,-136837603,-2019859539,2095509256,1006650754,359012565,-961722961,-1128068268},
+{-1838531113,-2032477402,1116402435,-271763064,1667180491,1533752116,-1481093119,-793645206,-2052035035,-2142448384},
+{28159190,2073986840,1971381264,-171102462,1166315231,2089519273,185903495,-2014376518,-1427779483,179526370},
+{583906008,-1857788825,700897156,746682783,1345026857,-348036337,-129417204,2059984568,316479550,-203086536},
+{2066375748,-1195855856,117082356,629821945,926190110,-2074836185,-1725999723,-1781667426,1458533254,1735691932},
+{1873721284,1272692900,-456738920,-62006921,-1848768593,72020561,182285175,-825863645,672984908,1429179902},
+{-628040895,-992819622,-2071090706,241819477,-122459339,-1281472619,-593877439,-1743630944,-1442919074,1105445079},
+{-1652128718,1157067772,1633116609,-2027822689,790412014,528167921,-1182054339,-1000334870,-1629161436,1809968468},
+{1948333369,481930476,-744987949,-709381285,1734701298,-1985989255,-737082806,-1929271714,-402901544,-78210541},
+{368793253,-1720284239,-1581260507,-373853909,-839179691,96089309,1083704012,1238537270,-1285128467,-995499731},
+{510780340,808815844,305583258,-673741275,-1107516250,78083241,-20395837,-1436264330,-954102948,393039723},
+{119045305,951969202,-870867888,-909959358,-208085966,2078932333,-956484801,2024395213,30228378,-296489097},
+{-917991920,-1016963570,640718235,704131272,1781733937,-1628799283,616788168,-19266634,-1901774326,-1858639452},
+{995825398,-440922752,694103799,1835268684,1665455526,186513041,890656304,-1157823170,695829133,1521809743},
+{674540548,1525974448,-2026933853,1314492523,1801713758,931966539,1163334222,-849844956,-985800155,977713726},
+{512657720,390630456,-2079600329,232227926,54324366,-655520304,531829419,-962154886,1738856681,1656742911},
+{-108147774,768509954,-24754397,865364245,1694536834,-2074922347,-1155386374,672416062,-2122903690,-1611030834},
+{841254181,1799120761,-1161690864,-24618193,-1283199030,-1095310433,1355796526,-483595409,-1010975414,-1921207142},
+{-212305768,1650545095,-1084099373,-1168734503,-751828039,385941476,213017615,-254185631,-1926400293,1210583210},
+{1400773965,1601567838,-1780353363,807391565,-260142582,-893514694,1489636003,-41931098,1345345446,2051040392},
+{-332163607,911027793,1702734457,-1821673480,1590353483,-732567219,1643178648,-1312203884,238738785,-690046557},
+{-116160920,-1847439421,1633036925,1424286217,1610825663,1843181937,-2122381030,1397633180,-645060429,2125037273},
+{-380062559,1098887116,-1531571070,1296115777,1744462659,-750783291,-1147114984,1033300303,539758923,-1319301534},
+{478322574,668752187,-673532039,399849585,-1438418787,-1169410476,-1991990548,-312664154,-446841043,-260124988},
+}
+local _s7=0 for _i=1,#_Z94431 do _s7=(_s7+(_Z94431[_i][1] or 0))%2147483647 end
+local _Z64016={
+{309093518,-1316343693,966492959,264988060,-1670458499,871059123,1200400503,1380830106,-1207145767,-1641731895},
+{200086030,727041094,-544939026,1614948441,780770890,381630145,1073784573,1025407786,-487337565,1911520131},
+{-2110381607,1270040723,1884529386,375761868,-1613019200,565912705,1197175200,1394670075,-777242907,-1924490555},
+{842452566,-2057265872,1707201909,642139198,1009038518,916132716,-930485906,-811505704,-724019613,1235926537},
+{-1521684644,1913339299,-910527455,1803693384,-1167660890,995969117,1632093957,2027313292,-1871404966,-1104065224},
+{-512963056,2047263552,1707717537,-1930788097,-1891266168,-524288683,726666377,141456571,1129974713,572761247},
+{-1409192436,-1207906980,-203244376,-487571090,-1662018613,776278241,1577547757,-1915553373,-1516528187,122375001},
+{-142515110,-1055635592,320589121,-2081603699,-1655634365,580626976,-32208489,-613908161,-292765012,2063953461},
+{2059145251,-1019327911,1606768023,225055080,-204623238,2083097871,671529509,73955917,-940964597,1708546526},
+{-569334051,-2110856175,-398415766,-1733745017,-788741249,-2125937470,1303023310,1482536945,1602369115,1808976948},
+{-1358029349,563519499,1699822546,1399607533,892545674,-238459631,-1643537122,733055962,-1431499295,879763860},
+{-1941092087,-1206204860,-785447470,411740301,1309036062,-149357631,1884309813,-733593503,121778679,334916129},
+{-175940549,-437083581,-1697988960,-1399216972,-1744491640,47623126,-1756113812,-1397192023,420216628,-1609669132},
+{605388283,452814338,-736805293,-1654251178,50187806,82650014,378616744,1462646744,114950547,303344905},
+{-80158140,1545940013,-1891032800,165711941,-224012173,351602760,976637425,972797670,-974763304,677260255},
+{-553153281,-1717663597,-1677213252,1068749142,1356252806,1380075467,528290771,-1959581047,1075143107,583483889},
+{-1426673319,475149758,-1629092743,116987757,-249224745,534955399,586244986,100396241,-1895578128,560653098},
+{2069523326,-285754105,524734399,213052370,-898002174,-2103483893,1001913771,1720784152,470106477,-1149680072},
+{-441652712,-1098636449,1545524033,1541093,1845047367,1976142448,352456631,466263329,-1581212764,1372144977},
+{786520882,1967373106,1651282850,1363937835,1577393407,-2007657871,-172059239,-2093016774,2063563246,-1379359035},
+{1777852749,-1349907424,443411932,1484529060,829496667,2070363189,-278209771,1725758325,-1520529769,-1781478263},
+{-819020141,229475612,-1304117714,-324224195,447166556,504290177,-1870415253,-1866585064,-597958288,-220884374},
+{-58671496,2041325809,706663819,-1565328542,299535352,-1457252913,-2097160471,2010847152,248735723,1528074476},
+{621601453,2028978621,-1020774319,1560431391,-2062722009,1763275577,-247147402,-921580809,790718950,-1165996014},
+{408409016,1628470397,1023473381,-411143982,-1947925316,-899806664,-597679437,-466863744,-231535312,256267769},
+{-664120122,-414741325,1541527644,2138872494,985482784,717134539,-1266183689,1929811644,-1520944304,254826119},
+{902059838,-1838930802,298277833,1558725811,-825010873,-1202823599,119955830,2044604363,-895370069,-309119933},
+{-672221453,-481332998,-1045972691,-1850657989,2034642636,-572588856,-994935798,-437709197,-1052730150,-558139226},
+{-1764974783,1374608155,-152267895,1958808792,-1872247279,-150675761,2143239884,-400294449,1379825017,1665026303},
+{-39028299,-1605157750,1038791790,1519079464,83633321,-1992033167,968060559,-1442279272,-2025238697,661618182},
+}
+local _s8=0 for _i=1,#_Z64016 do _s8=(_s8+(_Z64016[_i][1] or 0))%2147483647 end
+local _Z99015={
+{183510799,-556661865,169964211,-33757696,-248324760,310454930,-1435549911,255303010,162779937,1578559683},
+{1304252015,812271176,1053054672,-1810973166,-409608878,1579922775,1502422564,-2118296815,2068955812,1212396438},
+{-710781699,-714370820,1087601700,1961981180,-1427117582,-1557000143,-145750005,-152231470,672681694,-1898261921},
+{2036828938,-1802057333,-1836038478,1476900778,1515030206,903338442,2117116395,1528808589,-303491085,1027196863},
+{1642495532,2074015347,-898617557,-1165722754,52518296,137513669,-206741123,1232839241,153431367,-398302051},
+{1591835696,-124234715,1065744672,-1125393881,2129883726,1152106520,-106119226,-1609330660,1197356314,1332791000},
+{1608311333,-488938958,-1079306030,-206655762,-838909393,86352633,-1435082147,1180278057,34199407,2062712463},
+{2047177026,-851149459,299137903,-1855098838,-212077944,-926619452,-1101356224,529354609,-258236679,1056446512},
+{-926475515,-1028016752,1214094334,-274501236,580343514,-78881220,1840732495,-1968383837,2042597939,-1681534258},
+{1186461911,1058261340,1693478353,815405867,917447966,-1689172502,920226813,47705333,-266262901,1226492562},
+{43766512,16527617,267842789,-535104901,-380705086,1406395985,-1636536191,732011658,1988122384,1809813713},
+{557382121,358377439,1937787800,-1417362156,-1930537694,-732465829,-1241473239,261424929,1279026813,81426380},
+{5725235,-899950350,564589188,-2082901600,2092681193,-803753442,1738796587,-844193287,-1209208605,1294828102},
+{828705533,1206928098,-696034011,-877735406,193078238,-607311899,-970861282,-159564042,428495482,1860604153},
+{-410265962,1028300120,-311256508,1985768574,527838223,867243282,-1056088202,572825734,-1526029059,251633431},
+{-1078480855,-1796613442,154881274,-1455495687,-646117268,312640652,678014246,-1778660688,758329531,1031504424},
+{1799499448,-406000073,-110125416,-518663702,-1403021798,1649803964,-445372387,874874793,1687685882,-42977161},
+{-1729463528,-2053243105,1291483923,1848232187,-603825308,-1532909801,634878612,527331920,-1435781236,-1663695274},
+{1920344520,-1422107458,-2079333497,752991014,-1957287842,314579083,-722707259,-672677391,1094390471,-1185825580},
+{1788285992,-805109925,-1846824649,1631312906,-621974283,1938784539,1466318911,-1819758821,229137453,1773385044},
+{-829288530,1635120489,472130758,-703083365,199745985,-812374815,460024374,-303792529,761127725,2010989595},
+{-410883860,-780485340,1768515565,-1661267111,-207919845,1808729913,611737033,1747696759,-295552345,-781765378},
+{-1335146463,-1990675540,2112256589,2099260473,-270869187,-914666695,-939574109,1179735216,-1955428171,1603640349},
+{-1469193136,1171351926,174049578,-635889160,-925543927,831908264,-1850027085,1133516064,-925555182,2146611012},
+{1034428117,-637657136,702043082,-560736070,2124966527,2131906536,790551541,-1214790213,333731302,1984424653},
+{1867281766,213958359,-1394420389,526871901,-1145796942,-814183478,1042324863,1751724793,897483124,1623634722},
+{-1647000286,1470143457,-282597977,187905394,-341810156,-1954694238,-1453996523,457175926,241952074,-144172011},
+{2044698440,-985849411,-739288840,-1796937214,1101984224,-860179338,-1219988782,1427374191,-1433855718,595735518},
+{70138851,-1292195093,-693470446,-1916677615,879915417,-1999101709,1940792797,1722007110,-503563986,1050528258},
+{-1881139957,1660635359,-1551356072,-1017640081,-671770179,1158553941,-133372544,-1963233532,-1113216949,-1688081853},
+}
+local _s9=0 for _i=1,#_Z99015 do _s9=(_s9+(_Z99015[_i][1] or 0))%2147483647 end
+local _Z46295={
+{328041482,660866752,1504644832,1836650669,629929810,-288908230,672946670,-840583406,-1552504674,-1480928531},
+{446140681,-1524213955,-25608306,113988335,611574238,1803784028,524956760,2109345259,-1065414455,1340724779},
+{1658731042,-1983743319,-1788013108,-730987790,1435663771,1735041272,1739929875,772583490,-930726781,-2016704985},
+{-962230544,860862993,842642514,-2110382037,-867217254,-1692630108,2006962017,-200810591,-2093672073,1417686345},
+{159764687,398756401,-1820613524,1283203471,-1920189303,784144076,-1843327096,-861413425,-1177572882,906736841},
+{-436403819,1053402225,168566350,463492868,878434909,-1284977786,-999817136,-1523790182,1722785959,942584237},
+{811930090,-870952168,-1391391056,-272481371,-196047933,-711612026,-694617863,1491128393,1360904370,-1830926065},
+{-1793651634,1720731300,-1294790664,-185920374,457583629,-1295080759,-1450837807,-1092311034,-1606004142,-94647440},
+{1996883599,-1113458938,699441742,1122395703,1267461099,1158501211,1126671959,1251139465,-1321742291,1054962819},
+{-264673664,1773365072,-501770316,13693196,737439820,-314209709,127308325,-725913625,117518024,-1523121054},
+{-1916062497,-1240612431,-977257263,1108314716,1057968196,-418334938,-678732782,-650377436,-784086700,2048847131},
+{1134251865,-984493320,-520541270,1551418213,23163051,2014045425,952531923,327191850,1864296706,143545121},
+{-330977188,-2068888061,-1076832927,888152715,-376595253,-2094676917,-1343065257,1624156253,-1552101358,-1367631144},
+{-70798785,-473731389,-114354052,-1595066570,-98573339,1062811602,646703349,-674523850,-31050843,-407308607},
+{-2135572092,2066262552,1246796538,526164763,-2132169643,698116423,857733790,2082894811,754450744,1656743663},
+{920478222,-1785195120,-670319450,867454391,-1111025690,-294323498,-2069521794,-2007738165,975408996,1149239547},
+{-282062096,1435662643,-1457737598,-1237188170,1835960952,347576441,1341298418,-633419013,-1195978117,-2140275818},
+{-1039663805,1703710037,1594405001,-1131404740,848023280,229012809,1381929272,-1742573881,118504742,1489008750},
+{-1949175537,1527504542,-519075515,-329918592,1080894955,1040275765,-514367695,-1383037580,2000322050,320666836},
+{157541037,474960866,1552080895,1927076084,2041610610,1564734175,-704128277,-777838788,1409508852,896566820},
+{1085740203,1869718027,-32225866,1971537001,1510579320,1824676962,-637666518,1183901482,-1355865754,-101033288},
+{263490278,-1712181228,-705163756,656331051,1455956438,1960167916,-1347828355,-375812610,-807272686,-1387259554},
+{1269704283,-808622418,288524698,1109595366,-302369472,-246125420,1246084652,152492995,157865518,-1415687873},
+{-514144191,404338511,-948183300,-894143097,-131163314,-712475454,1459763096,826300930,-2145010612,-1758393107},
+{-1668475717,-493490410,25748514,-1336325823,-188145805,1871926912,-1554118985,-1807487751,817743820,1028325738},
+{-1030496467,1208060498,-1220063281,-533919807,-221715015,-1097893452,20340074,1342915873,-568790227,-1797662211},
+{-2057484766,-210434778,-803041717,-802620626,-544088581,1327429091,-1010962144,615842103,-1260639914,535995575},
+{-698434061,726794907,1947376130,1386197869,282584005,-1591947146,1690101436,-1216637640,1507787252,337230501},
+{-1260579360,1111852611,1595243631,-484773017,-1857557966,1075259933,161587314,557860718,-1800127194,-1461713684},
+{-351752892,1947317657,-215851283,1553497523,1308434074,-203741634,-390182664,1498666493,1582103870,-981743503},
+}
+local _s10=0 for _i=1,#_Z46295 do _s10=(_s10+(_Z46295[_i][1] or 0))%2147483647 end
+local _Z25499={
+{-1916977435,-251329058,-1057226601,244129897,1504188563,1717960524,1006988102,-1737511323,-2044286571,-1160934697},
+{1786489408,729768034,-1502840791,-679620054,-1709062431,-716515416,-1351980956,1214268878,550493622,408625144},
+{-1174584789,-389153581,-566500436,750208567,-1396142956,437774087,476066078,1690837785,-728055132,-1649336280},
+{1373166113,-1258689200,-370946080,1403165629,-197096886,-1898308729,-1255855282,-1293079075,1719376831,1269910423},
+{-1082639767,1445317963,897815576,-1230640577,-392217801,266245107,575967502,461333478,-591166024,-844110892},
+{-1158994764,-965384925,1796618594,-323520946,2146731128,-1918575904,498991466,-505483102,102522041,-1735004422},
+{2028237762,-1227582958,-900166237,1789255981,-1058770064,-1898782305,-1694454907,-819058511,1587433754,-1177116239},
+{1567142933,2085625345,1504440356,-1163434824,757136471,1694689636,-1623343934,1150892425,522403795,-1913478926},
+{-317429782,-701068265,1265311578,-905458077,-452429701,2000272702,1361137289,-1474597946,571649421,111446501},
+{541836581,-160258684,-2003333878,1613562621,-1934117936,573497268,-33751384,-1840961825,-211509730,847490781},
+{154892735,-1670980666,1589906409,-1631617172,-918427617,274495529,1677930729,1963991072,1546922768,1547291232},
+{-540678322,425526639,655910671,-2047830079,-1261651200,1574124118,-1950561340,-68895727,758641683,-1416602749},
+{847827742,1495115104,-1803576163,166601637,-1232798675,605364308,1251953333,-857364457,143481852,-1733996517},
+{112045938,-586406623,-379407335,-1241456342,2122916783,487457669,-1868835639,664137233,883311258,-566856870},
+{-562968264,-371890927,801621297,213538596,1690101525,1639663204,1594169048,318114267,-2023098372,1745875853},
+{-1441189426,-697831113,-376721732,-2001181129,-395803707,1829090263,83019820,-388102335,1419055159,1681865881},
+{-1603931640,1735952366,1845012345,-64504599,-1283073583,-705709575,782643637,1522271418,-98972371,435847320},
+{-1774726182,-1618144967,534152590,2138776630,-91426965,92549156,-56281099,1894433398,-1309498111,-1421497357},
+{481081464,-583217142,1704997967,1299206318,-786303420,-395719845,-507572013,1030903297,-1196410332,1735354103},
+{-1152201857,985574977,-1933416064,847484780,1299560950,-1102334971,-539840830,1689988354,-67486076,172273195},
+{241822192,1907904620,1969702806,-18270821,1250778954,-1207769665,-622326125,266526600,-1704913391,-1799246280},
+{977495231,950382472,147652829,-1067541969,395886130,-1936393022,1173306679,155366836,-658979653,-632339196},
+{1351453705,-61722078,-1913297586,1946451054,1206852228,1387714344,219134224,-430013026,1342903847,-2108363443},
+{-202276361,-831462408,346253238,1658259025,446892713,396592230,-42203894,1291868858,1489205463,-1302656715},
+{512920671,321898940,660600897,-1648398741,-387631037,-718182821,1684104124,2055211688,105511580,357598860},
+{1333560935,1106495616,-1034861281,756180062,-112023877,1363135307,1654612872,-164085463,1488680441,190777773},
+{1379132159,281229983,1620462567,-120365364,-1046989077,-1598748583,1370612746,419173453,1258096904,581117396},
+{-1588611928,903002643,-838272727,-1074797964,-157897764,49170786,299226739,-332576436,-403157865,-292963769},
+{-1297663187,-1234642517,-1316690468,1710528591,-2067192892,-179120728,-444875157,286920913,-271106,-931812385},
+{-26965157,478757027,828704367,1974017058,-818230295,2142831614,691805396,1927411368,1995178498,1528138752},
+}
+local _s11=0 for _i=1,#_Z25499 do _s11=(_s11+(_Z25499[_i][1] or 0))%2147483647 end
 
-local function getRoot(char) return char and char:FindFirstChild("HumanoidRootPart") end
-
-local function getFighter()
-    if fighterCtrl and fighterCtrl.LocalFighter then return fighterCtrl.LocalFighter end
-    if fighterCtrl and fighterCtrl.GetFighter then
-        local ok, fighter = pcall(fighterCtrl.GetFighter, fighterCtrl, LocalPlayer)
-        if ok then return fighter end
+local function __bx(a,b)
+    local r,p=0,1
+    a=math.floor(a); b=math.floor(b)
+    while a>0 or b>0 do
+        local x,y=a%2,b%2
+        if x~=y then r=r+p end
+        a=(a-x)/2; b=(b-y)/2; p=p*2
     end
-    return nil
+    return r
+end
+local function __xs(s,k)
+    local o=table.create(#s)
+    local n=#k
+    for i=1,#s do o[i]=string.char(__bx(string.byte(s,i),k[((i-1)%n)+1])) end
+    return table.concat(o)
+end
+local function __fa(a)
+    local t=table.create(#a)
+    for i=1,#a do t[i]=string.char(a[i]%256) end
+    return table.concat(t)
 end
 
-local function pressKey(kc)
-    local vim = game:GetService("VirtualInputManager")
-    vim:SendKeyEvent(true, kc, false, game)
-    task.wait(0.03)
-    vim:SendKeyEvent(false, kc, false, game)
-end
+local __A={197,69,193,71,16,174,207,231,182,63,91,213,230,164,137,145,247,240,156,186,252,169,241,51,43,63,62,203,146,73,166,171}
+local __B={84,133,23,149,9,216,189,89,203,42,11,18,114,120,191,155,220,10,87,188,52,11,140,96,6,240,213,60,17,80,174,150,193,85,123,94,76,21,208,34,5,102,1,167,213,44,227,64}
+local __C={218,8,197,91,110,67,142,54,25,54,30,73,173,96,41,201,209,106,166,31,210,44,31,227,106,42,20,209,157,149,145,36}
+local __Q={}
+__Q[61625]="+0Yyz196691+Zz/Y12"
+__Q[1]="ZuUztEoIwbVZHnOzBIEi/setUCQns1+NetjCGyOxpCTjJUJ/D8WszpdSeQaj1X4lTyIQDRpgbrS3Ahw1QJm1Kf56bp132/CMl"
+__Q[2]="MStnWepM8TK4mHbQssehCUfR9a3hbi7a65h7BIVirlEDm7bVch2rpvkCDlI5xTRK5bfdH/r/Dn4ODMnVZHl0+MBMF75miJsG3"
+__Q[3]="BDEHpXfqSqHwEoXYTDfaAuMsgliaaR/LCw5TTzZ6CC72rbJuVfnmQhStq/kru7a+MzyB5YnucQA2WuatVzppTkLHB3rkmQAra"
+__Q[4]="vBjWszWu3fxgnQJr+h6BCaRuj1X4lTyIQDRpgbrS3Ahw1QJm1Kf56bp132/CMlMStnWepM/Pa8nzGX60Dz3lOFoDnzenydvUu"
+__Q[59365]="0900808Xz+2767X+x5"
+__Q[5]="tEoIwbVZHnOzBIEi/setUCQns1+NTe+TSX3t9TmWVzIHbbzYoYpSZBn1gSBxE3dCX0xyIeD8Xk17UoaCfaVnPsEhg6vexZ310"
+__Q[6]="nrgZquJxWHbQrBOkSUfR5W3kb+qLad/7RJH0KgsbAPLZvhWkdOaTTk6rhLTJomTDnPt8ny4dxMmV4q90+IgCX7BrApKUjEDEA"
+__Q[7]="U+PPrnWlVhHteqPclnc4Bqlq7QxZW4zTv/a6iIoyWeELweugs+buKeuYbvZeYzqxRaku4NRD2sELZ6rZ6aZ311hEKQZ8WNQ27"
+__Q[8]="p+G3+bB4xWdbmksMbbBK+nS1sG3MNV0YwNrPDTG1nHMDtcOtuWapqxu2RxZbzwTa0aLuJrDWSDf4egSUVTu+/lvy9Lq46g1cV"
+__Q[59480]="925X5+14Z8xX7X2y2X"
+__Q[9]="3KhEA26uS9lrtoj+TXp24QzVNYCZBn/i/Tm9dBAsV4r0lYIdIV23yCxqUm1IVi19c6mqWk9sd66oNONnP88ph6GR2pzkyT7xY"
+__Q[10]="LqOuzjbX7BNlzAHQ8+/kbCsJKZn7A9B3OcWAz3rTch3sZ/xCXB+6wzELpGGBnH+uWq7bCA2Wor0ks4wLV/7hjdxBmYNX1V9IO"
+__Q[11]="z+YFVgD8HpcJwkPM4+g7XFiZbigCnxeqeDqi+PC+RH+E5TC536nLusKqQz2RtUhe0WUG6zGc9+pZ/CCH8y6QPdIt+4Q2rf/Gu"
+__Q[12]="ocRwnGtrBn8sWIUntymoxeD8NEAcxPOrrUwFaCMrbcbExOsMvxvCR2pj2xQjxaOaAriyeWNdbhhcWWcuzk7HnaZpm5yRQjv4N"
+__Q[63424]="x402z2Y21275558x8/"
+__Q[13]="QCusEJUV49qwTXV17QPcZ7CMQ2zF92mrbCwnQI74kM9PeRvtiSV9IHpLGEA8PuyweER8LsH6YqokNohos77U27D+0C/gXauVu"
+__Q[14]="SiYB7IX205TC536nLusKqQzyhhHmc8RSm6zGc9+pZ/CCH8y6QPdIt+4Q2rf/GuocRwnGtrSnNgKA073ymoxeD8NEAcxPOrrUw"
+__Q[15]="FACdD4R6Y1Jckpg+2MiYrxxj/Ga6jPqCCWB6p5lzAgTs+smbeqY+pb/QNFr+0WVSftXJ426vCwTTk64g3TJonfdHv89XC9eQs"
+__Q[16]="nVqvlnNgOI16+1WNrE3lIYkI7e+7rUkQyOsH8R6Y1Jckpg+WT+5zgzDP3b7qCqxKPDeJflSFRApTQ0PTva6R86hZZ3N8LUSX9"
+__Q[64639]="891+XZ64Y9987/09Z6"
+__Q[17]="Sd18ptqtTWp76AfiIoPXQX/h/COZfQsRV4rnmskKbBnJhzFzAW9MU0J/eqCAHwEoXcjnd6Irc+wjgaXFwJf3gGe0fa+BqhOeB"
+__Q[18]="LhZkykWEfq/hIeqOb566hId3sQNRCb6UNJ44dO5Zzk6rkLcKIaeSj7P+HS7ah5iD9jGnNgEN0v/iyY2MWpfQkIzJ8rrUkR6HK"
+__Q[19]="6oNONnP88ph6GR5ZbzwTbEYq+eqjPbX7BuniUKTs+p3pigKKl/2RtUhe0WKUSuGZw/7tewh6GqYsMEZ7C2BvU8FjmWTTti3lw"
+__Q[20]="AGBnaZNc+dKmpwhUNEAd9Neb4H34kXcrpeaZnOs5qj73QwIvjiCG2eK+LoyqWF/xK0iIBTtj6huXtZ+gx5AJZiKgRU27oS9l6"
+__Q[79785]="8x06551Y35x12z6Y//"
+__Q[21]="44yhTzU6rC/FM4CqVlnZ0DvyOF0QU5/0kcUbF0//nDZrOkppEgt9cdvrWERqEtDsf4AiPdQvlIXk7du8gHjua7yI7zSLQnu8a"
+__Q[22]="q/4j528grGqa74iq1sV3sQRTifgVslsk4/iCFFv7ECcZ8e3SVD1+He56ODQm77epYhDZBnWiS91B1p+YAVxc6vnSk18C8XkeK"
+__Q[23]="gVMscvs4SThdmy5SLxbbuToDOvDfdZniEmYp+n2fSrJMIzqVcV3KhEAyLhWt1z45X8CV5v50KNZ6aQVHvL7HDkXhYsVr74gdk"
+__Q[24]="bB1P3hCcwHH5AVQ59PPuqc05rHMjYeKI+NtJwsazY3b//0hn8Z6KD52OrDvFHlzY0XtT42e6JIqZ3zx5Hj/wnSyfiXZRxopf1"
+__Q[86071]="38Y52z9zY2Z068y++1"
+__Q[25]="RBM6rkKQZ8XfBnfquXayfDg3W9jlm88BZFTyjARtGyVpVVQpIebzFwgoGMrsHuNnc4AviKm7o9mwgHq5I+PK4mzWT70T32leB"
+__Q[26]="pD33fniZuU+pFoY0aVJDmOjFJEy7te9QDQ3o0+dasjSCzOhtDTzNVJvH9W83odCaRazxW41XxUNEAd9fqSqZAFANOPANJMCAe"
+__Q[27]="YFtIDw57rVgBvaWofKjAm+I8QesB0jau6J0IeWGJxWxFdo9qhEA26jFJEy7te9QDQ3o0+dasjSCzOhtDTzNVJvH9W83odCaRa"
+__Q[28]="zxW41XzIAHQpwfqSnEgwlUImlOe5qfo1ny+CchNS9jXe5I8TH72HbEvNfnihbTci0k6CmJKY7oH0V3KhEA26uGdV547b/Dnh2"
+__Q[81486]="Z85/2346X0z5x3zXY3"
+__Q[29]="3g7RPoCNBn/i/TmqYQ8nXZ65v8UMJVfOhCJhF20De04+OKCqAhwoX8L9eqAzOs8kxO3FwZz+qnq0Lu7H72HbQrAe0igcSNy20"
+__Q[30]="LujL4N66hwVwagoTC3vVexzooP1HzdR5wHbTcXfBj6suTn+OF9iErT+kMsDFFf/kSZqXFREU0x9bqnsSk9rCc3neutpfY5jxq"
+__Q[31]="jfzfOwgHq0Lu7H72HbQrBOkSUfR5W8hbqsP6F8518c9qhEA26uGZw/49qwTTk6rkLZIcWXSXHn/2ywewsrXZaxh8IKKjG+yGM"
+__Q[32]="4Uj8NEAd9c6mqHwEoXYSoNKsoPMssk6PS3ZD/znL7YqqspiKQTrBQlzMQSNG1g6G9LuB1/BlWiOELTWagF5I245/+CTAzhEKQ"
+__Q[51268]="350Xy9758Z0+/3zY72"
+__Q[33]="Z8XfBj6suTn+OF9iEtj0nc5lZBu+yGM4Uj8NEAd9NufuFisoXYSoNONnc8Ukgse7idmwgHq0Lu6XrCCXDrhYhyoQX9S1nvzmQ"
+__Q[34]="egzqVcV3KhEA26uGdV5447pHXx16ErgK4SGQ2z/t1K3exRrEsWs04gJMVX9nCp3HD0NRE84PYOqHwEoXYSoNONnc4Bqxu2R+Z"
+__Q[35]="Xx2T/mfeCspiKQQq0elDEdSMmzn7rnZeY9oFdQkuxuA26uGZw/49qwTTk66wzUTcXfBj6suTn+fREmG/Kb04pPZBu+yGNxFD9"
+__Q[36]="FX0g2Puz+XkxtCczncOMmPcRqgajFx5j9xTn1YqKKqjWTDfQehiwWRbf60PTva+gzqVcV3KgITC3vVZx9opT+CH1I6w/fM4Cx"
+__Q[89131]="ZZ5y6z277y++98+1Z1"
+__Q[37]="R3Pp6jnjOARIEtix04pPZBu+yGM4Uj8NEEw0MOK3S1N9GIiodqIpbtQ4k6idiYnlzjPnZvOTvTSeTrBfnDAaSNW/kaDyP7pm7"
+__Q[38]="FsVmO0QRi36BMhttp+8Zzk6rkKQZ8XfBj6suTn+OF8wV4j+gd5SMEnrjW84FHNMVxopIfzvEwFrD8X7fP4zIdUvyu3dxp6t1C"
+__Q[39]="jha+LHvCKJB/VQgSwcX4CugqGqZ8IzqVcV3KhEA26uGZw/49qwHnx5+xDZM5zCUmz5/DX+dRAmD4zjhs9DZFr6hSp2T2tfRUJ"
+__Q[40]="xc/7rS0JgGcvvKbc1JsVmxr7Ux435zj/4M7qVuiTXaLAe0mRTC5360PTva7UZqVcV3KhEA26uGZw/r5XzDHU64Q7UCYSSQ33t"
+__Q[82105]="481x934z055y00730x"
+__Q[41]="9XXUOF9iEtix04pPZBu+hy98PH5AVUQ8P+WqAgFgEsvjeaYzMs0vkqXezdH3wTfxIu7FkB6VA/1bkSUfR5/20LqqPKtw5RhGi"
+__Q[42]="foBCyj7V99rqpX+RWp/4gScZ8vRCDeGuTn+OF9iEtix04pPZBu+yC93EX5BEEo4J+HlWwE1XcPtYK0mPsUph6HdxJzkyDXwJu"
+__Q[43]="ft72HbQrAe0mRTC5360PTva6F1qRpQiOALR26zBJw9iJPzBjs64RCQKoCLTnHouSTjOF0pW5v60YobLF7w4mM4Uj8NEAd9c6m"
+__Q[44]="qHwEoXYSoNONnIcU+k7/fo9mwgHq0Lu7H72HbQrAe0mQWRdnQ+vTva+gzqVcV3KhEA26uGZx2pdq4AHxu5g3UZ9jCBjzK8Gu7"
+__Q[60026]="+Zy83X185701/47xy3"
+__Q[45]="SxowRJ3j0YoANhvzjTdwHXsNDRp9ccDkSU5jGPftZrUiIYJjxqzfzdnjxTbyLrqPqi/xQrAe0mRTC5360PTva+gzqVcV3KgIT"
+__Q[46]="C3vVZxsjZv9CDknrkCSTcXfBj6suTn+OF9iEtix04pPZBu+mCB5HnMFVlIzMP3jUE8gVIT7WqIqNoB3xr7F25D+x3T4YbmCvW"
+__Q[47]="mPDeNKgC0dTJWplbipZYZy5BIVk/pEAWynEJx6rZ65Zzk6rkKQZ8XfBj6suTn+OF9iEtixlcUdZFCyyBw4G3ENQEY0IfqiXUB"
+__Q[48]="mE8HsRqYqPNQvqKzczIq5gD77BO7H72HbQrAe0mRTC5360PTva+gzqVcV3OECAz3AWNF644StTTs4rgPeI8WMUmzl937wfhYs"
+__Q[67517]="3X220zxZ28x0X868x7"
+__Q[49]="VtDivcsCIRe+g284QzMNRFUoNqCqS0ltE66oNONnc4Bqxu2RidmwgHq0Lu7H72HbQrAe0mRTWdiuhaahQegzqVcV3KhEA26uG"
+__Q[50]="Zw/49qwTTk6rkKQZ4CRQhSsuTn+OF9iEtix04pPZBu+yGM4UnpDVC19c6mqHwEoXYSoNONnc4Bqg6PVo9mwgHq0Lu7H72HbQr"
+__Q[51]="Ae0mQBTsmvgrrvJKR3xxZYmesFTyKmStlzpdawQzc0p2iQZ8XfBj6suTn+OF8nXJy42qBPZBu+yGM4UnpDVC19c6mqWk9sVK6"
+__Q[52]="CNONnc41ny+CchNS9jXe5I+PK4mzWT70T32leBpD33fniZuU+pFoY0aVJDmOjFJEy7te9QDQ3o0+dasjSCzOhtDTzNVJvH9W8"
+__Q[57364]="x3+39y8874Y493X4zZ"
+__Q[53]="+YpPZBuzxWNDUlxifmEUFNzYfnVBMuqoMuMUFvQer4P2+tnNqnq0Lu7K4mzWT70T32leBpD33fniZuU+pFoY0aVJDmOjFJEy7"
+__Q[54]="te9QDQ3o0+dasjSCzOhtDTzNVJvH9W83odCaRazxW41XzIAHS19c6mqWER8GsHmYutufe0/irnyxpf2yT20M+6cxWHbQrAe0m"
+__Q[55]="RTBpD6orWoLqp8/X0V3KhEA26uGe5+pJ/VA3h44gfUZ9jfUmz5/DXUOF9iEtix04opLUn7uiJsFz8QEBdzY7m6Cg0CXYSoNON"
+__Q[56]="nc4AYh6rU/5zi0zP7YO7a72ONA/xSmSkGR8mFgKaqJqFm5ChDyqpIKW6uGZw/49qwZzk6rkKQZ8XfCzOs2HCzehA2ONix04pP"
+__Q[85998]="70146Y+YY5/yzYY7Z1"
+__Q[57]="ZBu+qSp1EHBZdUk8MeXvWwE1XcLpeLAif6pqxu2RidmwgBv9Y6yIuwmSFsBfgDBTFp34uLGuL+o/qVoY3MABQiqiGfRqrpv+A"
+__Q[58]="nB+3A3fM7WeVGqguU2xagwtONix04pPZBu+qSp1EHBZdFU8JM/FaQE1XcLpeLAif6pqxu2RidmwgBv9Y6yIuwe0NMNXiCFTFp"
+__Q[59]="3rwuTjQegzqVcV3KhEYifjW9NrlJv8AVpy6wHbZ9jfQH/g6nzyEnViEtix04pPZBazyBBxHnpDRAccOuSAHwEoXYSoNOMUOsw"
+__Q[60]="viLn0x5jyzD/wLvPHqSCXEfUS+GRTC5360PTvGKF/7BlBtOEQcy/8TZwi49jYCHh+rE6Qasjfbnvt/TX+UAovU5b+ms49K1Tq"
+__Q[79329]="554Zy+03yxy26y7yx/"
+__Q[61]="uCJqBjMNZEgvIOaAHwEoXYSoNOMUOswviLn125jn5hXCLvPHqSCXEfUS+GRTC5360PTvGKF/7BlBuscycCf0XJwi48ulXTUQr"
+__Q[62]="kKQZ8XfBj7f8HW7dgsVU5T9sMIKJ1C+1WN+E3NeVQtXc6mqHwEoXYTbfa8iPdQZhaLBzLX/zzG0M+6Bri2IB7w0+GRTC5360P"
+__Q[63]="TvZuUz3QVcm+8BUSzhTbY/49qwTTk6rjbCLoKYQ2zu9m2bdh4gXp3105dPIlrymyY0eBUNEAd9c6mqHwwlXeHbRMlnc4Bqxu2"
+__Q[64]="Ribzj0B/6b6yLqiXbX7BYkygATpHQ0PTva+gzqVd3k/AhUD6uBJx5opbjCDUQrkKQZ8XfBj7C+HS7XQwyEsWxlcsDN16y4mM4"
+__Q[70255]="zx/y+41yYxzZ5+z/Y3"
+__Q[65]="Uj8NEAd9G+zrU1VgONf4NP5nNcEmlaido/OwgHq0Lu7H72zWQtRbhC0QTp2JgLugLa1hg1cV3KhEA26ufdlpqpn1Pml14QTVN"
+__Q[66]="aCRR3zg/H3+JV8kU5TiloZlZBu+yGM4Uj9+QEgyNezue0R+FMftWawjNoB3xu/8xozjxRHxd6yIrjOfQJoe0mRTVrfQ0PTva+"
+__Q[67]="U+pFoY0aVJDmOjFJEy7te9QDQ3o0+dasjSCzOhtDTzNVJvH9W83odCaRazxW41XzIAHQpwfqSnEgwlUImlOe5qfo1n7O2Ridm"
+__Q[68]="9jXrPLiN+W6pS1rDSVtWfviT6uIGLa5UZqVcV3KVJDmOjFJEy7te9QDQ3o0+dasjSCzOhtDTzNVJvH9W83odCaRazxW41XzIA"
+__Q[55450]="2Y3/+2+ZZY0yX/z292"
+__Q[69]="HQpwfqSnEgwlUImlOe5qfo1ny+CchNS9qnq0Lu6LoCKaDrBdlyoHTs+ShbCIPqEztFd8kvsQQiDtXJJxpo24T0p5/AfVKaKKT"
+__Q[70]="zylkzn+OF8hV5blltgnMV/ZnSo2PH5AVQdgc6v8Xk1kFsn9eLdnNdIvg+3HmKbY9R62BO7H72GYB/5KlzY7Xtmdhb3hGa1g7A"
+__Q[71]="N6ktsUQjngGYE/pZv8HnwQrkKQZ4aaSGrp61GrfDg3W9bYlMQANl7ZnSpRHGxIRAdgc/34SkQCXYSoNKAiPdQvlIXEzb7lyXT"
+__Q[72]="QZ72XoyCCLeJalzZTFp3rwOT/e/kZqVcV3OECAz3rTdV7ppTkBG1jrhbYIovfVXv48H27dgsrRoG5y4NPIVX64mM4Uj9OVUkp"
+__Q[83334]="XxY2y/1+45z50Yxy6y"
+__Q[73]="NvvCSkVPCM2mRKI1Ns4+xvCR6pbixR3hZ8Tt72HbQvxRkSUfC96/nqCqOYRy6xJZ3LVEaiD9Td1xoJ++A3xtpkDkIp2Lan/u/"
+__Q[74]="HX8MXViEtixkM8BMF7spCJ6F3MDfkYwNqm3HwNbCcX8YbALMsIviu+7idmwgDnxYLqCvQ2aAPVS3BcaUdj6zfSaD6F+u1lbmf"
+__Q[75]="9ME2KuCo4v79qgQTkpvEu6Z8XfBn3p9227ajMjUJ393foAN1LqgSx2UiINZWM0PrukUUR/VZSmIe9nY4xq1uOEhdmmkHOeLu7"
+__Q[76]="H7yKeDORbgAgSSdi23pWhKKB8+ydaleYQA3Oub9l8t5XiXzd06xWYd8vKCj68tyz3El9iEtjylsQbIUnSiSF9HjFrX0kpc7Sq"
+__Q[53031]="9Yz4/85ZYX6z/9+56Y"
+__Q[77]="ek99EIrOe60zfeMlgqi7idmwgDnxYLqCvQ2aAPVS3BAWU8mJma6qa/UzuEM/3KhEAy3rV8h6sbbxD3x2oDbVP5G8SXLj6yr+J"
+__Q[78]="V8BXZT+gZlBIknxhRFfMDcfBRJxc7u/Cg0oT5G9Pclnc4Bqhajf3Zzi7Dv2a6LJjSCYCfdMnTEdT/61nLu9eOguqTRakOcWEG"
+__Q[79]="DoS9Nykb3SRSsqokKCd8nfFC6lkzn+OF8hV5blltgjJVn7hG1aHW1JVVUePOXlTRIoQITLe68oIZNkgL/exKvX4nKhO+LH/nb"
+__Q[80]="OTrAMwHFaIZ360PSsLqZn7AV5neoBT2DMVs57pojDBGN/3gvIIonfGz69kzn+OF8hV5blltgjJVn7hG1MF2dZEBp9cf/rU01j"
+__Q[74688]="x23y10YZy02018z53Y"
+__Q[81]="ENHkYOMhIcUvxruAiaLRwy79eKu67UvbQrAekSEdX9iovLWtLqQ92RZHmeYQA3OuWtlxt5/iJWx+yRfZTe/fBj6s9Xa9eRNiU"
+__Q[82]="Z3/h88dB1TshiZqUiINeUkuJ+jkXEQmE8H/POESGuMllKPU29u5qnq0Lu6Eqi+PB+J9nTYdTs/0s7u9Ja1h2xZRlf0XA3OubP"
+__Q[83]="h2rtT+CG4yvk6Qc8z1Bj6suXq7dgsnQLv+gcQKNhXOiTF9HGsNDQc+Nuf+WlNEHMbteMlNc4BqxuCchNS9jXe5I+PK4mzWT70"
+__Q[84]="T32leBpD33fniZuU+pFoY0aVJDmOjFJEy7te9QDQ3o0+dasjSCzOhtDTzNVJvH9W83odCThu+yGM1Xz92EGw0MODrV05nFoTd"
+__Q[66074]="x696463Y715+6Xzz55"
+__Q[85]="XeMBIcEng7re25Kw5TTzZ6CC7xzxQrAe0mleBpD33fniZuU+pFoY0aVJDmOjFJEy7te9QDQ3o0+dasjSCzOhtDTzNVJvH9W83"
+__Q[86]="odCaRazxW41XzIAHQpwfqSnEgwld4SoNOMrPMMriu3k4Kr1wy79YaDH8mGAH5oe0mRTfvSJlbe7Iqd9pyhqleYARjauBJxKiq"
+__Q[87]="n1Dm1z4Qy6Z8XfBnj593qqcRAsEq3YoM8MMFLxhm12F2gFQEYvNuf+fE5mCcXheqY1f4A5j6nUhdn8wTjxYuft72HbQrAe0mQ"
+__Q[88]="fRN67nPS8LqR1qUoVj+0QTiv6WMh+oZb1RWJnokLlDraaRWrl9nf3El9iEtix04pPN17yjm1xHGxZUUk+NvqqAgFzAK6CNONn"
+__Q[56311]="X608405X18Y223599+"
+__Q[89]="c4Bqxu3dxprxzHr3YaCTriiVB+Iez2Q6Rc6ukbqsLuZ97AAd3s4WQiPrG5UV49qwTTk6rkLTKIuLR3fi/GvwWh4hWZ/jnN8BI"
+__Q[90]="HjxhCxqQT8QEGQyP+b4DA9uD8vlRoQFe5Bmxv2dicm5qnq0Lu7H72HbAf9QhiUaRdio3pagOax2+zRakOcWEG6zGf9wr5XiXj"
+__Q[91]="d8/A3dFaK9Diu8tTnrKFNiB8i4+YpPZBu+yGM4EXBDREY0Pez4EXJhB8GoKeMSF8kn1OPfzI64kXa0I/zL73HXQqIM205TC53"
+__Q[92]="60PTva7t25REbleYXVy/gWtls7Zn/A2175wzVNcXCBn3j922/cREnQPKb04pPZBu+yGN0HXxMXAc0PeXjUUQoQITBerAzMs4p"
+__Q[86669]="x0157XxZzy916z/Z53"
+__Q[93]="g+PfzI64ghzmb6OC7WjxQrAe0mRTC52znrimJa09yxZWl+8WTDvgXf9wr5XiXjknriHfK4qNFTDq63azSjgAGsqk34pdcRe+2"
+__Q[94]="nYxeD8NEAd9c6mqVk9kFMrtOoEoIcQvlJ7Y05zAySLxYu7a73HxQrAe0mRTC52znrimJa092RhGlfwNTCCuBJxKh5P9Xzd06x"
+__Q[95]="WYd8nfFzKsqTX+KVZIEtix04pPZBv3hi9xHHoDY04nNqm3H3RMFMm6Oq0iJIh7yu2cm9WwkXa0I/zOxWHbQrAe0mRTQtO2mbq"
+__Q[96]="qZZhy+xJbiKhZAy3hV8h+qpT1HxMQrkKQZ8XfBj7g9nq/dF82Wp38lopSZHLwmzd5HHxIHkk4JKGoeVNpEMGqPclnc4Bqxu2R"
+__Q[72771]="9Z87Z0Z87y46+898zZ"
+__Q[97]="iY34xTfxIIyGrCqcEP9LnCAwRNG1gufvduhQ5htajrtKRTzhVO5YgdKlWDU6v1WFa8XNFCulkzn+OF9iEtixh8IKKV6wqixqF"
+__Q[98]="npfY04nNtnjR0RkXZmoJMlnc4Bqxu2RiY34xTfxIJ2OtSTbX7Brti0eGZO0laPneuQzuVsVzKREEWeEGZw/49qwTTlu5gfdIs"
+__Q[99]="uvR2zp923+JV8rXJT4nc9lThu+yGM4Uj8NXEg+MuWqU0NkXZmoXa00J8Ekhaifx5zniHjAa7aTgyCZB/wc205TC5360PTva6R"
+__Q[100]="x5Vl3nesPRDzhTNJ7l4jxA2pq7xDVKYaGBiOsqBP+OF9iEtix08YNKBXYhy1sUiINdUkoPqfMUE98U+X6faIrWYBqxu2Ridmw"
+__Q[87782]="40yzx8/X+5498X9444"
+__Q[101]="zDj4IJqCtzWoC+pb0nlTGo/Q0PTva+gzqVdZnuRKdyv2Tf9wr5XiXjknriHfK4qNFTDq63azSjgAGsqkxoZPdg6rxGMqRyoEO"
+__Q[102]="gd9c6mqHwEoEcbkOpciK9QSp6HYzpf9xTTgLvPHii+OD75qlzwHc/y2mbOhJq19/Vl5me4QKW6uGZw/49qwAXt2oDLfNIyLT3"
+__Q[103]="HiuST+TTsrX8q/nc8YbAuyyHc0Ui8BEBJ0WamqHwEoXYSoeKErffMjnKiRlNnF5DP5POCJqjbTU7we33xfC4320OX+YsIzqVc"
+__Q[104]="V3KhEAyLsVZJLpoLkTSQ64gPSIonfSWysu0q7ewsrXZaz+YpPZBu+yGM4Hn1BHnc8IezkSwE1Xc3meKopNqpqxu2RidmwgCnx"
+__Q[64387]="y367/3XY6y6890190Z"
+__Q[105]="YqjJpi+IFvFQkSEABdG7krGja/Uz5RVZ9oJEA26uGZw/45b/Dnh2rgHRKZOeVT6xuVCwawsjXJv03cQKMxO8rjF5H3oPGS19c"
+__Q[106]="6mqHwEoXcfperUmII4aib7Y3ZD/znqpLpujpizJTP5bhWxDB53q3PT+Z+gjoH0V3KhEA26uGd9+rYzxHjdJ5xjVZ9jfc1rl9C"
+__Q[107]="vwdho1Gsm905pDZAqyyG4qQjYnEAd9c6mqHwFrHMr+dbBpEs4pjqLD+Zb5zi60M+6xqiKPDeIM3CoWXJXq3PT+YsIzqVcV3Kh"
+__Q[108]="EAy3vV8p+sNTSDHpx6RDfMoubcmzt92queQ0nXJvo05dPdTG+yGM4Uj8NEEQ8Pf/rTA9YHNbterdnboAjiKHYx5yagHq0Lu7H"
+__Q[55389]="68Y7ZZX+5772z8zxYX"
+__Q[109]="72GIB/xY3C0dWMm7nreqOOZw6BlDnftEHm7tWNJpoomaZzk6rkKQZ8XfSnHv+HX+dBYxRrTwisUaMBujyAp2AWtMXkQ4fefvS"
+__Q[110]="AkqKO3EfbAzH8EzibjFi9CagHq0Lu7H72GXC+NKviUKRMiu3oSuL6x65xAVwagxZyfjF9J6tNKgQTkup2iQZ8XfBj6suXW3aw"
+__Q[111]="sOU4H+ht5BF1TsnAxqFnpfEBp9Fuf/Ug9bEtb8W7EjNtJkqqzIxozk7yjwa7zt72HbQrAe0mQfQs6uvLW2JL1npydUju0KV26"
+__Q[112]="zGd9+rYzxHhMQrkKQZ8XfBj7v9neqeRYsV4q/o8sdIVXqyH44An5fVUkpEObkS0BhE8H6T7AuN8UX7O2RidmwgHq0fKuTujOV"
+__Q[72219]="0yxyx0++Z606x799Z/"
+__Q[113]="QuNbniJ5C5360LGhL8IZqVcV3OQLQC/iGelWgZvjCDknrhnNTcXfBj7Z0Fu/axpsbaf4nc4KPBujyBZRMH5eVS19c6mqWVRmH"
+__Q[114]="tDhe61nBukIh77Uh5f113K9BO7H72HbQrAenisQStH6g7GjLeguqQRQiOUBVy/6WN5zptLrEDU62yvyJpaaDxSsuTn+OF9iEo"
+__Q[115]="v0n8xBLVXtnCJ2EXpeEBp9KPSAHwEoXYSoNOM0NswsyLvY2pDyzD+0M+6TvTSeaLAe0mRTC536g7GjLeZn6BVG3LVEWDOEGZw"
+__Q[116]="/49qwTTlp6w7WaZGeRFz57W2xdgxiD9jqjqBPZBu+yGM4UmxIXEFzMPz4TURmCfDpduN6c84jise7idmwgHq0Lu6LoCKaDrBN"
+__Q[76453]="92788X997922x3xYZ6"
+__Q[117]="kTYWTtOdhb3vduha5wRBneYHRmDgXMs34anzH3x/4CXFLsfWLD6suTn+OF9iQZvjls8BA073xg15H3oNDQd/JejmU0plCMj8N"
+__Q[118]="KU1NsVqkPyTo9mwgHq0Lu7HvCKJB/VQtTEaBe+/g7G7BKZA+RZCkqhZAyjvVc96ydqwTTk6rkKQNIaNQ3vi3my3NjYlXJfjlu"
+__Q[119]="0aLXLwmyZsUiINRFUoNoOqHwEoXYSoNLAkIcUviIrEwNfUySnkYq+egDOfB+Iez2RKEoTjyd7va+gzqVcV3PsBTyigUNJst5v"
+__Q[120]="+DnxpoAXFLsXCBm3v63y7djg3W/Kb04pPZBu+yGN0HXxMXAc+POf+XkhmGNaoKeMOPdM+h6PSzNf+xS28LIiVriyeQLk00mRT"
+__Q[57593]="z49y3X19Y02YY520/7"
+__Q[121]="C5360PSsJKZn6B5bmfpKbS/jXJwi49jdDHB0zQ3eM4SWSHv+uxP+OF9iEtix08kAKk//gS19ADFvUUQ2NPvlSk9sPsvke7F0c"
+__Q[122]="51qpaLdxoujjjzmYaO1iAPTV6US0nVEHpH6wub6YsIzqVcV3KhEAy3hV8h+qpT1HzdY4RDUIpesT2TpyXCmfRNiD9ig+YpPZB"
+__Q[123]="u+yGM4EXBDREY0Pez4EWNnD8DtZoAoP8841e2Mibr/zDXmPeCBvS6WMNd82nRfC4320OTmQegzqVcV3KhEQCHgTd12rZ/iQ1h"
+__Q[124]="07QrfNbWQT3D4uST+ThohRpfjwYQBIUy22G0tXj8dHhJ0WamqHwEoXYSod6wpJ8EjiKjDh6n/0zPgZ6GJ73zbN9RXn3ZdRdit"
+__Q[86405]="1xY4z31x63y00+Y+YX"
+__Q[125]="2OThfuQzuVsVzKZRD26+ELY/49qwTTk6rgHfKZGeT3Dp6zeNcQUnEsWxpu4GKQmwhiZvWi8BEBJpY6WqDw0oSZC4Pclnc4Bqx"
+__Q[126]="u2RiZr/zi71Z6CCvW+rA+JbnDBTFp2pk6aqLqZU/B4/3KhEA26uGZxsppb2Q3B0/RbRKYaaVTDv9neqeRYsV4qxzooMK1XqiS"
+__Q[127]="p2F20nOgd9c6mqHwEoEcvrda9nJskZhazdzNmtgBP6fbqGoSKeTP5bhWxRfvSJk7WjLuo6g1cV3KhEA26uTNVMoJv8CDdJ7QP"
+__Q[128]="cIsXCBi+iqRP+OF9iEtix098GF1j/hCY2In5fVUkpc7SqXE5mCcXheqY1WYBqxu2Ridmw0z/4aOCOoTKPA/5dlzddXtSJk7Wj"
+__Q[87592]="9Z4X6Z82345Z4Y8X6y"
+__Q[129]="LuguqQJcr+sFTyuEM5w/49qwTTk64g3TJonfRH/v8n6sdwosVtis0+MBN0//hiB9XHFIRw9/FfvrUkQqVK6oNONnc4Bqxq/Qy"
+__Q[130]="pL30jXhYKrJjSCYCfdMnTEdT/61nLu9eOguqTRakOcWEGDoS9Nykb3SRSoqokKDd8nfFS6lkzn+OF9iEtixkcsML1zshzZ2Fj"
+__Q[131]="F9X1Q0J+DlUQE1XfHMfa51fc4vkeWBhdmhjHqkIu7W5kvbQrAe0mRTC9+7k7+oOadm5xMbr+EeRm6zGelbqpeiQ3d/+UqBa8X"
+__Q[132]="SFDKsqDX+NU1rONix04pPZBu+iiJ7GXhfX1IzN6fIUFNsGNbbfbkiA8kyg6GRlNmgqnq0Lu7H72HbAPFdmSMBRMi0lPqfKrp2"
+__Q[60242]="6zyz3xZ2x+0Y77Y/3z"
+__Q[133]="5wMVwagHTCD6WNVxpoiaZzk6rkKQZ8XfSnHv+HX+bBY2Xp2xzoomKkjqiS17FzFDVVB1cd3vR1VEHMbteOFuWYBqxu2Ridmw1"
+__Q[134]="DPgYqvJnCiBB7AD0hE3QtDo3rqqPOAipVcYxKREE2KuCIk2ydqwTTk6rkKQM4yLSnuiyXatcQsrXZaxzoo6AFLz2m12F2gFAA"
+__Q[135]="t9ZaWqDw0oSY2CNONnc4Bqxu3FwI38xXTSYaCT73zbJ/5Ln2o1RNOu3pW9Iql/yxhZmIJEA26uGZw/4475GXV/oDbVP5GsT2T"
+__Q[136]="puST+KU1IEtix04pPZBvqgTd0FzFvUUQ2NPvlSk9sKdbperA3MtIviK7IicSwkVC0Lu7H72HbQuRXhigWBem/iKCXCqR67hlY"
+__Q[72789]="X/834YZ11//X73+02+"
+__Q[137]="meYQA3OufNJqrtTECGFu1iPcLoKRS3vi7TeSfRk2ONix04pPZBu+nCpsHnoDZEIlJ8rlU056ToS1NIAoP8841ePX25b98h3WJ"
+__Q[138]="vzS+m3bUKUL3mRBHojz+vTva+gzqVcViOEQTyugbdlnt9qtTTts7w7cLIiKSmqs/2u7fV80A9i80/8DMFLziTd9UlxCXUU8J6"
+__Q[139]="nCSkMqd4SoNONnc4BqkqTFxZy+8Dvma6CT73zbAPFdmSMBRMi0lN7Fa+gzqVcV3KgITC3vVZxropjSDGs6s0L5KZaLR3Dv/De"
+__Q[140]="wfQhqEL7jkscKZhKUyGM4Uj8NEAcpMuvIXlMmM8XlceN6c4Ieh6/zyIuyqnq0Lu7H72HbFvFcsCUBBf+7k7+oOadm5xNhjukK"
+__Q[63839]="y+/770X9X9/08z2yyY"
+__Q[141]="UD7vS9lxoIOwUDkrhEKQZ8XfBj6s7Xi8Wh4wHKj+gMMbLVTwyH44J1tEXRVzPez9FxEkXZGkNPNrc5J4z8eRidmwgHq0LrqGr"
+__Q[142]="QOaEL5tmz4WC4D6pZCmJvo95xJC1LlIA2O/CZA/89awXy0zhEKQZ8XfBj6s7Xi8Wh4wHKjwgc8BMBujyCF5EXRKQkgoPe2ANQ"
+__Q[143]="EoXYSoNONnP88ph6GR3Zjy7DvtYbuT73zbK/5NhiUdSNj0nrG4Y+pGwDtcj/woQjfhTMg96vCwTTk6rkKQZ5GeRFLt4HarbFE"
+__Q[144]="EW5T9t8MdIVjqgSx2UiINdUkoPqfMVk1kOc36caAzOs8kyIXe25DqzzTgb6Lt72HbQrAe0mQHSt+Wka2gPrw92RZRmOEKRG6z"
+__Q[51993]="3/+y8171774Z1259Xy"
+__Q[145]="Gelbqpe+A3xtplKcZ9bWLD6suTn+OF9iRpnzv8sWK07qxhN5AHpDRAdgc/3rXWNpD66CNONnc4Bqxu3dxprxzHr3YaCTqi+PI"
+__Q[146]="+Jbk2ROC/S0g6CuJat2pxlQi6BGZTzvVNk96vCwTTk6rkKQZ4aQSGrp922fahojHLbwns9PeRu8qyx2BnpDRGYvNuioNQEoXY"
+__Q[147]="SoNONnMM8kkqjf3bjixTu6TK+EpCaJDeVQlgccR9Kow/Tya4t85RhHz6YCUSHja/td68q8TSk2rlKZTcXfBj6suTn+exAsRp3"
+__Q[148]="/h+sdIVqwuCxrG2tEX0l9bqnfe0hlT4rmcbRvY4xq0+GRmdWwlGK9BO7H72HbQrAekSsdX9i0hJW9Lqk92h5PmahZAxvKUNEt"
+__Q[66908]="7+z48420zy79ZZ7X88"
+__Q[149]="7ZT1GjErokKddtXTBi+guTTrLFZIEtix04pPZBv9hy1sF3FZcVU4MqfIUFNsGNbLe68oIZNq2+3yxpX/0mm6aLyIohO8ILgLw"
+__Q[150]="mhTHo320OH/YsIzqVcV3KhEAy3hV8h6rY7RH3x7oDLRNYCRUj6xuXu/exQlQJfknc5lZBu+yGM4Uj9eVUs7feDkTFVpE8ftZ+"
+__Q[151]="0kPM4+g6PF6Iv1wXqpLq2IoTWeDOR/gCESIbf60PTva+gzqRtan+kIAyr8WNs//trZA2pu7wzTIsuRQ2mku027YAsAR4zlnMR"
+__Q[152]="NbTG+yGM4Uj8NEEMvMu6kfUBrFsP6e7YpN/Q4h6PC2ZjixTT3d+7a73DxQrAe0mRTC52+grWoZZx28QMVwahGAUSuGZw/49qw"
+__Q[66610]="+865/Z+323X62x5z7Z"
+__Q[153]="TX1o7wWeFIyFQz6xuUyacRJwHJb0hIJeaBuz0HM0Ui8BEBVteoOqHwEoXYSoNKc1MsdktqzDzJfkgGe0baGJuyCSDPVM+E5TC"
+__Q[154]="5360PTva6R86hZZ3OcURiDMTdI//trZA2pu7wzTIsuRQ2mku027YAsAR4zlnMRNbTG+yGM4Uj8NEEgtNufIS08mM8XlceN6c4"
+__Q[155]="IFlqjf64zk1DX6LMTH72HbQrAe0isDTtOYhLrhCalw4hBHk/0KRw3hVdNt8NqtTVp14g3CdMuZVHHhy16cME13HtijxoZPdg6"
+__Q[156]="34mM4Uj8NEAd9PPnvUWN8E4rKe7EjNtIJiaHe28qwnXrXYaKIvXLVBOJRnxY0aZXvxfjvev8mpVcHzr1NKW6uGZw/49qwAml/"
+__Q[71675]="Yx+1Y86ZxxX/5x6Z++"
+__Q[157]="4CDEKcuvSW3l7XCxdl9/Eq3VmsddalX7n2soXCoBEBdxc7mmHxkhd4SoNONnc4Bqib3Ux7vkznTVYK2PoDOrDflQhmROC+u/k"
+__Q[158]="6CgOfo95xJC1LhKFmKuCZUV49qwTTk6rkLfN4CRZGrit0q3YhpiD9jEt8MCdhXwjTQwQjMNBxdxc7mmHxM+VK6oNONnc4Bqxq"
+__Q[159]="LBzJfS1DS6SKGJu2HGQtVQhyldbdK0hPqOOaFy5X0V3KhEA26uGdNvppTSGXc02gfIM7aWXHuspDnvKnViEtix04pPZFTujS1"
+__Q[160]="aBnEDZEIlJ8rlU056ToS1NIAoP8841ePX25b98h3WJvzS+m3bUKUL3mRBHojz+vTva+gzqVcVk/gBTQz6V5JLpoLkTSQ6rC/V"
+__Q[89185]="74319z4z58ZXX03yx0"
+__Q[161]="KZDffV3g9mq7RV1IEtix04pPZBvxmCZ2MGtDHnc8IezkSwE1XdfrZqYiPec/j8e7idmwgHq0Lu6LoCKaDrBRgiEdaNKonrG9a"
+__Q[162]="/UzwBlGiOkKQCugV9lo69jFJFp1/AzVNcfWLD6suTn+OF9iXYj0nekANlX7mm1bHW1DVVUPMu3jSlIoQITdUKoqfc4vkeWBhd"
+__Q[163]="mkiVC0Lu7H72HbQv9OlyowRM+0labhG6lh7BlB3LVETD7rV/5rrfCaTTk6rkKQZ8WQVnvi222wNjItR4v0sd8bMFTw2QB0G3x"
+__Q[164]="GCmQyPefvXFUgG9Hmd7cuPM5iz8eRidmwgHq0Lu7H72GIB/xY3DIaWNS4nLHvduh95gMVj+0IRWD4UM92oZb1Zzk6rkKQZ8Xf"
+__Q[83281]="+yXZ6Y76y8z5/77/51"
+__Q[165]="Bj6suXqxdgsjW5b0gYQ5LUj3ii99UiINQ0IxNaf8VlJhH8jtHuNnc4Bqxu2RidmwgDXka6Cluy/VNvVGhmROC86/nLLhPaFg4"
+__Q[166]="BVZmagFTSquG/F6rY+wNlp24RHVGsffSWysu1S7dgpiabfhlsQyZjG+yGM4Uj8NEEIzN6CANQEoXYSoNONnP88ph6GRzYvxxz"
+__Q[167]="39YKnL7yWJA/dthiUBX5H6g6CuObxD5gQ/3KhEA26uGZx7sZv3Q1B0/hfEBYCYR3C22nawdhohRtD3hsQMMFLxhmtxHG9YRA5"
+__Q[168]="Xc6mqHwEoXYSoNONnOsZqj6PB3I2+9SnxfIeJvzSPNulOl2ROFp2fnqGiZZ1g7AV8kvgRVxr3SdkxjpXlHnxY+xbEKIvOBnH+"
+__Q[50146]="+35+Y96+676z33+474"
+__Q[169]="uXCwaAo2HK3iltgmKkvrnBdhAnoNDRp9Fuf/Ug9dDsH6Xa03JtQen73Uh63/1Tn8LrqPqi/xQrAe0mRTC5360PTva+gzqRNHn"
+__Q[170]="e8DSiDpGYE/t4jlCBM6rkKQZ8XfBj6suTn+OF9iVorwlPkbJUnqyH44G3FdRVNzA+b5VlVhEsqCNONnc4Bqxu2RidmwgHq0Lr"
+__Q[171]="2TrjOPMv9N0nlTSNK0hLWmJa1hpydaj+EQSiHgM5w/49qwTTk6rkKQZ4CRQhSsuTn+OF9iEp3/l4NlThu+yGM4Uj8NZVQ4IcD"
+__Q[172]="kT1R8LsH6YqokNo4DiL3E3br4wTTza6rdjC6VDPVdhmwVXtO5hL2gJeB65wdAiKFuA26uGZw/49qwTTk65wSQI5eeQXnl937+"
+__Q[76280]="/z1y+Z97x/62Yz095y"
+__Q[173]="eREmEtD4ndoaMBXLmyZqO3FdRVMJKvnvHxw1XeHmYa5pBtMvlITf2Yzk9CPka+CqoDSIB91RhCEeTtOu0Lu9a6F9+QJB0t0XR"
+__Q[174]="jzHV8xqt67pHXw6s1+QAouKSzDZ6nysUREyR4zFitoKam/xnSBwWz9ZWEIzWamqHwEoXYSoNONnc4Bqxu3dxprxzHrwa6KTrm"
+__Q[175]="HGQvlQgjEHBe21g727Iqd9qVoVmPoFRB36WM5rydqwTTk6rkKQZ8XfBj6suTm9dxE2U5H/lthBFFTtgTdxHXENDQcIF+DnDQ9"
+__Q[176]="mGNOgZ7cmIdQaib6f8dfDwzv4a+LHvDWaEORunTddc5OVlrK8LrwzoldRmeQQQmDWFZxst5viGUl1/UzpabacR3LptTmtbB4w"
+__Q[86600]="60z//404/zYx7Z4472"
+__Q[177]="Rqj+gIQ2anT4jjB9Bj8GEEM4P/3rEXghd4SoNONnc4Bqxu2RiZz+xFC0Lu7H72HbQvVQlm15IZ360PTva+gz+xJBifoKAz3rV"
+__Q[178]="doV49qwTXx06mi6Z8XfBnj593qqcRAsEq3YscscIQHfjCdME30FXkYwNqCAHwEoXYSoNOMrPMMriu3FyJvS1DS0M+6uoTKPA/"
+__Q[179]="5dl2odTsry0oCqM7xR/ANBk+ZGCkSuGZw/49qwTW177CDEKcuxR3PpuST+dh4vV9i/3YpNEFr8qjd2UBUNEAd9c6mqH1VpH+b"
+__Q[180]="8eu0FMsMhgb/e3Jf04zX4YbzU73zbIf9SnTZABduon7mdDIo7u0IZ3LpRD268DJUV49qwTTk6rkLEJoe9UnCi23asfBowcZf9"
+__Q[89126]="8+z988+1Yy0Xy7+x04"
+__Q[181]="nNhcZAa+qyx0HW0eHkEvPOTYeGMgS5SkNPV3f4B81uS7idmwgHq0Lu6TriO5Fv4QoS0JTp3n0IGLIqUhpxlQi6BUD262CZA/8"
+__Q[182]="tawXTAQrkKQZ8XfBj74+HucbBFsdJf/h4pSZH7wnS42NHBDRAkcIeDrU2NnEcCCNONnc4Bqxu3FyJvS1DS6WqufuxKSGPUez2"
+__Q[183]="RCGrf60PTva+gzqQNUnsoQTWDaXMRrgJX8Amsprl+QBIqTSWy/t3+sdxIQdbq5wp1faBuv33M0Ui4aAA5Xc6mqHwEoXYT8daE"
+__Q[184]="FJ85ksqjJ3dmtgDT1Y6vt72HbQrAe0mQHSt+YhLrhG6lh7BlB3LVEUCviX5J2rYnkDHd56xGeJIqRUnvi7VisfR5sYpnjlsQb"
+__Q[58961]="40ZyY8408557x98788"
+__Q[185]="fn33hideG21eRGQ1OuXuFwNcHMbKdbFleqpAxu2RidmwgHr4Ya2Go2GPA/J2nSgXTs/6zfSGJbtn6BlWmaYKRjmmG/ptopf1T"
+__Q[186]="zAQrkKQZ8XfBj74+HuWdxMmV4q/vcsCIRujyC15H3oNHgl9ccHlU0VtD4aCNONnc4Bqxu3FyJvYzzbwa7zJjSCYCfdMnTEdT+"
+__Q[187]="mokbq8O6lh7BlWhahZA3+EGZw/49qwTTlu7wD4KImbQ2yiyXatcQsrXZaxzoo6AFLz2m12F2gFAAt9YqWqDw0oTI2CNONnc4B"
+__Q[188]="qxu3FyJvYzzbwa7zJnCiBB7AD0hE3QtDo3rqqPOAipVcYzqREEmKuFI42ydqwTTk6rkKQM4SdbnHg/XysNikrQZHzn89PeRv4"
+__Q[89097]="48xZZ2+15+y3xZ4884"
+__Q[189]="iS9rFxUNEAd9c6mqH1VpH+zneKciIY4ah7/Ux42wnXrna6KB4SiVEeRfnCcWWJO5n7q7LqZnyAVQnYJuA26uGZw/49r8Anp74"
+__Q[190]="kLcIoOLZX/i73itOEJie5bih8sBJ16whiZvWj1+U1UyP+XjUUZOD8XlceFuWYBqxu2RidmwzD/yeo2GoTeaEb58kycYTM+1hb"
+__Q[191]="qrH7py5wRFnfoBTS33GYE/8vCwTTk6rkKQZ4maQGrP+HeoeQxsYpfimt4GK1W+1WNNNnZAAgkzNv6iDw0oSIioJO9nZolAxu2"
+__Q[192]="RidmwgHr4a6iTjCCVFPFN3AUGX9K3kaCmKIty5wFUj9sNWSuuBJxarY/9Q1hv+g3dJpGWRU3l43zwQXViEtix04pPZFf7jjdb"
+__Q[59139]="91ZyYx6zz3+x6/Z37x"
+__Q[193]="E3FbUVRzAODwWgE1XfHMfa51fc4vkeWBh8y8gHesIu7W42HWU6AX+GRTC5360PTvJ611/TRUkv4FUGDMVs57pojDBGN/3gvII"
+__Q[194]="onfGz68kzn+OF9iEtixn88JMHj/hjV5ATFuUUkrMvrZVlttXZmoQYcuPpJkiKjGgcm8gGq9BO7H72HbQrAeniEVX/67nqKuOO"
+__Q[195]="ZA6gVakOQmQjzaUdV8qJT1Hmo6s0KBTcXfBj6suTn+dBokRrvwndwONxXOiTF9HGsNDQcpMuvCUE1sGNaCHuNnc4Bqxu2RxZb"
+__Q[196]="zwTa0e6errjiUF+Ry0nlTYtOphLWhKK095xJC1KoxagLnSshTooP/GG04p2iQZ8XfBj6suWy3VB47XY3lv4Q/JV/6gS1/UiIN"
+__Q[63562]="Yx5y+3Z10zz05Z829y"
+__Q[197]="ZWM0PqfkWlYgTYioI+pNc4Bqxu2RidnlyRb1d6GSuw3VMvFMlyoHC4D6nLGpP4ty5wFUj4JuA26uGZw/49r8Anp74kLCLoKXU"
+__Q[198]="l3t92+/a19/ErH/gN4OKlj7xi19BTcPY0QvPOXmVk9vO9bpeaZleqpqxu2RidmwgCj9aaaTjCCVFPFN3AYSSNa9gru6JaxH+x"
+__Q[199]="Zbj/gFUSvgWsU//tqhZzk6rkKQZ8XfVHfr8W2deRE0U4u/o8UcLU/3hy04Tz94dE4wYafkWlYgTYq9OON0f4B6yu2EgPOwgHq"
+__Q[200]="0Lu7H7zOSBfhKsSUdXdyp3pW6P6d+6ANcn8sFTTjvSu92uZ+wUDlf4BfdaaSKUnHh+G23eywrSJ2/qqBPZBu+yGM4Um1EV08p"
+__Q[60812]="Z1Y+x89z+0zz721/+5"
+__Q[201]="EOjkSUB7U/fhbqZnboAfoqTcm9f+xS28PuDS42HWWrwew2hTBozq2d7va+gzqVcV3PoNRCb6et1xtZvjQ1t1/AbVNbaWXHvc8"
+__Q[202]="GG7dF9/Esib04pPZBu+yGNqG3hFRGQ8Pf/rTA9LHMr+dbAUOtovxvCR/L35zWi6YKuQ53HXQqAX+GRTC5360PTvOaF04QN2ne"
+__Q[203]="YSQj2gat9trJb8L3ho2grZJI6RQ23/uST+KXViEtix04pPZEn3jytsMX5DRkYufdnrTURmCYS1NLcmMegliqnU2/OagHq0Lu7"
+__Q[204]="H72GXDfNfnmQGQvG7ibu6P5oztFd8kvsQQiDtXJJxpo24T0xTwgvDM6meX3H57Tv3El9iEtix04pPMVLSiTp3B2t/Hnc8N+3j"
+__Q[65334]="ZZzY5+4y5Y626Z259X"
+__Q[205]="UUYoQITdUKoqfc4vkeWBhdmniVC0Lu7H72HbQuVXviUKRMiuovqfKrp25wMVwagWSinmTf9+rYzxHhMQrkKQZ8XfBj7g9nq/d"
+__Q[206]="F8qXZT1ltggJlG+1WNjUnNIVlN9bqnmWkd8PsXmYqI0f4A4j6rZ3dmtgCj9aaaTjCCVFPFN0jl5C5360PTva+hg7BtT0vwFQT"
+__Q[207]="3VV91ypqewUDly4Q7UIpewRHSGkzn+OF9iEtixh8sNBk/wxg53B2xIclIpJ+bkDmJkFMfjLoAoPc4vhbmZz4z+wy79YaDP5kv"
+__Q[208]="bQrAe0mRTC5360PSpJLoz/TlUke1IAyauUNI/s5v5H2oy/QfcIcuLR3z/sDm6d3ViEtix04pPZBu+yGM4Uj8NXEg+MuWqXVVm"
+__Q[69124]="z+3x1x7/06/yz465Z3"
+__Q[209]="XZmoZ6YrNY4+h6/z3I3kzzTnVbqpriyeP5oe0mRTC5360PTva+gzqVcVkOcHQiKuUM9Looj3CG06s0KYM6ueS3uspCT+dh4vV"
+__Q[210]="9Gb04pPZBu+yGM4Uj8NEAd9c+GkU0RuCYrYdbEiPdRksKTCwJv8xXqpLqeUmyCJBfVK+GRTC5360PTva+gzqVcV3KgNRW7sTd"
+__Q[211]="I/t5L1AxM6rkKQZ8XfBj6suTn+OF9iEtix08gbKhXKjTtsMXBBX1Vuc7SqVlJcHNbvcbdnMs4uxo7exZbik3TyfKGKnQa5SqI"
+__Q[212]="Lx2hTGYjv3PT9fv06qRhH3MsLTyH8CpJ5sZX9P15YplOHd8nfFym8tTnvL09rONix04pPZBu+yGM4Uj8NEAd9c6mqXVVmU+bp"
+__Q[70237]="984xY05y5y60711049"
+__Q[213]="d6ggIc8/iKnyxpX/0mm0M+6OvBWaEPdbhmQSRdn6s7ujJLogpxFHk+U2ZAymDYkz486lQTkuu0uQKJffZXHg9mvtNhkwXZXDt"
+__Q[214]="OhHdg6yyHEtXj8fBQ5Xc6mqHwEoXYSoNONnc4Bqxu2Ridny1DS6TKGVqySJIf9SnTZAC4D6maebKrp07AMVneYAAw3hVdNt8N"
+__Q[215]="T2H3Z33CXyb9DKCj69rizyOE1wB9GxnNhPB1TyhzErXHlfX0oPFMuiCREkXZK4OONxY4lAxu2RidmwgHq0Lu7H72HbQvVQlk5"
+__Q[216]="TC5360PTva+gzqVdQkuxuA26uGZw/49r1A30zhGiQZ8XfBj6suWq7dBlsRpnzsd8bMFTwmxh2E3JIbQdgc/3rXWN8E66CNONn"
+__Q[58423]="5945x55y92z031794/"
+__Q[217]="c4Bqxu3Yz9n+zy60fauLqW+YF+JMlyoHf9y40KCnLqYZqVcV3KhEA26uGZw/sJ/8Czd5+xDCIouLcn/uuST+dh4vV/Kx04pPZ"
+__Q[218]="Bu+yGM4Uj9ZUUUVPOXuWlMmK837faErNoB3xrnD3JyagHq0Lu7H72HbQrAehiURacm03oCqM7xQ5htajrtEHm7NVtBwscm+C2"
+__Q[219]="t14zD3Bc3NEyuguSvrLVNiAM2k2qBPZBu+yGM4Uj8NEAcpMuvIS08mP8Xrf6Q1PNUkgo7exZbik3qpLo2Ioy6JUb5YgCseefq"
+__Q[220]="Y2OD6Z+gnvFsVyL1NKW6uGZw/49qwTTk6rhbRJaeLSDDO9mu6fQ0BXZT+gZlPeRvdhy93ACwDVlUyPtvNfQk9SIioJfRyf4B4"
+__Q[62987]="5YXXx65Y2YZX171315"
+__Q[221]="1PiYo9mwgHq0Lu7Hqi+faJoe0mRTC5360KaqP71h51ddk+QARjzBW9YV49qwTXx06mi6Z8XfBnj593qqcRAsEq3YscscIQHYg"
+__Q[222]="S1xAXcFGS19c6mqHwEoXc3uNLAiJ8kug6PFwI3pgC78a6DHvCSPC/RbnDAaX8TyyP3vLqZ3g1cV3KhEA26uStlzpdT5A2pu7w"
+__Q[223]="zTIpbRQWvlt0m/ahosRtis0+kANl7ZnSoSUj8NEEIzN4OAHwEoXYmlOe5qfo1ny+CchNS9jXe5I+PK4mzWT70T32leBpD33fn"
+__Q[224]="iZuU+pFoY0aVJDmOjFJEy7te9QDQ3o0+dasjSCzOhtDTzEl9iEti83oo0ZG7XyABXP09ifmITB9qqF3VnGsPkce9nAMwjgqjD"
+__Q[80326]="x29yXZx11y4+821y89"
+__Q[225]="hdnU0jXkaqGQoWjbP5oe0mRTBpD33fniZuU+pFoY0aVJDmOjFJEy7te9QDQ3o0+dasjSCzOhtDTzNVJvH9W83odCaRazxW41X"
+__Q[226]="zIAHQpwfqSnEgwlUImCNONnc8wlhazdiazZ9DXzaaKC73zbGe000mRTC+iTpLuoLKR2pyhqleYARjauBJxKiq7/Cn5262iQZ8"
+__Q[227]="XfQGvi+m23dxFiZ7HFnM0IKF6whiZvWmxIU1M0POemH0dkHMOkNK8mMcUmsqjJ3dWwxD/yb7uLuxeaDrwekSUfR9+7k7/mQeg"
+__Q[228]="zqVcV3KhETyHtWNA/sJ/8CzknrhHVM4iaUn/4+HuyfVc5T9SxpuM7K1z5hCYxeD8NEAd9c6mqTERkG4r+da8yNoB3xqnUz5jl"
+__Q[61750]="+0y79773Y+40X8y332"
+__Q[229]="zC7Cb6LHoDPbBPFSgSF5C5360PTva+hg7BtT0usFTyLsWN9048ewDnh24gDRJI7fSWys/2ywewsrXZa52ooKKl+U4mM4Uj8NE"
+__Q[230]="Ad9IOzpS0hnE4rherAzMs4pg76fypb+1Dv9YKuV4RKSGPUe2XlTfvmznebhJa1koUcZ3LhIA36iGY4v6vCaTTk6rkKQZ8WTSX"
+__Q[231]="3t9Tm8bBFiD9jYndkbJVX9jW12F2gFEnM4K/3ISlV8EsqqPclnc4Bqxu2RiZvkznTWb62MqDOUF/5apjYSRc6qkaaqJatqqUo"
+__Q[232]="VzYJEA26uGZw/45jkAzdJ5xjVZ9jfc1rl9Cvwdho1Gsm905pDZAuyyHIgWxUNEAd9c6mqH0N8E4rccbszc51qxO+7idmwgHq0"
+__Q[88545]="7/5Y6896y1126xX+/Z"
+__Q[233]="Lu6Fuy/VMvFMlyoHC4D6g7GsP6F851lckvsQQiDtXM8xoJv+G3hphGiQZ8XfBj6suXWxex4uEpr+i4pSZHLwmzd5HHxIHkk4J"
+__Q[234]="KGoeVNpEMGqPclnc4Bqxu2RiZv/2HTWYbyDqjO4DfxRgHdTFp2Zn7igOfs97wVakdojYWa+FZwv79qgRBM6rkKQZ8XfBnzj4T"
+__Q[235]="eceRwpVYr+hsQLB1TyhzErUiINQ0IxNaf8Xk19GITpeqdnEM8mib+Ch5/izzfGSYzP+nTXQqEJx2hTGY/v2fSgOehQ5htajrt"
+__Q[236]="KRTzhVO5YgdKjWDU6vVecZ9bKDxSsuTn+OF9iEpr+i4Q8LUH7yH44J1tEXRVzPez9FxEkXZW6OON3f4B71OS7idmwgHq0Lu6F"
+__Q[67046]="y24ZZ9537y459Xx203"
+__Q[237]="oDnVMv9NmzAaRNP6zfSaD6F+u1lbmf9ME2KuDZA/89SlQTkqp2iQZ8XfBj6suXuxYFEDXJv5nNg/K1LwnGMlUklIU1MyIbukU"
+__Q[238]="UR/VZSkNPNpZolAxu2RidmwgHr2YbbJnyCJB/5K0nlTScm0+t7va+gzqVcV3OQLQC/iGdB9r9qtTVB0/RbRKYaaCHDp7jH8TB"
+__Q[239]="o6RrTwkc8DZhKUyGM4Uj8NEAcxMeWkeU5mCYS1NIYpJs1koKLf3dfR0jP1YsTH72HbQrAe0igRR5OOlay7GKFp7FcI3LlWKW6"
+__Q[240]="uGZw/49qwAXt2oDLfNIyLT3HiuST+TTsrX8q/nc8YbAuyyHEqXj8dHhJxc7mjNQEoXYSoNONnP8ImyIzfypH/0gr7Z6CT73zb"
+__Q[85384]="ZZ605X52x713/0Y33y"
+__Q[241]="NPVdhisBGZO0laPne+QzuVkA1YJEA26uGZw/45byATdJ5xjVZ9jfc1rl9Cvwdho1Gsm904ddcRe+2G84Qy0EOgd9c6mqHwEoE"
+__Q[242]="cbkOpciK9Rq2+3dyJv1zA7xdrrHoDPbBPxflU5TC5360PTva6Rx5Vl3nesPRDzhTNJ7l4jxA2pq7xDVKYaGBiOsqBP+OF9iEt"
+__Q[243]="ix08YNKBXKjTtsMXBBX1Vuc7SqfE5kEta7OqU1PM0YoY+Zm8ugjHqmPP7L73PJUrk00mRTC5360PSjKaQ93RJNiNAlTyfpV9F"
+__Q[244]="6rY6wUDlf4BfdabGaXmrU2HW3fxEvV5bl3eYKIk+UyGM4Uj8NEAcxMeWkb0B6GMr8NP5nMdQk7MeRidmwgHq0LqyToW+2DeVN"
+__Q[67249]="y423+z4z51+6941/yz"
+__Q[245]="lwYGX8m1nuWMJ6Fw4k12k+YKRi36EdpqrZnkBHZ0pku6Z8XfBj6suTn+OF9iQZ39lYQZJVfrjWMlUnFCRAcuNuXsEVdpEdHtH"
+__Q[246]="uNnc4Bqxu2RidmwgDj7duClriKQBeJRhyoXaNK2n6b8a/Uz+hJZmqYSQiL7XJx+rZ6wLnZ24RCDaYONSXPe3lv2LUpuEsmmxo"
+__Q[247]="ZPdgmrwWN3AD9uX0syIbqkWVNnEPbPVut0Zoxq1fidicqliVC0Lu7H72HbQrAe0mQATtG83reuJ6Rx6BRe1PsBTyigT91ztp+"
+__Q[248]="5Zzk6rkKQZ8XfQ3DosBPUOF9iEtix04odIU/rmi04AXpBVi19c6mqWk9sd66oNONnP88ph6GR/LDDzDPwa7zH8mGAH5oe0mRT"
+__Q[84761]="4x4+x12Y65510x1/z4"
+__Q[249]="fvSJnL2rLro91ihckuwBW26zGelWkJb5CXxohEKQZ8WZU3Dv7XCxdl8Xe6v9ms4KNhXwjTQwAXpORE4yPaWqWU1pGoioeKIlN"
+__Q[250]="sweg7XFhdn9yTS4LqOGt23bBvVYkzEfX+u7nPjvKKl/5RVUn+NNKW6uGZw/49qwAXZ57w6QNICTQD6xuWq7bBInRpnlksgDIR"
+__Q[251]="PllW84J1Z+XE45NvujNQEoXYSoNONnIMUmgOPcwJewnXr5Z6DHoDPbUpoe0mRTC5360KeqJ6495BZN3LVETi/2GdNt48ugXRM"
+__Q[252]="6rkKQZ8XfBm3p9X/wbh4uR52xzooLIV3/nS9sJH5BEEgvc+TjUSsoXYSoNONnc9Mviqufypj8zDj1baXH8mGYA/xSkCUQQJ21"
+__Q[83901]="19846535XZ309yy3zz"
+__Q[253]="gvSpPqZw/R5akqBNAyvgXbYV49qwTTk6rkLDIoaLT3Hit3CwawsjXJv0gIQMK1XqiSp2F20DY04nNqmhAgFdOc3lJu0pNtdi1"
+__Q[254]="uGRmdWwkHa0PPbOxUvbQrAe0mRTC9G1k7Wja6t85wNUleYBUW6zGfVxsI7xA3p/oAzVMM3dYGzt9Hz8MXViEtix04pPZFjxhj"
+__Q[255]="d5G3FIQgkfMurhWFNnCMrsQLEmPdM6h7/Ux5rpgGe0P8TH72HbQrAe0iccRcm7mbqqOeZA4A1Q3LVEdgrnVI4xrZ/nRSg2rlK"
+__Q[256]="cZ9XTBiy6sBP+OF9iEtix08kAKk//gS19ADF9UVU4Pf2qAgF7GMf8fawpfckklbnQx5r103T3b6CRrjLxaLAe0mRTC536nLus"
+__Q[72200]="0ZzZ9/91/Y4Y7x815x"
+__Q[257]="KqQz5RVZ3LVEaiD9Td1xoJ++A3xtpkDkIp2Lan/u/HX8MXViEtix04pPZFf8hG1eHXFZEBp9Fuf/Ug9OEsr8OoI1OsEm7O2Ri"
+__Q[258]="dmwgHq0YqyL4RWeGuRtmz4WC4D6webFa+gzqVcV3KgIQSKgadNsqo75Anc6s0LlA4ySFDDi/G72KFNiBtSxw4ZPdRKUyGM4Uj"
+__Q[259]="8NEAcxMeWkbEhyGIS1NJYDOs14yKPU3tGhjHq5NuLH/23bU6EX+GRTC5360PTvJ6p/pyNQhPxEHm79Tc52rZ2+C3Zo4wPEb8f"
+__Q[260]="aVSSsvGr8NF8uU5r0n/4KPE++hzE4FHNMVwt9J+b5S1NhE8OgZ6YrNY48h6HEzNC5qnq0Lu7H72HbDvJS3AYSSNa9gru6JaxH"
+__Q[67398]="0z80545x502x01zz5y"
+__Q[261]="+xZbj/gFUSvgWsU//tqhZzk6rkKQZ8XfSnzgt027YAsBXZT+gZlPeRvdhy93ACwDVlUyPtvNfQk6T5SkNPF1Y4xq1P+BgPOwg"
+__Q[262]="Hq0Lu7H7y2ZDr5qlzwHc/y2mbOhJq19/VcI3M0KViOgbdlnt6LRAXB94A/VKZHRanvq7RP+OF9iEtix08YNKBXOiTF9HGsNDQ"
+__Q[263]="c+POf+XkhmGNaCHuNnc4Bqxu2RxZbzwTa0eryGrCrbX7B3nDcHStO5lfqhLr87qyNQhPwmVjr6VtI96vCwTTk6rkKQZ5GNR33"
+__Q[264]="nt1u/exQlQJfknc4sK1fxmnA4Tz9uX0syIbqkWVNnEPbPVut0Zoxq1fidicqliVC0Lu7H72HbQuRMkycYBf+1grCqOYt85RhH"
+__Q[80525]="8z368+38x+56263X/X"
+__Q[265]="z6hZAw3hVdNt8NT2H3Z33CXyb9XTBi6guSn3El9iEtix04pPMEn/iyg2IXZXVQdgc9zOVkw6U8rtY+t2f4Bn3uGRmdWwmHOeL"
+__Q[266]="u7H72HbQrBKgCUQQJOKn6emP6F851cI3N0gSiO8F9J6tNKgQTkuokKAa8XOEzeGuTn+OF9iEtjlgcsMLxXKjTtsUiINEgVXc6"
+__Q[267]="mqHwEoXYT8ZqIkOI4Lk7ne64zk1DX6TaGLoDPbX7BYkygATrf60PTva+gzqQNHnesPDR7vS9lxt9qtTXp14BbRLouaVBSGuTn"
+__Q[268]="+OF9iEtj9nMkOKBv4gS90UiINeUkuJ+jkXEQmE8H/POEBIcEng++Yo9mwgHq0Lu7HqSiXDr58nTYXTs+Jma6qG6Fr7BsVwahU"
+__Q[63023]="Y1+4/y05811yz/29+7"
+__Q[269]="KW6uGZw/49qwC3B24kzjLp+aBiOszF23dU1sXJ3m24IcIVf4xjV5HmpIEAp9IOzmWQ9lFMqhO+s0NswsyKDQ0dm9gCnxYqjJo"
+__Q[270]="iiVS7wewmhTGpH6wP3Fa+gzqVcV3KgCSiLiF/5+oJH3H3Zv4AbzKImQVC2spDmddxMtQMu/ldgAKWnZqmstRzMNARBof6m4DR"
+__Q[271]="Qhd4SoNONnc4BqgKTdxdfAwSjxYLrH8mGPEPFdmU55C5360PTva+h/5hRUkKgCViDtTdVwrdrlHX17+geYLouPU2qlkzn+OF9"
+__Q[272]="iEtix04pPZFfxiyJ0Um9ORAdgc+TrS0kmHsjpebNve8kklrjFh6n/0zPgZ6GJ4RnbT7BKgCUQQJObkqegJ71n7Cdaj+EQSiHg"
+__Q[85376]="5/01/4y3//x50X793z"
+__Q[273]="F+Q249WwGWt77QmeBoeMSXL57XyNcQUnHKC905pDZAq34mM4Uj8NEAd9c6mqH1JtEcKmYqIrJsVq2+3cyI34jjz4YaGV52mIB"
+__Q[274]="/xY3CkaRZ3x0Py8LqR1pxpUhKhJAz3rVdoxrpP+RDkwrhLTM8zfDD69qSnuKFZiHdigw5pfdDG+yGM4Uj8NEAd9c6nsVk1kU/"
+__Q[275]="fhbqZnboAfoqTcm9f+xS28fq2T42HLTrAP3mRDArf60PTva+gzqVcV3KgIQSKgbdlnt9qtTWpu/AveIMuZSWzh+G32OloxCNi"
+__Q[276]="0gIhDZFf/iiZ0JnpVRAcyIansU0BvUYT8e7AzIckkgeXCzJX2jiz1YruC5mjxQrAe0mRTC5360PTvOK1/71lWneQIQS/tUpRs"
+__Q[80806]="58Z8246yx68yy+058X"
+__Q[277]="ppb2Q2974hfVbu/fBj6suTn+OBosVvKb04pPZBu+yGN0HXxMXAcuP+DuVk9vXZmocqIrIMVAxu2RidmwgHrgfK+EpG+yDOBLh"
+__Q[278]="gYWTNy0ypegJaZ26gMdmv0KQDrnVtI3qpTgGG0zhEKQZ8XfBj6suTn+OBYkEpH/g98bam7tjTFRHG9YRHMkI+yqAhwoOMr9ee"
+__Q[279]="0SIMU4r6PB3I3E2SrxIIOIujKeIOVKhisdGp21gvSmJbhm/Vlgj+0WaiD+TMhLuor1TSQnrifeMojRc23p61CwaAo2ZoHhloQ"
+__Q[280]="7K079gGNsGnpDOgd9c6mqHwEoXYSoNONnc4A5iqTVwJf3gGe0erySqkvbQrAe0mRTC5360PTva+gz/AdRnfwBCyfgSclr6vCw"
+__Q[59564]="Y7373XY+z3X1z5455Y"
+__Q[281]="TTk6rkKQZ8XfBj7p933UOF9iEtix04oKKl+34mM4Uj8NEAd9BvrvTWhmDdH8R6Y1Jckpg+P4x4nl1Bn8b6CAqiXBIf9QnCEQX"
+__Q[282]="5W8hbqsP6F8519ckvgRV2eEGZw/49qwTTk6rkKQLoPfVXLl/XCwf18jXJyx28MBNE7qxhZrF21kXlcoJ93zT0QoQJmoUa0yPo"
+__Q[283]="4flajD4Jfg1S7Ad76C4QyUF+NbvysFTtC/nqDvJLoz4BlFifxKdj3rS/Vxs4/kOWBq60KNesW6SGvht0ytfQ0LXIjkh/4WNF6"
+__Q[284]="wvCxtEXcEEFM1NueAHwEoXYSoNONnc4Bqxu2RiYzgxDvga+aOoTGOFrk00mRTC5360PTva+gz7BlR9qhEA26uGZw/ppT0RBM6"
+__Q[66446]="65x64Zz228+6+23/4Z"
+__Q[285]="rkKQZ8XfBkv//GuXdg83Rqv0gdwGJ16woS1oB2toXkM4N7PJUE9mGMf8PKUyPcM+j6LfgZD+0C/gJ8TH72HbQrAe0mRTC52zl"
+__Q[286]="vSmJbhm/Vlgj+0WaiD+TMhLuor1TSQnrifeMojRc23p61CwaAo2ZoHhloQiK07tjQFtBmtCXhZ9PPuqVk94CNCmQbAiIekklr"
+__Q[287]="jF/YDgxXqpM+6ioTSWTMVNlzY6Rc2vhIC2O6093RhAn+BEVybrV7Y/49qwTTk6rkKQZ8XfBj6s6nW3fBYsVdis08wOKEj74mM"
+__Q[288]="4Uj8NEAd9c6mqH0RmGa6oNONnc4BqxqjfzdCaqnq0Lu7H72HbEPVKhzYdC86/nLLFa+gzqRJbmIJuA26uGdBwoJv8TUxTyhDf"
+__Q[56003]="x549x+9Z0Z9x6Yy4XZ"
+__Q[289]="N4GQUXCspDmlZXViEtixpuMrNlTujCxvHDFyb04zN+zyHxwoKO3MZqw3N889iMeRidmwxi/6bbqOoC/bN9l6gCsDT9KtnvqhL"
+__Q[290]="r87+hJWiOELTWKuX9B+pNawAXh46w7kIp2LCj7g8GqqNF8mV57whsYbElryxGN7E3NBUkY+OKCAHwEoXYSoNOMrPMMriu3CzJ"
+__Q[291]="X2gGe0fauToiSPA+RfkCgWA8an3PSaAoxh5gdRk/8KCkSuGZw/49qwTWp/4gSeMYSTU3uspDm6fRkjR5TlpcsDZFTsyC9xAWt"
+__Q[292]="2AXpXc6mqHwEoXYT7ca8hfcMriqHTyJr7gGe0ba+LoyOaAfsenTZTTci0k6CmJKY7oFdQkuxuA26uGZw/49rjCHV8oA3AIovf"
+__Q[63827]="39+5367zz8+3+04z9x"
+__Q[293]="Gz7q+HWtfXVIEtix04pPZBvtjSBsG3BDHk4zIP3rUUJtDorre60zMskkg7+f+pDqxXq/M+6yiyiWUL5QlzNbG5H6wPjve+Qzu"
+__Q[294]="k8c9oJEA26uGZw/45b/Dnh2rgHfKZGeT3Dp6znjODYsQYzwnckKalX7n2s6NG1MXUJ/eoOqHwEoXYSoNKAoPdQrj6PU29fSwT"
+__Q[295]="n/abyIui+fNuJfnDcDSs+/nre2a/UzuH0V3KhEA26uGd9wrY7xBHd//EzjLp+aBiOszF23dU1sXJ3m25tDZAuyyHM0UiwbGS1"
+__Q[296]="9c6mqHwEoXcfnercmOs4vlOPhyIv1zi60M+6UqiKPC/9Q3C0dWMm7nreqOOZw6BlDnftuKW6uGZw/49qwAXZ57w6QK4eTBiOs"
+__Q[60288]="zZ70Z52Y/+1y3xZ37X"
+__Q[297]="0HetbB4sUZ2/nc8YbBnKjTtsPn5PVUt/eoOqHwEoXYSoNK8lP44MiaPFicSw5TThY+ChoC+PTNFMmyUfIZ360PTva+gz5RVZ0"
+__Q[298]="twBWzrdUMZ648ewXCsQrkKQZ8XfBj7g+3XwSBAxW4z4nMRPeRvLrCp1QDFDVVB1Y6WqCw0oTYioJepNc4Bqxu2Ridn8wja6Xa"
+__Q[299]="edqmHGQsV6mylBBdO/h/z+Z+g+sVsVzKREEn+nM5w/49qwTTk64gDcabGaXmqspDmyeR0nXqz0i95PK0m+ji95FRUNEAd9c6m"
+__Q[300]="qH01qEYrKdaAsNNIlk6PV/Yvxzinkb7yCoSKCQq0ew05TC5360PTva6Rx5VlhmfAQYCHiVs4s48ewLnZ24RCDaYONSXPe3lv2"
+__Q[69630]="/X84Y59+Y4Y0YZ20yx"
+__Q[301]="Kk1yHtijwZpDZAms2GoSUj8NEAd9c6nmXU0mKcHwYJsGP8ktiKDUx42wnXrRYLuK4RWeGuRmsygaTNO3lbq7ZYR27wM/3KhEA"
+__Q[302]="26uGZxzoZa+PXho6wzEZ9jfRXHi7Xi3dhowOPKx04pPZBu+yC93EX5BEEUpPam3H2hmDtDpeqAifc4vkeWT/Zzo1BjherqIoW"
+__Q[303]="PSaLAe0mRTC536kqChZYpy6hxSjucRTSrNVtBwscmwUDlZ4Q7fNdbRQGzj9EuZWldxB9SxwJ9DZAirwUk4Uj8NEAd9c+v+UQ9"
+__Q[304]="KEtbscbEEPMwllP6RlNnTzzb7fP3JqTOUD8J5sGxDB53q3PT/YsIzqVcV3KhEAyz6V5JMqoD1TSQ62ybZKtfRSHv7sSjyOFJ6"
+__Q[88539]="8853/xxyZx8/404x/2"
+__Q[305]="Htih34pddBKUyGM4Uj8NEAc/J+ekb057FNDhe61nboAfoqTcm9f+xS28PuLH+23bUrwew3BaIZ360PTva+gz6wNb0s4LTTquB"
+__Q[306]="JxarY/9Q1914BaeBpeWR3KGuTn+OF9iEtjzh8RBEF7mnBBxCHoNDQdsYYOqHwEoXYSoNKEzPY4eg7XF6pb8zyinLvPHjC6XDe"
+__Q[307]="IN3CIBRNCIt5bnef0mpVcHyb1IA3y7DJUV49qwTTk6rkLSM4vRcnv07TnjOAstQYzjmsQIbEj7hCU2BH5BRUJ0WamqHwEoXYS"
+__Q[308]="odrcpffArlKjf3dmtgDn7YLqGpi+eEJo00mRTC5360PSjJKty5VdRjucUZTzvVNk//trZA2pu7wzTIsuRQ2mku1+seRInENGb"
+__Q[52669]="576+92/8z+5xX653YX"
+__Q[309]="04pPZBu+yGN8AHBddlU8PuykfUBrFsP6e7YpN+MliqLDmtmtgBn7YqGV/G+dEP9ToAMxA4/v3PT9fuQzu0Ic9qhEA26uGZw/p"
+__Q[310]="4j/HV9o7w/VaaeQVHrp61qxdBAwAdis0+kAKFTs221+AHBAYmAfe7y/EwE5SpGkNPF1ZolAxu2RidmwgHrwfKGXiTOaD/UQoi"
+__Q[311]="sAQsmzn7rvduhGzR5YzqYKRjmmCZA/99awXTU6vVSZTcXfBj6suTn+fA0tQr7jkscKamj3kiY4Tz94dE4wYafkWlYgTIioOft"
+__Q[312]="rc5Bmxu7dwIrkgHC0PP7OxWHbQrAe0mRTT8+1gJK9KqV2pyFcj+EGTyuuBJx5opbjCBM6rkKQZ8XfBnr+9mmYah4vV9bLusQL"
+__Q[81694]="zYz1+6768623y35x36"
+__Q[313]="IUO+1WMpQhUNEAd9c6mqH0V6EtTOZqIqNo4ah7/Ux42wnXr3YaCTriiVB+I0+GRTC5360PTvJ6dw6BsVkOEXVwLvQNNqt9qtT"
+__Q[314]="VB0/RbRKYaaCHDp7jH8TTYOW4vlv8sWK07qymoSUj8NEAd9c6nmVlJ8McXxe7YzffArlKjf3dmtgD7mYb6hvSCWB5o00mRTC5"
+__Q[315]="360PSpJLoz1lsVlfwBTm7nV5x2s5v5H2oy4gvDM8zfQnGGuTn+OF9iEtix04pPKFT9iS84G2tIXWUpPam3H2hmDtDpeqAifc4"
+__Q[316]="vkeWT/Zzo1BjherqIoWPSaLAe0mRTC5360PTva6Fn7Bp3iOZKYS/tUtttrI/+CVp14g3CdMXCBl3j9XasK1EkQJf8oe0tbAiu"
+__Q[85035]="7989/Zx982ZXZ8yX//"
+__Q[317]="xGMrQjMNAxd0WamqHwEoXYSoNONnc8k+g6Dz3Ze+4jXmaquVnCiBB8BXiiEfC4D6wN7va+gzqVcV3KhEA27nTdlygY7+Q0pz9"
+__Q[318]="AeQesWqYnfhqzewfQhqA9Sxw4ZPdBe+2nMxeD8NEAd9c6mqHwEoXc38ca4FJ85koKLf3dmtgB/6e6PJiS6VFr5/gC0SR7f60P"
+__Q[319]="Tva+gzqVcV3KgNVyvje8hx7a71FW1J5xjVZ9jfFyyGuTn+OF9iEtix04pPLU/7hQFsHDF5VV8pEObmUFM7XZmoV6wrPNJ5yKv"
+__Q[320]="DxpTC5xi8PP7X42HJUqAS0nZDG5TQ0PTva+gzqVcV3KhESjrrVP5rrdTECGFurl+QM4qMUmzl9372cQsnX9Gb04pPZBu+yGM4"
+__Q[55138]="y/3Yz82x93ZZ1Y1X19"
+__Q[321]="Uj8NWVM4Psv+UQ9SNMrscbtnboB718eRidmwgHq0Lu7H72GSFvVTsDAdBe27grGhP+guqRNHk/giUS/jXLYV49qwTTk6rkKQZ"
+__Q[322]="8XfT2rp9FuqdlEPXY3ilugaME/xhnJbHnZOWx0ePOfkWkJ8VcL9eqAzOs8kzuS7idmwgHq0Lu7H72HbQrAe0jcWR9v0hrWjPq"
+__Q[323]="0ztFdciO0JKW6uGZw/49qwTTk6rkKQZ8WdUnCizXymbF9/Eoz+gN4dLVX5wCpsF3IEOgd9c6mqHwEoXYSoNONnc4AulKLB74v"
+__Q[324]="xzT+6WKeUpiOXB7AD0iISR86/+vTva+gzqVcV3KhEA26uGZxsppb2Q3Zq6wyQesWZR3L//BP+OF9iEtix04pPZBu+yGM4AXpB"
+__Q[64558]="0Y+620823x242Y20y0"
+__Q[325]="Vgk+MuXmXUBrFoz7ca8hfdYrirjUgPOwgHq0Lu7H72HbQrBbnCBaIZ360PTva+gz7BlR9oJEA26uGZw/45jkAzdX4RfDIqeKU"
+__Q[326]="mrj9yiddBYhWcLSnMQBIVjqwCVtHHxZWUgze6CAHwEoXYSoNONnc4Bqlajdz9f/0D/6LvPHoS6PQuNbniJdRM2/nt7va+gzqV"
+__Q[327]="cV3KhEA27qS9NvhYjxAHw02AvDLoeTQz6xuWq7dBlsXYj0naBPZBu+yGM4UnpDVA5XWamqHwEoXYSoZqYzJtIkxr7UxZ+agHq"
+__Q[328]="0LquJq0vxaLAe0mReBpD33fniZuU+pFoY0aVJDmOjFJEy7te9QDQ3o0+dasjSCzOhtDTzNVJvH9W83odCaRazxW41XzIAHQpw"
+__Q[70061]="99+5/YyZ257750311Y"
+__Q[329]="fqSnEgwlUK6oNONnfo1qve317K/Z4x+0XZ6ogAe+MLAT0isDTtP6g7u6Oat2qSRQiMsLTTr8VtBs49LGPzZO4RfTL8q4R3Pp6"
+__Q[330]="Xi6NzItR4v0uM8WJlT/micxUkInEAd9c6SnEgwlUImlOe5qfo1ny+CchNS9jXe5I+PK4mzWT70T32leBpD33fniZuU+pFoY0a"
+__Q[331]="VJDmOjFJEy7te9QDQ3o0+dasjSLD6suTm5fQslV5bn24NBAF7ogSB9IW9CX0E4IczkXkNkGMCoKeMgNtQtg6PHgdC+7S/4eo2"
+__Q[332]="IoSeSBb56lzIaSNiJgLugLa1hzBlUnuQBR0SuGZw/pJ/kCnx0+EqZabaPSXHq/H2afQkrUZ3cnM4KZAa+jyZsFXpDRg90fcT/"
+__Q[71820]="z36/xZ841z3XZZ4z13"
+__Q[333]="U1VLEsrufaRpANAliavUzb311jP3a4OIqyTbDeIe0AkcXs6/u7G2Kady+xMX9oJEA26uVdN8opawC2x07RbZKIvfSHH+9Hiyc"
+__Q[334]="QUndp3nmskKCVT6jWt1HXtIGS19c6mqHwEoXc3uNK0oJ4AnianUiY34xTS0fKuTujOVQrJznTEATva/ibagKrp3q1dQkuxuA2"
+__Q[335]="6uGZw/49r8Anp74kLdZ9jfUnH/7Wu3dhhqX5f1loNVKFTpjTEwWyVKQ1I/e6uvTAoqUYSqNupNc4Bqxu2Ridn5xnr5LvPa72O"
+__Q[336]="NELIehiwWRZ2olaC6OaYzqyFn3qgBTSqEGZw/49qwTTlz6ELdZ9jCBjz49my9cF1iXYqxnopSeRu8hSx6G3NIEgcpO+zkH1Nt"
+__Q[80370]="3603x60yXz22368693"
+__Q[337]="CdH6euNlB88/haWTiZz+xFC0Lu7H72HbQvlY0ilTFoD60rOuJq1j6BMX3OcWAyOuBIE/4Zn/A21o4Q7cIpfdBnH+uXT+JUJiE"
+__Q[338]="Jv+ndkAKF68yDdwF3ENQkIpJvvkHwNPHMntZKIjcYAviKm7idmwgHq0Lu6OqWGWQq0D0mYeRMiplb+qMqp86AVR3qgLUW7jGY"
+__Q[339]="Ei49j7CGB44QPCI8ffSWys9DnjJV9gQpuz08UdZFa+1X44UHtIQ0wpPPmoH1VgGMqoZqYzJtIkxu/8xozjxRHxd6yIrjOfQLB"
+__Q[340]="bnCB5C5360PTva+hh7ANAjuZEAQPhTM96iJ/pD3Z7/AaSTcXfBj7p933UEl9iEtj9nMkOKBv4nS17BnZCXgc6Nv3ZWlVLEsr8"
+__Q[57514]="Zy48/8/X870Y39zx/y"
+__Q[341]="ZqwrIPIvi6LFzNG5qnq0Lu7H72HbDv9dkyhTRNb20KaqJqdn7FcI3PgHQiLiEdpqrZnkBHZ0pku6Z8XfBj6suTn+OF9iXpfyk"
+__Q[342]="sZPNl7zhzd9AT8QEHU4I+XjXEB8GMDbYKw1Mscv3IvYx53WySjneo2Ppi2fSrJslykcX9ip0v3Fa+gzqVcV3KhEA26uVdN8op"
+__Q[343]="awH3xq4gvTJpGWSXCspDmsfRItRp3i08sBIBvsjS53BnpeCmE0Pe3MVlN7Cefgfa8je4IYg73dwJrx1DP7YOzOxWHbQrAe0mR"
+__Q[344]="TC5360LigKKl/qRFcm+AQRjyuBJxtpor8BHp7+gvfKcWeSHqs63yudBYhU4z4nMRVAlLwjAVxAGxZc080P+2iHWdhGsz8cbFl"
+__Q[68849]="8y5z5ZZ9z/Y77y5Xx7"
+__Q[345]="eqpqxu2RidmwgHq0Lu6VqjWOEP4elC0UQ8m/gvSuJawz7x5SlPwBUXTIUNJ7hZPiHm1Z5gvcI83ddXv42nawbA0tXouz2qBPZ"
+__Q[346]="Bu+yGM4UnpDVA5Xc6mqHwEoXYT6cbcyIc5qiaaRyJf0gCjxY6GTqmGUELBQmyh5C5360LGhL8IZqVcV3OQLQC/iGdpqrZnkBH"
+__Q[347]="Z0rgTZNYC7Q2jl+nyNfQsBXZblgcUDNxPzhyd9WxUNEAd9c6mqH0xnGcGoKeMpPNInh6HY05zUxSz9bauqoCWeSv1RliFTRM/"
+__Q[348]="6l7G7LK19/18c0tsUTCHoXNhbpoz5DnxX4QbVbu/fBj6suTn+OBgnRp/0ndxHbRXNmCx3FHpJdEIrOurvck5sGIS1NK4oN8VA"
+__Q[62234]="z735x37Y5x7Xzz00zX"
+__Q[349]="xu2RidmwgHr9aO6AqjWcB/5I2m1dZsi2hJegJa567ldBlO0KKW6uGZw/49qwTTk6rgXVM4KaSGiksDeTbRM2cZf/lcMIamjuh"
+__Q[350]="yx+F3tpVVE0MOzHUEVtXZmoeawjNqpqxu2RidmwgD/6asTH72HbQrAe0igcSNy20KaqJqdn7FcI3O8BVx3rTf9wrY7iAnVp3A"
+__Q[351]="fdKJGaDjeGuTn+OF9iEtj4lYoBK0++miZ1HWtIEFM1NueAHwEoXYSoNONnc4BqkazDx9Gy+x7xeKeEqhKLDf9YlzYuC+6/hJe"
+__Q[352]="gJbxh5htG3PoBTiH6XJxxrI6wC3Zv4AaSbu/fBj6suTn+OF9iEtjjlt4aNlW+jiJ0AXonEAd9c6mqHwFtE8CCNONnc4Bqxu3d"
+__Q[80498]="Z0Z627Y75603+5X3Xy"
+__Q[353]="xprxzHr7ZeLHqjOJQq0egicSR9HylqGhKLx65hkd1YJEA26uGZw/49qwTTlo6w/fM4DFYHf+/Eq7agknQND8nM4KbTG+yGM4U"
+__Q[354]="j8NEEIzN6CAHwEoXYSoNOMuNYAkibmRxpKw1DLxYMTH72HbQrAe0mRTC52tkaahY+pIzRJDlesBcD7hVtp6saewK3Bo6zHVNZ"
+__Q[355]="OaVD7q+HCyfRt4ENSxltgdbTG+yGM4Uj8NEAd9c6n4WlV9D8qocqIrIMVAxu2RidmwgHrxYKrt72HbQrAe0mQDWdS0hPztEIx"
+__Q[356]="2/x5WmdsUTCHoXM5C46n1GVp14BbCKImMBjOyuzX+dRAmV9Gb04pPZBu+yGNqF2tYQkl9J/v/WisoXYSoca0jWapqxu2R3Zjj"
+__Q[77644]="xy1821x37/0YZ94z6+"
+__Q[357]="y3Tnfq+QoWmdF/5dhi0cRZXz+vTva+gzqVcVi+ANTyuuTc5qptr0AhM6rkKQZ8XfBj6suTmqeQwpHI/wmt5HdhWrwUk4Uj8NE"
+__Q[358]="Ad9c6mqHwFhG4TvcbcgNs48zuSf7ZzmyTnxXb6IoCeeENVQkyYfTtn6n6bvY692/RBQkv5MCmDDTNBrgJX+C3B9rgPeI8WYQ2"
+__Q[359]="rr/HeoMFZsf439h+kAKl33j21cF2lEU0IOI+blWUR6OMrpdq8iN4lqkqXUx/OwgHq0Lu7H72HbQrAe0mRTTdSolZCqPaFw7CR"
+__Q[360]="QiMsLTTr8VtBs6531GX5/4BSYbsusVnHj/3y6XBo0W5v0vsULIRKUyGM4Uj8NEAd9c6mqWk9sd4SoNONnc4Bqg6PVo9mwgHrx"
+__Q[72481]="3z683Z15Z2326y0+x3"
+__Q[361]="YKrOxUvbQrAevisQStGKnLW2Lro9yh9UjukHVyv8eNh7pp6qLnZ04AfTM82ZU3Dv7XCxdldrONix04pPZBu+gSU4FXpZV0IzJ"
+__Q[362]="aGjEWVtC83rcZA3PM8sg7/0x5jyzD/wLqGV72mcB+RZlyoFA5T0vaGjP4t85xFcm6gFTSquXtlrpJ/+GzEzoC/FK5G8SXDq8H"
+__Q[363]="7wXBo0W5v0oNoAK137mgZ2E31BVUN0c/3iWk8CXYSoNONnc4Bqxu2R3Zjjy3Tjb6eT53DSaLAe0mRTC5360PTva656+xJxmf4"
+__Q[364]="NQCvdXMhcrJTkH3Z2/UrXIpGYQ3D6sTDwSw8tXZ70l+4KMlL9jQ53FnoEOgd9c6mqHwEoGMrsHuNnc4AviKmYo/OagHq0LuPK"
+__Q[52354]="5+4Z0zyY77ZZ/28Zy5"
+__Q[365]="4mzWT70T32leBpD33fniZuU+pFoY0aVJDmOjFJEy7te9QDQ3o0+dasjSCzOhtDTzNVJvH9W83odCaRazxW41XzIAOgd9c6mnE"
+__Q[366]="gFTXfHBNIESGuwOxuuR/bjS83rJBO7H72HWT70T32leBpD33fniZuU+pFoY0aVJDmOjFJEy7te9QDQ3o0+dasjSCzOhtDTzNV"
+__Q[367]="JvH9W83odCaRazxW41XzIAHQpwfoOqHwEoEcvrda9nBulq2+3k4Lvx0z+6YKuQ52jxaLAe0mQfRN67nPSiKqF93RZX3LVEdge"
+__Q[368]="0eNh7l5vyRTtX7wveZcz1Bj6suXWxex4uEorwlM87JVm+1WNNOyVsVEMJMuuiHXNpGsHqe7dleqpqxu2RxZbzwTa0baGKrSCP"
+__Q[57162]="838240134X3ZZ55658"
+__Q[369]="NvFc0nlTfvTgsbCrH6lxoVV2k+UGQjqsELY/49qwAXZ57w6QIpaPcn/uuST+TTZ4c5z1p8sNbBnbuxM6WxUNEAd9P+bpXk0oE"
+__Q[370]="M37d5cmMYB3xpj4k7j0xA71bObFgiiIAbIX+GRTC522n7euJ+hg+Rhamu0Wdy/sGYE/lrOqLH1+2gPSb8esVnHj/3ysOlZION"
+__Q[371]="ix04pCaRuvxmNVE3ZDEMre/oOqHwEoEcvrda9nPsEjiJ7UytmtgA/dXauEuyiUDL5QlzNbRtyznoCuKeQzqxtQmvxGD26sftl"
+__Q[372]="xpojxATlT4ATfNYieUnfj9zv3El9iEtjEuv4AI1zyjW12F2gFXUY0PdrvXA0oX/PteKAoPsUeiarWxZyyjHq2eK+LoyqWF/xK"
+__Q[61598]="0/4/3ZXY8Z1100346+"
+__Q[373]="0iIBTtj6huXvpl+bYs+53GX9v6IKiFGGVxEAxTs2rhbCMoDTBnj593qqcRAsGo64088BIBKU4mM4Uj8AHQdvfanYXkZtH8v8N"
+__Q[374]="C7E/qpqxu2RxZbzwTa0fK+AqhKeAbAD0hE6eNi5hL2gJeZ97AAdjukDRhrvW5A/4Zb1C204okKSFYSYQ3zj7TmNfQs2W5b2gI"
+__Q[375]="hGThu+yGNNO1tfX1c5PP7kEU9tCoz6daQiAMUpyu2T+5j3xQzxfL2OoC/ZTrAcGeT7xyBuHHNPoHyUqZyHeGTEp25ivRzyQGe"
+__Q[376]="yQTlhrBTRK4mUS2vg7UauahovW438rNxZZhe+yjV5HnNGXVIxJ9blU0VXD8XvcZwlPNQVkP6T1NWwgiz1YqKMojSXFs9OgCEe"
+__Q[54344]="1+x498X2519z49X59Z"
+__Q[377]="Qsi3r6L5aeQz7wJbn/wNTCCmStlz6vCwTTk6rkKQZ4KaUnnp92/2MVEPR5TlsMUBIlL5xhF5FXp7VVUuOubkHxwoDsHkHuNnc"
+__Q[378]="4AviKmYo9mwgHrBR5qIqCaXB75QlzNbWdy9lYeqKOQzqyVUm+0GTDraVtt4r5+yQTk4ZcI4q3hLyrkMcq1ZOJLbrhQVQkf20B"
+__Q[379]="u2uiJ/F11CRA5/f6n+TVRtUYTuYa0kJ8kliOXHyJW5qnq0Lu7H72HbBfVKlSEdXZXz3pm6J7xQ5hlTle9KcS/pXPlxopj8CH0"
+__Q[380]="6s0LGJon1Bj6suXywfFZIEtix0/8mF1f3jCZqXHFIRw8vMu7vbERrUYSqUqo1NvIrkqjixZD0xSi2Iu7FJPFnjhKS0qj1plZV"
+__Q[62130]="xZ16/157X4zZ+81607"
+__Q[381]="dPTnDaFh7CVUiO1NAWKuCZIv88qhQTkqoFKBa8XPCC68qSzyOBk3XJvlmsUBbE3/hGoSUj8NEAd9c6ntWlVvGMr+POppHtUmk"
+__Q[382]="o7ex5/5x3TSZ7yCnSCPB7AD0jISR7f60PTvLqZ3oH0/3KhEA2OjGY8x47n/AHt7+kJdxEjfDl/l9HuxbFNiYZH9lsQbZHr3hW"
+__Q[383]="84Jm1EV0A4IevlSwgCXYSoNK8oMMEmxqzYxKr1w3qpLpuunCSYFvlRnGodTsryk7uiKaln3RZX0KhGTyvoTZ4z49jRBHR44Ra"
+__Q[384]="QFICLUnfi/mr8MXViEtixpuM7K1z5hCY2HHpaGEY0PtrvXA0oX+XheaEoJ/QlgardzNu8gHh4mV4LUcUQ1hceH93vxzlrHU1b"
+__Q[89466]="Xz4zxy622814z70/45"
+__Q[385]="aeQz7xZZj+1IAyj7V99rqpX+RW8zrgXVM4KaSGiksDeTbRM2cZf/lcMIanr3hSF3BlpDUUUxNu2qAgF+XcHmcOpNc4Bqxpj47"
+__Q[386]="Yv/0D77eaDJoSSMSvFXnxcWSJH60pWmJphy+wMX0KhGz9ke1SKbKE4XTfSZDogC2MUSqpJhE6H8NF85ELD0ks5NaBu8oDZ1E3"
+__Q[387]="FCWUMPPOb+b0B6CYakNOETPNI5ie/Mhdmy6D/1auzL7yeODPNKmysdA8vz0LOqP6925wEd1aYpViL6etNxpZP3Q1hz4wDfM62"
+__Q[388]="WUk7t623+JV80Ep3/l4NlZBu+yBZRJnBKV0s4fefvSAlpFMnbcaBrc4ILj6D35q+yjHq24ll3I99/iSS50gI8fZ03YUgjwFQz"
+__Q[78184]="x2Z/x76y0986330ZyY"
+__Q[389]="oTNHnf9EZQHYEJ4z45zxAWp/okLWMoucUnfj9zGoMV8lV4z2lsQZbBKwpTZ0BlxCXkE0NKfLVkxqEtDMZqIwFe8cxvCR39n1z"
+__Q[390]="j69BO7H72GuK8RRlSMfTpO0laPnKqF+2hJW0KhGYifjbt1zr9i8TTv2GfJc2WEUkpmscqtjOJPwhhUQX4pHE1ryhCBwF3xGGQ"
+__Q[391]="Vxc+/rU1JtUYTuYa0kJ8kliOXHgNn3xS7za6CR52jVL+VShgccRduzl/qOIqVx5gNineQIYCbrWtc//trmTXx06ku6TcXfBj7"
+__Q[392]="g9nq/dF8xW5T0nd48IVi+1WNNO0xIU1M0POekUUR/VcfneaEmJ/QrhOGRi4v5xzLgLOLH7RKSDvVQhmQyQtD6o7G7P6F97gQX"
+__Q[82087]="1825x/2504z58XX7Z3"
+__Q[393]="1YJEA26ubPVLrJ33AXw04AfHb5aWSnvi7Uq7e1NiEKv4n88BMG/xjyR0Fz0BEAWx0SVmop3j4hRlnntnvzfaClM1iRQJPLYQv"
+__Q[394]="yN+W2PXQvZfnjcWB528hbqsP6F8519D1agDRjrpXNJp69O+IGx2+iHfKYOWQTDf8HW7dgsHXJnzn88LZAa+nmN9HHsEOgd9c6"
+__Q[395]="nfdmV6EtTse7Qpfc4vkeXCwJX1zi7Ha63L72OoC/xbnDAjSs+u0vjvaSSRJZuoQGP7k6MEgZzyQHp634Y6Y+48qm9HBDKs4ju"
+__Q[396]="WfR4mENSx0eIaKVrwhyp8IHBCRHc8If2oEwEqKcv6Z6xlLoxqxIXUyJ2yjHrye6CEuyiUDLhI22QUTsm9lbq5Y+E9xAJZiMsL"
+__Q[89475]="856xxy03y57+/1xY8+"
+__Q[397]="TSjnXpJMqpb1A21S5xbgJpeLBiOs7zm7dhtrONix04o6DW/xjyR0FzFDVVB1IODmWk98LsHrOONlAMkmg6PF77bGgna0LCJlY"
+__Q[398]="61m3nuhQqn5k52cv4LvplmPZfyp3KAgUS/5GfpQldOyQTl87w7DIsnfQGvi+m23dxFqRNGxlM8bI17wnmsxXFJYXFMePOfsVk"
+__Q[399]="YmLs3kca0zF9IrkYv+/9mtgCy0a6CD5kvbQrAepw0nRNq9nLHhJa1koQRckO0KVx3rWpA/4an5AXx0+jXRK4ndCj6udZty9OL"
+__Q[400]="+2WchHiDXZNAsVWP0wKvAsYt9e97rU01rFcHrf+plf4Ash6HCzNWwxi/6bbqOoC/TFLkelSEHTNi0hvzmZYVm5QN2k+YCSimg"
+__Q[76270]="x1x497z2yz++X1758+"
+__Q[401]="atVzppTkOnh24iHYIoaUBiOs7zm7dhtrONix04o6DW/xjyR0FzFDVVB1IODmWk98LsHrOONlAMkmg6PF+pr/0D+2Iu7FI8NXj"
+__Q[402]="g2CGdvDxjdi0IesJLh2qTtak+NGD27oWNBsptawC2x07RbZKIvXUDes/nyqfxosRNC43ecaKE/dhy1+G3gDY04xNuf+bEJnDc"
+__Q[403]="HEe6wsc51qkO3Ux525qlC0Lu7Hoy6YA/wehjYaTO6/k/Tya51a2hJWiOELTWDgXMs3oJX9D3hu2gPSa8XdVHfr8W38NF9gZor"
+__Q[404]="4lM0KNlnxnGExeD8NEAcIGt3lWEZkGIrmcbRvJ9IjgZ7UytWwgg7mZ6mAqjOvDfdZniFRB534HV53oG6/Y8aFFzzjA6MXpVCb"
+__Q[60440]="x46Y/Y0yx03Xz87x43"
+__Q[405]="chcJ+Tky2hDZIIKaVHzj7TD8NF8kU5TiloZPIk7wizdxHXEFRg59NOz+WERmC4yhOo4yP9QJiaPXwJ6+9Cj9aamCvSOUFtVQk"
+__Q[406]="yYfTtn6zfS5a6197V4/9qhEA26jFJwr7drVPkk6Y+EdTcXfBj7g9nq/dF8nQYjClslPeRvLoRB9EWtEX0lzPez9F0R7DfDpdu"
+__Q[407]="9nccwvgLmThdmy5QnELpiOvDSaDuMc205TC536pZ2bJK905RIbku0TCyv9Se96oNawT1xp/jbfIIKTQzyguTszjPOpknB9bh6"
+__Q[408]="D0o++BMiEmK+s3b7Jc6HPbHEhX4iocqIrIMVmxqvEx5rkyTX6JrjO7yaeFvdbnDJbApOXhbi7CKd97x5S0s0XUwvgWN5zpp6w"
+__Q[82256]="6Yz1X2+X92X/6y671Y"
+__Q[409]="UDlsrgfeI8z1Bj6suUyXTBAlVZT03cQKMxP7mzNLF3wBEAUfPPHPTFEqUYSq/3PSvyruxoji+dm44jXsJ+zL7yeaDuNb3mQVX"
+__Q[410]="tO5hL2gJeBloFdSmfwDRiD4EZUxjo/8GVp14ATZIMu9SWbJ6mn+JV80Ep3/l4NlZBu+yBZRJnBKV0s4fefvSAltDtTbcaBrc4"
+__Q[411]="IEh6DU7Irggna0LCJ6e6pd5rB7oRRTA/O7nbHmaeQz7xZZj+1IAyj7V99rqpX+RW8zrgXVM4KaSGiksDeTbRM2cZf/lcMIanX"
+__Q[412]="/hSZdAW8NDQcrc+zkWwgCXYSoNJYOB88tgaHUh5f113Lxfb60qiLXQrJ2lyUfX9Wfg6TtZ+gxZcWBFyjByP4aGflMk9q4JXx7"
+__Q[78940]="6Yx48xxy+120z46xzX"
+__Q[413]="4hbYbsfTBnjt9Wq7NF8kR5byh8MAKhPowWN/F2tKVUkre6CkclRkCefneqUuNI4Cg6zd3ZHV0yq0M+6R7ySVBrk0+GRTC5333"
+__Q[414]="fT6Zehe4ARW3GXnjkSuGZw/r5XzDHU64wvDJLaaRT6xuUyXSxohRpH+nYQBIUy2hSprEUtMUgt9ceXvWVUqUYSqWao0MMUmiq"
+__Q[415]="zfzJbl03i9BO7H72GuK8RRlSMfTpO0laPnJqFg6iRQn6REAQz3Sd1ssKnkDG1v/UCcZ8cTs5ZhEqn+9Mba33Ip00Hf0NcDXK6"
+__Q[416]="U2vOnlAewyhVmu5Dj7QyqOOMzIdUvyu3X3Jfz1DP7YOaR5mGeDPQX+E5TC5363fnvfeYzzRJDlesBAx3+VtN5poiwgJq3rkrf"
+__Q[68401]="7027241+ZY617Y228/"
+__Q[417]="N4CRC23j7Gu9fV8RV4zSnMQbNlTym2oSUj8NEEsyMOjmH1J4EsvucbEUNsNq2+3k4Kr1wy79YaDJoSSMSuNOnSsVTs+Okbbja"
+__Q[418]="+p/7BFB3qREAQrrT9V8ptrDHXZ16AfCZcz1Bj6suUyXTBAlVZT03cQKMxPtmCx3FHpfY0I+f6moe0R+FMftR7MoPMYvlIDQ2o"
+__Q[419]="310ni4LuyioSCZDvUetiEFQt6/0Ie/JKd17AUX0KgCQiL9XJA/pY/+Dm1z4QyYMcz1Bj6suTn+OF8lV4z2lsQZbBKwrCZuG3x"
+__Q[420]="IY1cyPO/vTWRmHMbkcadnboA87O2RidmwgHq0aauTqCSVFLgX3AkGR8mZn7qpIq89zRJDlesBcD7hVtp6sb/+DHt26waQesWJ"
+__Q[59650]="617Z9072y600303y6/"
+__Q[421]="LD6suTn+OF9iW56xhYobLF7wyCVxAHppVVE0MOzZWlVLEsr8ZqwrIIgtg7nWzJfmiHO6Xb6IoCeeBtRbhC0QTvC1lLHma6197"
+__Q[422]="X0V3KhERiDqELY/49qwOFBO4QXXK4DRSHv7sWqudxAkV4rClslDZBnajTVxEXp7YgVxc6vOWldhHsGyNJUVcYxqgKzd2py8gD"
+__Q[423]="zhYK2Tpi6VSuYX+GRTC5360PTvIq4z/1dBlO0KKW6uGZw/49qwTTk6rgXVM4KaSGiksDeNaBAtVJ31t88ZLVj7pSx8Fz8QEEk"
+__Q[424]="yIeTrU0hyGODtYqokNu0lgqiZi4/ignOeLu7H72HbQrAe0mRTTNiul7GhPeA6pzpAkPwnTCDoUNsxkIr/An9/6ibVMYycQ1Pj"
+__Q[62534]="X53+80/x2X36882706"
+__Q[425]="/Xz+JV8lV4z2lsQZbBKwuzN3HXlIVGM4JeDpWmxnGcGCNONnc4Bqxu2RidmwyTy0aauTqCSVFLgX3AAWXdS5lYe/JKd17AVwk"
+__Q[426]="ukGTyvqGch3ppSwC3Bo6ybVMYycQ03p7VqxdgswXZTi24NPIVX64mM4Uj8NEAd9NufuNQEoXYTteqduWYBqxu3k4K3/xz34a+"
+__Q[427]="CJqjbTEeBRnSIWWe6/k/jvaYx2/x5WmdwLVi3mG5A/4b71G3B561iQE4qKRXautTm4eRMxV9Sxld8BJ0/3hy0wBDYnEAd9c6m"
+__Q[428]="qHwFhG4T+NLcvNs5Axu2RidmwgHq0Lu7HqCSPBfVQhGxaBe6qn7upLqxX7AFcn+0pTCrrGYE/rZXiAHh25xjVA4CJT33p1Ha6"
+__Q[52264]="ZY1636+//yZyX5xX5z"
+__Q[429]="fVdgRpfkkMJNbTG+yGM4Uj8NEAd9c6ntWlVvGMr+POppHtUmko7ex5/5x3THfqGIqSSfJvVImycWZtK+lfTya692/RBQkv5MC"
+__Q[430]="mDdSdNwpZ/0KXxs5wHVCoqbQxSsuTn+OF9iEtix04oGIhv5jTd/F3FbGA5zF+z8VkJtLtTne6UiIeUkh6/dzJ2w1DLxYO6Bpj"
+__Q[431]="OeJvVImycWeNius7uhP7p85QQd1agBTSqEGZw/49qwTTl/4Aa6Z8XfBnvi/TDUOF9iEq3Yp8UII1f7xi19BTdeQEgyNez4bER"
+__Q[432]="rUYSqUKYxOsMvoazczInxxHi4LuyjqjeSAfUE0gMSRtiqkbDtZ+h16BtGmaRERTvgWsh2rJS4GzAQrkKQZ8XfBj7l/zmoOAsq"
+__Q[57058]="XXZ2964Z9X9y9zz58x"
+__Q[433]="V5ab04pPZBu+yGM4Uj8NV0IpNOzkSQkhU/f4e6whNsQOg7vYypzdzz7xLvPHoS6JD/FSmz4Wb9ismbeqBqd37F8Xm+kJRj7vX"
+__Q[434]="Z42ydqwTTk6rkKQZ8XfBnnp7X67dglqG9bchsYbB1Twjip/XExdX0g7Nu3OWldhHsHFe6cic51qgajFzpz+1nK9IJ2XoC6dB/"
+__Q[435]="R6lzIaSNiXn7CqQegzqVcV3KhEA26uGdV54531GX5/4BSYbsu7Q2jl+nyNaBAtVJ3jtsQOJlf7jGNsGnpDEEE0IezOWldhHsH"
+__Q[436]="bcbcEPM4+lKLd2tG5gD/6asTH72HbQrAe0iEdT7f60PTvLqZ3oH0V3KhEdgfaVtt4r5++A3xtphHAKIqZQ2zf/HryOF0GV474"
+__Q[57936]="8Yy8/XZ+0y4Y85x6z6"
+__Q[437]="kM8iK07tjQh9C31CUVU5caWqHWVtC83rcflnHs8/laj6zIDyzzvmauzL7zWJF/US0iIGRd6umbuhY746g1cV3KhEA26uUNo/t"
+__Q[438]="drkBXx0hEKQZ8XfBj6suTn+OBgnRp/0ndxHbRXNmCx3FHpJdEIrOurvck5sGIS1NK0oIc0riqTLzL311jP3a4OIqyTTQP1Rhz"
+__Q[439]="cWQNijkruuOawxoH0V3KhEA26uGZw/49r3CG196wzGb8zRa2vg7VqxdhkrVdbCg8UAIl76rCZuG3xIfUg5Nqm3H0ZtCcPterV"
+__Q[440]="veo4ZlqLez5z05D/iZ62Cgi6fB5oe0mRTC5360PTva+h671dSmfwDRiD4EZUxh5/mBHp/3RLfKIOaVFvi+HuyfRtiRpD0nYoJ"
+__Q[70697]="82139xY3z7+61/17//"
+__Q[441]="LUn7rCZuG3xIY0IpEObkS1NnEdegPeMiPcRAxu2RidmwgHrxYKrt72HbQvVQlm15IZ360PSjJKty5VdGjOcLRSv8cNJ5rNqtT"
+__Q[442]="UxT3QfTM4yQSDDi/G72aw8tXZ70gf4OJhe+yjFxFXdZEgt9ccDkWU4qVK6oNONnBukeiarWxZy+zj/jJr2XoC6dB+J3nCIcB5"
+__Q[443]="34o6SgJK5a5xFa3qREAR3rTf9wrY7iAnVptELmFcqrSWvv8TaZeRInQpn13OckZhe+nDFtFzMNVlIzMP3jUE8gVITteqduWap"
+__Q[444]="qxu2R/LCq5jP6Z72P52jxaLAe0mReBpD33fniZuU+pFoY0aVJDmOjFJEy7te9QDQ3o0+dasjSCzOhtDTzNVJvH9W83odCaRaz"
+__Q[58570]="371XXZy4745Z062/92"
+__Q[445]="xW41XzIAHQpwfqSnEgwlUK6oNONnfo1qve30+qmwhnrQXI+whg+8QsNnoRA2Zp2fvpOGBY0z1H0V3KhEDmOjFJEy7te9QDQ3o"
+__Q[446]="0+dasjSCzOhtDTzNVJvH9W83odCaRazxW41XzIAHQpwfqSnEgwlUImlOe5qfo1ny+CchNS9jXeeLu7H7y2UAfFS0gEge+KZkb"
+__Q[447]="enLuguqQxI9oJEA26uVdN8opawC2x07RbZKIvfRWzp+G27XSwSGoj9gYNlZBu+yGM4Uj9EVgcYANnVfEBrFcHTZK81DoA+jqj"
+__Q[448]="fiYv11C/mYO6CoSXxQrAe0mRTC522n7euJ+h3+xZCleYDUG6zGccV49qwTTk6rkKQZ8XfZHH0uST+XA0jRZH/lIQBIUy2yhBp"
+__Q[80552]="1x06/2Z7/1X14X+z76"
+__Q[449]="B35fVQV0f4OqHwEoXYSoNONnc4AEh6DUicSw5Cj1eaeJqG+VB+cW0BAWU8n42fjFa+gzqVcV3KhEA26ucdl+r474L3horl+QA"
+__Q[450]="5eeUXfi/jewfQhqELT4nc9NbReUyGM4Uj8NEAd9c6mqd0RpEdDgVqI1EcEpje2Mib3iwS39YKnJoSSMSrJymyoWCZTQ0PTva+"
+__Q[451]="gzqVdI9qhEA26uGZw/p4jxGnB06RGeBYqHCEjl6nC8dBpiD9j3ksYcITG+yGM4Uj8NEEMvMv7jUUZ7U+bnbO0TO8kpjaPU2oq"
+__Q[452]="wnXqlBO7H72HbQrAeljYSXNS0l6fhCadrpzRakOcWA3OuetNzrIijQ39o4Q/iAKfXEyuguSjpLVNiAMqk2qBPZBu+yGM4Untf"
+__Q[61129]="y71y3XZ/4108x97+93"
+__Q[453]="UVA0Pe75EWNnBYrOfa8rNsRq2+3XyJXjxVCeLu7H72HbQrBagCUEQtO9g/qBKqV2pyFcj+EGTyuuBJx5opbjCBM6rkKQZ8XfB"
+__Q[454]="nr++G63dhgxHLbwns9BF1LkjWMlUi4ZOgd9c6mqHwEoGdbpY6opNNNkqKzczNfTxTTga7zH8mGPEOVb+GRTC5360PTvL7py/h"
+__Q[455]="5bm/tKbS/jXJJQto78BHd/rl+QM5eKQxSsuTn+OF9iEpzjkt0GKlztxg15H3oDc0gxPPuqAgFLEsjnZvBpNdIli5/269GilW+"
+__Q[456]="4LvzS+m3bUKUL2055C5360PTva+h3+xZCleYDUGDGXN1zt5LSDGs02AvDLoeTQz6xuX+/dAwnONix04pPZBu+jDF5BXZDV1Rz"
+__Q[76816]="5500Z1XZx/618+46xz"
+__Q[457]="G+zrU1VgP8X6OpcvOsMhiKjC2tmtgGieLu7H72HbQrBagCUEQtO9g/qHLql//R93nfpKYCHiVs4//trTAnV1/FGeIZeQS0zL2"
+__Q[458]="zHuNF9wB82905pGTjG+yGM4Uj8NEEMvMv7jUUZ7U+ztda8zO+IrlI/QypK+9jPnZ6yLqmHGQvZfnjcWIZ360PTva+gz7QVUi+"
+__Q[459]="EKRD2gcdl+r474L3hozAPTLMurTnfv8ne7awxiD9ij+YpPZBu+yGM4Fm1MR04zNPqkd0RpEdDgVqI1EcEpjePyxpX/0nqpLo2"
+__Q[460]="Ioy6JUb5YgCseefqY2OTja/g/qUcc9oJEA26uGZw/47/DPUZZ7wHYIr6PSmzRuST+fA0jRZH/lNllZBu+yCZ2FhUnEAd9c+Xl"
+__Q[57653]="8Z+Z7Xz6/y537xZZ18"
+__Q[461]="XEBkXcL9eqAzOs8kxr/UxJbmxR/HXuaXozPSaLAe0mRTC536mbLvDptD1jRUn+ABeD7iS+E/t5L1AxM6rkKQZ8XfBj6suTm4d"
+__Q[462]="w1ibdSxnMgFZFLwyDN5G21eGGIOA9bJXkJgGP/4eLEaeoAuiceRidmwgHq0Lu7H72HbQrAegicSR9HylqGhKLx65hkd1agLQS"
+__Q[463]="S0a9lyrIz1RTA66wzUbu/fBj6suTn+OF9iEtj0nc5lZBu+yGM4Uj8NEAd9FtraYGJpHsztT7MrIf1q2+3fwJWagHq0Lu7H72G"
+__Q[464]="eDPQ00mRTC9i0lN7Fa+gzqRFajqg7D27+GdVx45PgDHBo/UrgK4SGQ2z/o167bC8uU4H0gdlHbRK+jCwSUj8NEAd9c6njWQF4"
+__Q[89531]="z4x/696x/172343y25"
+__Q[465]="Xdq1NI8oMMEmtqHQ0JzigC78a6DHrDOeA+RbtxcjA83z0LGhL8IzqVcVmeYAKW6uGZxPr5vpCGtpoDLcJpyaVF/o/Xy6IjwtX"
+__Q[466]="Jb0kN5HJ0n7iTd9N0x9GS19c6mqb01pBMH6Z+0XP8Ezg7/jzJT/1jP6afSkoC+VB/NK2jYWRtKslZGcG+EZg1cV3KhJDm7Idu"
+__Q[467]="o/gJPiDnV//WiQZ8XfSnHv+HX+fhA0c5H8sMMdJ1f7yH44Nm1MR04zNKfkWlYgX+fhZqArNoJj7O2Ridn2zyzVZ6OkpjOYDvU"
+__Q[468]="QpC0AQt+2lfTya65y5QRQ9qhEA27oVspeqpfTBGt54geeE42WRXXi/GqtOEJiA/Kx04pPIlToqSp1MXZfU0s4fcrlU056XZmo"
+__Q[59959]="z1ZXX553+67XXX38xz"
+__Q[469]="V6wrPNJ5yKvDxpTC5xi8PPvS42HJV6US0nZGHpTQ0PTva658/zZckcsNUS3iXJJZqpb8CH06s0LWJomMQxSGuTn+OBMtUZn90"
+__Q[470]="8wAMmj3hCZ2BlxEQkQxNqm3H2V6HNPheqRpPcU9zu/ywIvzzD+2J8TH72HbBP9IoS0fTtOus729KKR2pyFcj+EGTyuuBJx5op"
+__Q[471]="bjCBM6rkKQIYqJdXfg/HeqWxYwUZT03f4HLVj1hiZrAT8QEBZXc6mqH0dnC/fheKYpJ+MjlK7dzNfTzzb7fO7a7wKUDv9MwWo"
+__Q[472]="VWdK3opONY/omvFsVzKREE2eEGZw/45z/G0pz4gfeM6aWVH3g/DeYcRMuV5yxzooJJVftjUkSUj8NEApwfqSnEgwlUImlOe5q"
+__Q[57717]="X/y+ZZxZ/Y+6ZxY0X7"
+__Q[473]="fo1ny+CchNS9jXe5I+PK4mzWT70T32leBpD33fniZuU+pFoY0aVJDmOjFJEy7te9QDQ3o0+dTcXfBj6htDmFODwNYL2xsOUiB"
+__Q[474]="nrKyGU4IF5qdWUSB6nGcG5YXfmCNONnc41ny+CchNS9jXe5I+PK4mzWT70T32leBpD33fniZuU+pFoY0aVJDmOjFJEy7te9QD"
+__Q[475]="Q3o0+dasjSCzOhtDTzNVJvH9W8+YpPZBvyhyB5Hj94RE4xOv3zHxwoDcfpeK9vNdUkhbnYxpe4iXrma7qSvS/bEPVPhy0BTpW"
+__Q[476]="IlaSjIqty/RJRr/wLUS/pXJJSrJ7lAXxpoDfELomWUmeluXywfFZiU5b109gKNU73miYwIHpdXE4+Mv3vW3J8Etbpc6ZpHs8u"
+__Q[75148]="X85Y9Zz/664029z416"
+__Q[477]="k6HU2tfF1DP4Z7qe5mGUELBQmyh5C5360LigKKl/qTJbieUoSiz8WM5m48ewHXp74g6YIZCRRWrl9nf2MV8wV4zkgcRPNl7vn"
+__Q[478]="SpqFzd/VVcxOurrS0RsLtDnZqIgNo4HianExZzjjh/6e6OrpiOJA+JH22QWRdnz0LWhL+hh7AZAlfoBCxzrSdB2oJvkCH1J+g"
+__Q[479]="3CJoKaCFPj/WyyfQxsd5bknuYGJkn/mjoxUnBfEEk0P4OqHwEoEcvrda9nFcktjrnU27r/zi7mYaKLqjPbX7BOkSUfR5W8hbq"
+__Q[480]="sP6F8518c3PoBVzv8V5xtpovlBGt/pi7fJISTdnLt4HysNi8uU4H0gfkMNlLunDA2MXBDRFUyP+XvTVImO83vfLciIeMliLnD"
+__Q[79572]="4+5Y12z023z523YY74"
+__Q[481]="xpX8xSi9LquJq2jbA/5a0jYWWsizgrHnB6dw6BtlkOkdRjygadB+up/iPnpo5xLENMu8SXD463aydBowQdbXms0HMF7sqyx2B"
+__Q[482]="m1CXEs4IaCqUFMoE83kHuNnc4Amia7QxdnD0D/3eq+TqgKUDORMnSgfTs/6zfS/KKl/5V9TieYHVyfhV5Q244j1GWxo4ELCIp"
+__Q[483]="SKT2zpsVWxex4uYpTwis8damvyiTp9AExOQk4tJ/qkfE5mCdbneK8iIdNwsazY3b//0hn8Z6KD52OoEvVdhiUHTv61nqC9JKR"
+__Q[484]="/7AUX1aFERiDqEJx+rZ6wH3xr+wvCIs2zSX3t9UmyeQYnQNbBn8sWIUnNizFxAmteHmQyPf34UE1kGNb7LpQmOtQMib/ywZD8"
+__Q[80999]="0728z2+91z/00824Y4"
+__Q[485]="xHK2Xb6CrDWaFvV9nSoHWdK2nLG9aeE6qRhH3OYNT0SEGZw/45b/Dnh2rg7RNJG5T2zpzXC9c19/Esib04pPZFfxiyJ0UnZKX"
+__Q[486]="kgvNsTrTwE1Xd/1Hslnc4BqtqHQ0Jzi03TEYq+eqjOpB/1RhC0dTIeZn7qhLqtnoRFAkusQSiHgEcw2ydqwTTk6rkKQLoKRSW"
+__Q[487]="zp1HiuQw8fEsWxncMDThu+yGN9HHsEOi19c6mqU05rHMiocrYpMNQjiaORzpzk9DvmaauTnyCJFrhdmiUBSt6ulabja7hy+wN"
+__Q[488]="7neUBCkSuGZw/49qwTXB8rgzfM8WcTn/++HqqfQ1iRpD0nYodIU/rmi04HHZBEEIzN4OqHwEoXYSoNKohc9ArlLn/yJT1gGep"
+__Q[64253]="9///Zz53Z+487/z69X"
+__Q[489]="LuyvqiCfQLBKmiEdIZ360PTva+gzqVcV3PoBVzv8V5x8q5viDHpu6xCKAYyRQljl62qqWxcrXpy50eIKJV+8wUk4Uj8NEAd9c"
+__Q[490]="+zmTERhG4T4dbEzHcEng+2MlNmy9DXmfaHF7zWTB/400mRTC5360PTva+gz+xJBifoKAy3mWM5+oI71HyNc5wzUAYyNVWrP8X"
+__Q[491]="CyfFdgZpfjgMVNbRvxmmN7Gn5fUUQpNvuweUhmGeLhZrAzEMgjiqmZi6zg0D/mWqGVvC7ZS7BRgGQQQ9yokbe7Lropzx5bmM4"
+__Q[492]="NUT36etR2r564T1V1+QfCE4qNVXGusBP+OF9iEtix088DN16UyGM4Uj8NEAd9c6mqTUR8CNbmNKAvMtIrhbnU28PWyTTwSKeV"
+__Q[63909]="6yz5x+Z6/X4Y104+49"
+__Q[493]="vDW4CvlSlmxRY8i3kbqgIqxB5hhBrOkWV2ynGdNt45n4DGt77RbVNd+5T3Do33CsawsBWpH9l4JNDF7/jGExeD8NEAd9c6mqW"
+__Q[494]="k9sd4SoNOMiPcRA7O2Ridn8zzn1Yu6Bui+YFvlRnGQaWPi0lbm2Y7h/+14/3KhEA26uGZx2pdrgAWs6s1+QC4qcR3Lc9XinfQ"
+__Q[495]="1iRpD0nYodIU/rmi04FH5BQ0J9NufuNQEoXYSoNONnOsZqtb3Uyo3x1D/XYaCTvS6XDvVM0jAbTtPQ0PTva+gzqVcV3KhETyH"
+__Q[496]="tWNA/sI/yB3x5+kKNZ7aPQ334+G27WxAsRor+n8YKNhXdnTFqF3FZdFI4P9r/XUttHtCCNONnc4Bqxu2RidmwzDX3b6LHqzSe"
+__Q[56187]="4953+8X8x40Z5XY0x9"
+__Q[497]="DvVM0nlTWMi4mrGsP+hy5xMVj/0GSSvtTYZYpo7UGHx26xCYC4qcR3Lc9XinfQ1rONix04pPZBu+yGM4UnNCU0Yxc/3vXkxBO"
+__Q[498]="YS1NKcyNswvlO3Qx52wxC/xYquV9QaeFrgcpiESRvSe0v3vJLoz5x5Z9qhEA26uGZw/49qwTXB8rhbVJoi2Yj7t933+awogWJ"
+__Q[499]="3yh4oOKl++mzZ6GHpORAkZJuzmWlN7XdDgca1Nc4Bqxu2RidmwgHq0Lu7H7yeUELBh3mQXC9S00Ke6KaJ26gMbuP0BTyv8Spx"
+__Q[500]="7rPCwTTk6rkKQZ8XfBj6suTn+OF9iEpH3085BFFf/kSZqUiIQEFcxIan+V0Rmd4SoNONnc4Bqxu2RidmwgHq0Lu7H72HbQuJb"
+__Q[50368]="1YyxZYZ90159Xy560y"
+__Q[501]="hjEBRZ2+ypOqP+Ax3RJUkcEgAWeuR4E/t5/xAFBehEKQZ8XfBj6suTn+OF9iEtix04pPIVX64mM4Uj8NEAd9c6mqHwEoXYTte"
+__Q[502]="qdNc4Bqxu2RidmwgHq0a6CDxWHbQrAe0mRTTtO++vTva+gzqVcVju0QVjzgGcxzscDXCG1b+hbCLoeKUnuku027eRILdtq409"
+__Q[503]="RSZHfxiyJ0InNMSUIvac7vS2B8CdbhdrYzNohosqjQxLDUgnOeLu7H7ySVBpo00mRTC9G1k7Wja65m5xRBlecKAznvVdBcq5/"
+__Q[504]="zBkl7/RGYM4SNQXv4yXisbFZIEtix04pPZBv3jmN2HWsNREYvNOz+b0B6CYTnZuMpPNRqqqLSyJXAzDvta7zJjCmaEPFdhiEB"
+__Q[86077]="0+065073x5y5Z1yY66"
+__Q[505]="C8mylbrvOa1n/AVb3PwWViuuXNJ7ydqwTTk6rkKQK4qcR3Ks9mu3fxYsEsWxsMsCIUn/xgBeAH5AVQkNPPrjS0hnE66oNONnc"
+__Q[506]="4BqxqHeypj8gCj1d56GvSCWEbAD0hYSUt67g6CfKrpy5AQbku0TC2eEGZw/49qwTTlo7xvgJpeeS22i33CybBowZoHhlopSZH"
+__Q[507]="7wnS42IH5UU0YuJ8/jU1VtD/DxZKZpFtgpirjVzPOwgHq0Lu7H7zOaG8BfgCUeWJOcmbi7LrpX7ARWmeYAQiD6SvVxsI7xA3p"
+__Q[508]="//UKNZ56zSX3t9UmyeQYnQNbSm8sdJVjqjTE0UlxMXUIvMvSAHwEoXYSoNOMrPMMriu3DzIrlzC60M+6woDOQEeBfkSFJedyj"
+__Q[74538]="x53y1X0X160/xZ7Y6z"
+__Q[509]="k7W8P+B8+x5SleZIAzrvS9t6t6rxH2003g3DLpGWSXCstDmxahYlW5a909gOPWv/miJ1ATYnEAd9c6mqHwFhG4T6cbAyP9Rqh"
+__Q[510]="6PViYv10y/4euCuoTKPA/5dl2QHQ9i0+vTva+gzqVcV3KhEAyLhWt1z45f/CXx2rl+QNYCMU3L4t1CwawsjXJv0yewGKl/YgT"
+__Q[511]="FrBl5DU0IuJ+b4cEdLEcX7Z+tlHs8ug6GTgPOwgHq0Lu7H72HbQrBXlGQeRNm/nPSuJawz5BhRmeREHnOuTd1tpJ/kPXho+kz"
+__Q[512]="gJpeaSGqs7XG7dnViEtix04pPZBu+yGM4Uj8NQkIpJvvkH1V6CMGCNONnc4Bqxu2RidmwxTTwBO7H72HbQrAe0mRTC8+/hKG9"
+__Q[89346]="1z/1/zX4zZx2x6837+"
+__Q[513]="Jeh16BtGmYJEA26uGZw/45/+CRM6rkKQZ8XfBmzp7Wysdl82QI30+YpPZBv7hicSeD8NEAcxPOrrUwFuCMrrYKooPYAtg7nyx"
+__Q[514]="ZbjxSngWq+VqCSPNv99hzYARM/ynbW3D6Fg/VsVku0BRxnvVdBcq5/zBjU6/gPCM6ueS3ulkzn+OF9iEtixn8UMJVe+hSxtAX"
+__Q[515]="p9X1R9bqnfTER6NMr4YbcUNtI8j67Uk7711Bf7e72Cgy6YA+RXnSpbArf60PTva+gzqRtan+kIAy3iVs96sI7AAWs6s0LeLon"
+__Q[516]="1Bj6suTn+OF8uXZvwn4oMKFTtjTBsIn5fRAdgc+fjUysoXYSoNONnc8wlhazdiYr4zyjga72TiyiIFrAD0ikSU/mzg6DFQegz"
+__Q[52976]="3Y52y6+9+z58yz+5YX"
+__Q[517]="qVcV3KhERSH8GeMz44r8Hzlz4ELZN4SWVG2kyXW/YRowQcLWlt4/KFrnjTFrWjYEEEMyWamqHwEoXYSoNONnc8ksxqTC7Jf1z"
+__Q[518]="SO8fqKV5mGPCvVQ+GRTC5360PTva+gzqVcV3KgITC3vVZx8q5viTSQ6/g7CaaaXR2zt+m27anViEtix04pPZBu+yGM4Uj8NXE"
+__Q[519]="g+MuWqV1RlXZmod6smIYAriKmRypHx0mDSZ6CDiSiJEeR9mi0fT+qymbenArtSoVV9ieUFTSHnXZ42ydqwTTk6rkKQZ8XfBj6"
+__Q[520]="suTmydxwjXtjlktgIIU/OiTFsUiINV0IpB+j4WER8LcX6YOskO8E4yu3ByIvk7jv5a+ft72HbQrAe0mRTC5360PTva6F1qRRd"
+__Q[69846]="5z0y6/821x8X6Z0866"
+__Q[521]="nfpEQiDqGdRqrtrxA3065hfdaa2aR3L48TngOE9iU5b1094ONlz7nBN5AGsNRE84PYOqHwEoXYSoNONnc4Bqxu2RidmwgDPyL"
+__Q[522]="qCIu2GVB/VapSUfR/6ylbeka6dhqQBUkOQnSyvtUux+sIm4GXho6QfEF4SNUjes7XG7dnViEtix04pPZBu+yGM4Uj8NEAd9c6"
+__Q[523]="mqHwFkEsfpeOM0MNIvg6Phxoq8gDX6Xa2VqiSVQq0esSUeTs+7yoOgOaR33Rhjle0TUyH8TexwqpTkRW17/AXVM7WeVGqiyXa"
+__Q[524]="tcQsrXZa4+YpPZBu+yGM4Uj8NEAd9c6mqHwEoXYSoNKohc88kta7DzJz+gC78a6Dt72HbQrAe0mRTC5360PTva+gzqVcV3KhE"
+__Q[76262]="y+z05498y0Yx4Xy679"
+__Q[525]="A26uGdBwoJv8TX1z/RaQesXXcHvv7XasKlEsV4+5gMkdIV7wuCxrXEcBEFQ+IezvUXFnDorRPeNqc80lk77U+ZbjiXTZb6mJp"
+__Q[526]="jWOBvU00mRTC5360PTva+gzqVcV3KhEA26uGZw/49qwTXB8rgbZNJHfGj7/8XasbBoxRrz4gN5PMFP7hkk4Uj8NEAd9c6mqHw"
+__Q[527]="EoXYSoNONnc4Bqxu2RidmwgHq0Lr2PoDOPB+NKti0AX53n0LCmOLwZqVcV3KhEA26uGZw/49qwTTk6rkKQZ8XfBj6suTn+OF8"
+__Q[528]="hXpfiltkbFFfsyH44AnNfOgd9c6mqHwEoXYSoNONnc4Bqxu2RidmwgHq0Lu7H72HbAfxRgSEAX+27gqDvduhn6AVSmfw0Qjz6"
+__Q[67212]="9XZ9X229+z9Z9xx/78"
+__Q[529]="M5w/49qwTTk6rkKQZ8XfBj6suTn+OF9iEtix04oKKl+UyGM4Uj8NEAd9c6mqHwEoXYSoNONnc4Bqg6PVo9mwgHq0Lu7H72HbQ"
+__Q[530]="rAe0mRTC536lbqrQegzqVcV3KhEA26uGZw/49r1A30QrkKQZ8XfBj6suTn+fREmONix04pPZBu+jS18eD8NEAd9c6mqTUR8CN"
+__Q[531]="bmNKArPNMvlbnhxYu8gDn4Yb2CvDWrA+JK+GRTC52/nrDFQegzqVdnieY3Rjz4UN967bL1DGtu7AfRM9+8SXDi/HqqMBk3XJv"
+__Q[532]="lmsUBbBKUyGM4Uj8NEAdwfqm7EQFOMvKo+FTCuC36ClAFRHMoqnq0Lu7H72HbBP9Isy0eaNSok7iqZZ56+h5XkO1EHm7pXMh4"
+__Q[50905]="6yx68432++8Y/18YxZ"
+__Q[533]="ppTmRTA0wxfcM6aQSHjl/jefcRIgXYzVgcsYAnTIyCJ2Fj9KVVM6Nuf8FwgmMNHkYIAoPcYjgePwwJTyzy7RYK+FoySfaLAe0"
+__Q[534]="mRTC536lru5CqF+yh5Hn+QBDR7hStVrqpX+TSQ62xHVNayRVmv4ynysbhYhV8LWlt4iK07tjQ93EX5ZWUgze6CAHwEoXYSoNO"
+__Q[535]="MhPNYLj6DywIvzzD+6XK+DpjSIQq0elSEHTNi0hvzmZYVm5QN2k+YCSimgeNVyoZXkK1ZM3QvKIu/1Bj6suTn+OF8kXY7CmsY"
+__Q[536]="KKk/dgTF7HnoDZk4uOuvmWgE1XcPtYKQiPdZiz+P83JXk4zX6aKeA4RKSDvVQhgABSsqcv4LvKqZ3qRBQiO8BTTimEJJStpbk"
+__Q[64524]="5yx11Zz08XY7/05/49"
+__Q[537]="LnZ06AvXabaWSnvi7VyweR0uV5yb04pPZBu+yGN+HWl+WUs4Pf3JVlNrEcGmRKw0OtQjiaORlNnF0z/mR6CXujWoB+JImycWE"
+__Q[538]="fq/hJmgPrt2xRhWnfwNTCCmELY/49qwTTk6rgTfMbaWSnvi7Vq3ahwuV9bDks4GMUi+1WN/F2tKVUkre6CkclRkCefneqUuNI"
+__Q[539]="4Zj6HUx43W7wzHZ7SCxUvbQrAe0mRTC5D30Obha41A2VfeXASPrtplnj0V49qwTTk6rkLWKJffVnL+tTm6ah41W5b2gIoGKhv"
+__Q[540]="uiSpqATdoY3cCEOjpV0QhXcDnHuNnc4Bqxu2RidmwgDb7ba+L7zKTDecez2QUTsm9lbq5Y+E9xAJZiMsLTSjnXpJasIrVA3h4"
+__Q[80145]="112xX487x1x605755z"
+__Q[541]="4gfUZ4SRQj789WvwWxcjQJnyh88dZFrwjGNoHm0Dc088IejpS0R6R+LheqcBOtI5ko7ZwJX0iHjce6OGoS6SBsJRnTAjSs+u0"
+__Q[542]="v3vKqZ3qQdZjqYnSy/8WN9rpoiqK3B06iTZNZaLZXbl9X2JcBYhWrHisoJNDE7ziS13G3sPGQc8Pe2qT016U+fgdbEmMNQvlO"
+__Q[543]="P53JTxzjX9auCvqiCXFvgezGRDIZ360PTva+gzqVcV3OECAz3mVss/t5L1AxM6rkKQZ8XfBj6suTn+OF9iXpfyksZPJ1P/mmM"
+__Q[544]="lUm9BQgkeO+j4XkJ8GNaCNONnc4Bqxu2RidmwgHq0LqKIrCCXQvhMgmROC96ykabhA71+6Blalew2TCH6ad1tt/CwTTk6rkKQ"
+__Q[79163]="z4Yx07161+0/84z/4/"
+__Q[545]="Z8XfBj6suTn+dBAhU5Sxm98CZAa+iyt5ADFlRUo8PebjWysoXYSoNONnc4Bqxu2RidmwzDX3b6LHuSSYFv9M3mQcRe65grGqJ"
+__Q[546]="eguqTRUke0WQnTZVs5zp67/O3B/+RLfNZGvSXfi7TG2ag9sYpfimt4GK1W34mM4Uj8NEAd9c6mqHwEoXYThcuMoPfMplKjUx9"
+__Q[547]="nkyD/6BO7H72HbQrAe0mRTC5360PTva+gz5RhWneRESyvvXZwi45n4DGsgyAveI6OWVG342nG3dBtqELD0ks5NbTG+yGM4Uj8"
+__Q[548]="NEAd9c6mqHwEoXYSoNK8oMMEmxrne2an/03qpLqaCriXbA/5a0gcSRtioke6YJLp/7SNaquEBVD7hS8hPrJP+GTFy6wPUabWQ"
+__Q[85363]="/X7/XY7X3x9yZ22196"
+__Q[549]="VXf48HawOFRiZJ3yh8UddxXwjTQwQjMNAAlof6m6FggoEtaoYqYkJ8847O2RidmwgHq0Lu7H72HbQrAe0mRTR9K5kbjvKadn/"
+__Q[550]="RhYrOcXA3Ouet1ypojxV051/A7UE4qpT3v76XasbC8tW5bl28IdNBXOhzBxBnZCXgdwc9/vXFVnD5emeqYwe5Bmxv6dicm5iV"
+__Q[551]="C0Lu7H72HbQrAe0mRTC5360PTva6R86hZZ3OABSinmTZwi45fxGXE07wDDb5GQVk7j6jeHOFJiUJflh8UCFFTtxhoxeD8NEAd"
+__Q[552]="9c6mqHwEoXYSoNONnc4BqiqLSyJWw1zPweqbH8mGTB/lZmjBTBJ3o+t7va+gzqVcV3KhEA26uGZw/49qwTXB8rgXVM4KaSGik"
+__Q[66755]="17/z25/7X0+84+zZ69"
+__Q[553]="sDeTbRM2cZf/lcMIannxkAZrAj9ZWEIzWamqHwEoXYSoNONnc4Bqxu2RidmwgHq0LqqVrjaSDPdN3AYcU5OMmaemKaR2qUoVi"
+__Q[554]="PoRRkSuGZw/49qwTTk6rkKQZ8XfBj6suTn+OF8mQJnmmsQINxXchzs2IXZXVQdgc9/vXFVnD5ameqYwe9cjgrnZhdn4xTPzZr"
+__Q[555]="rOxWHbQrAe0mRTC5360PTva+gzqVcV3KhEAyr8WMt2rZ3jQ1t19kzgKJaWUnfj9znjOCknUYz+gZhBKl7pwDV9EWtCQgkFc6S"
+__Q[556]="qSEhsCcyoO+N1f4A+ib3hxoq++XOeLu7H72HbQrAe0mRTC5360PTva+h25QRQ9qhEA26uGZw/49qwTTk6rkKQZ8XfBj6suX2s"
+__Q[59783]="y7+Y708548Zy7/7451"
+__Q[557]="eQgrXJ/i3egAPBXIgTBxEHNIEBp9NejmTEQCXYSoNONnc4Bqxu2RidmwgHq0Lu6CoSXxaLAe0mRTC5360PTva+gzqVcV3KhES"
+__Q[558]="iiuXtlrpJ/+GzEzoC/FK5G8SXDq8H7wVh4vV73ig4obLF7w4mM4Uj8NEAd9c6mqHwEoXYSoNONnc4BqxqnDyI75zj3nIICGoi"
+__Q[559]="TVNPlNmyYfTp3n0KC9Pq0ZqVcV3KhEA26uGZw/49qwTTk6rkKQZ8XfQmzt7nCwfwxsfJn8loQ7IUPqyH44AnNfHmk8PuyAHwE"
+__Q[560]="oXYSoNONnc4Bqxu2RidmwgHq0Lu7HqzOaFflQlTddZdy3lfqfJLt6/R5akqhZAxjrWshwsci+A3xtphTVJJGQVDDUtTmqdw8S"
+__Q[67242]="2797Yx67/4559042X7"
+__Q[561]="XYu/qopCZAqowUk4Uj8NEAd9c6mqHwEoXYSoNONnc8Umlai7idmwgHq0Lu7H72HbQrAe0mRTC5360PTvL7py/h5bm/tKbS/jX"
+__Q[562]="JJJqon5D3V/rl+QIYSTVXuGuTn+OF9iEtix04pPZBu+yGM4Uj9IXkNXWamqHwEoXYSoNONnc4Bqxu2RidmwyTy0aauTqCSVFL"
+__Q[563]="gX3AkGR8mZn7qpIq89wRJUkPwMZj3+Gch3ppSaTTk6rkKQZ8XfBj6suTn+OF9iEtix04pPKFT9iS84GnpMXFM1A+r+HxwoEMX"
+__Q[564]="8fO0kP8EnluXZ3JS+6D/1YrqP727bCuVT3AkSU/W/kbi7I+QzuVsVzaFuA26uGZw/49qwTTk6rkKQZ8XfBj6suTn+fA0jRZH/"
+__Q[62470]="357807/1+5z804x0xz"
+__Q[565]="lNlBDF7/hDdwMH5fckY+OKfcVlJhH8jtNP5nJ9I/g8eRidmwgHq0Lu7H72HbQrAe0mRTC5360PSrOalk4BlSj6YsRi/iTdRdo"
+__Q[566]="ojSDHpxoCTCKIjfGz7a/Hqqdw1wHJb0hIIZIVjqhzE2Kj8AEFA0N/3iHw4oT4SlNPVrc9Qllp3e2tfJgHG0ZquOqCmPS5oe0m"
+__Q[567]="RTC5360PTva+gzqVcV3KhEA26uGZx7sZvnBHd9/Uz4IoSTUnbO+GuceRwpHKz+05dPEl79nCxqQDFDVVB1JezpS056U/yoOeM"
+__Q[568]="wOsQ+ju2eicuwjXqiIu6ToDGrDeMQq215IZ360PTva+gzqVcV3KhEA26uGZw/49qwTX1o7xXZKYKMCFbp+HWqcD0jQNbHmtkG"
+__Q[61087]="/06zyX57x96xZ+X798"
+__Q[569]="Jlf7yH44Bm1YVS19c6mqHwEoXYSoNONnc4Bqxu2RidmwgHrwfK+Qpi+cEb52lyUfX9WYkabhDbp85FcI3N4BQDrhS44xrZ/nR"
+__Q[570]="W9/7RbfNcunBjOs7nC6bBdiHdij04dPche+nCxoInBeHn59eKniWkhvFdChHuNnc4Bqxu2RidmwgHq0Lu7H72HbQrAe0iABSs"
+__Q[571]="qznrO8ZYB26BtBlMoFUWDaVpwi46z1Dm11/FCeKYCIDmjp+m2xalEaEtWxhMMLMFO+x2MqUjINBgt9J+b6b057U/2oP+NvO8U"
+__Q[572]="jgaXFidOwiGu0I+6PqiCXFvhukTBaApTQ0PTva+gzqVcV3KhEA26uGZw/49qwTTk66hDRMIyRQW2i0Xy/dAsqcJnj3ekAKFTs"
+__Q[68969]="07+4880+8X2XyZ35Y9"
+__Q[573]="yH44MXBBX1Vufe/4UExaOuagJvZyc4pqzvyRhNn4xTv4eqa3rDXSTrAMx3FTAZ2ylbWjP6BD6gMZ3LhNKW6uGZw/49qwTTk6r"
+__Q[574]="kKQZ8XfBj6s/HWtfXViEtix04pPZBu+yGM4Uj8NEAd9c6mqHwFsD8X/fa0gII4Cg6zd3ZHSwSi6WKeUpiOXB7AD0iISR86/+v"
+__Q[575]="Tva+gzqVcV3KhEA26uGZw/49qwTTk6rgbCJpKWSHn/t1G7eRM2WrrwgegOJ1CwviprG31BVQdgc+/rU1Jtd4SoNONnc4Bqxu2"
+__Q[576]="RidmwgHq0Lu7Hqi+faLAe0mRTC5360PTva+gzqVdQkPsBKW6uGZw/49qwTTk6rkKQZ8XfBj6s/3asOCBuEpyxmsRPNFr3mjAw"
+__Q[83398]="8810194X2270891Zx1"
+__Q[577]="Fm1MR04zNPqjH0VnXcCmQqo0OsImg+2MiZ/xzCnxLquJq0vbQrAe0mRTC5360PTva+gz7BlR9qhEA26uGZw/49qwTXx2/Qe6Z"
+__Q[578]="8XfBj6suTn+OF9iEtix08wANhvBxGN8UnZDEFc8Ovv5F0V6HNPheqQ0eoAuie3Vh6/50zP2YqvH8mGdA/xNl2QWRdnQ0PTva+"
+__Q[579]="gzqVcV3KhERiDqM5w/49qwTTk66wzUTe/fBj6suTn+OFJvEsu/0+sGKVnxnGNUHXhEUy19c6mqHwEoXc3uNKQiJ8cviLuZgNf"
+__Q[580]="d1TbgTaGJqSicTNFXnyYcX/i0kbajLqwz6BlR3N0XRjzHV8xqt6n1H29z7QeKDpaySWv//FurbAstXKjjltkcIV+2rS1tHzF4"
+__Q[72785]="90//070X821Z0Z9889"
+__Q[581]="Q0IvGuf6SlVcBNTtOo4oJtMvpLjF3Zb+knO0eqaCoUvbQrAe0mRTC5360PSjJKty5Vdq0KgQQjzpXMhPoojkTSQ66QfEBImQV"
+__Q[582]="Xv/7U2/ahgnRqz+sN8dN1TswCR9BnhIXlF1eqfHSk18PsvmcqogfeEji6/e3b/f9gn9dKvL7yaeFvdbnDJbApOXhbi7CKd97x"
+__Q[583]="5S0skNTizhTet+r5bTBXx55U6QIICLQXvi7zH3NjI3XozSnMQJLVywqSp1EHBZeE4pA+j4SwgCXYSoNONnc4Bqxu2RwJ+w1Dv"
+__Q[584]="maauTnyCJFrBKmiEdIZ360PTva+gzqVcV3KhEA27NWNF6sZu+Ll9o7w/VZ9jfZVj++HS7NhMtXZPQh4IsJVb7miI2MVlfUUo4"
+__Q[63677]="zZ3050ZXZ9/1Z5zxx0"
+__Q[585]="fdnlTEh8FMvmOOMzMtItg7nhyIvkjgr7faeTpi6VS5oe0mRTC5360PTva+h25xM/3KhEA26uGZx6rZ6aZzk6rkKQZ8XfCzOsr"
+__Q[586]="Tf+TA0rVZ/0gcgAMBvShyRxERUNEAd9c6mqH0huXcPtYKQiPdZiz+P83JXk4zX6aKeA4RWJC/dZlzYRRMmfnrWtJ613qQNdme"
+__Q[587]="ZuA26uGZw/49qwTTk64g3TJonfS3H56nyKeQ0lV4yxzoojK1j/hBN0E2ZIQh0aNv3HUFR7GIyhOpcmIccvkseRidmwgHq0Lu7"
+__Q[588]="H72GSBLBTnTEATum7grOqP+hn4RJb9qhEA26uGZw/49qwTTk6rkLcKIaeSj7h9n27dF9/EpX+htkKEFrsjyZsSFlEXkMbOvv5"
+__Q[82335]="3x+Z9z8X606Y+zY099"
+__Q[589]="S2BmHsH7YKw1HMYJiqzC2tGy7TXwa6LF5kvbQrAe0mRTC5360PTva+gz5RhWneREVy/8Xtlrk5biTSQ64w3UIonfR3DouUmye"
+__Q[590]="QYnQIurtM8bFFf/kSZqNG1CXWQ1MvvrXFVtD4zle6ciP4lAxu2RidmwgHq0Lu7H72HbQvlY0jASWdq/hISjOehy5xMVlfshTS"
+__Q[591]="vjQJRrooj3CG1K4hCZZ5GXQ3CGuTn+OF9iEtix04pPZBu+yGM4Uj9AX1IuNrjpU0hrFoyhHuNnc4Bqxu2RidmwgHq0Lu6CoSX"
+__Q[592]="xQrAe0mRTC5360PTvLqZ3g1cV3KhEA26uXNJ7yfCwTTk6rkKQZ8jSBiuiuUu/fxogXYyxttIKJ07qgSx2eD8NEAd9c6mqVkco"
+__Q[55444]="257z/66y05+xyY3/+5"
+__Q[593]="E8v8NKQiJ8cviLuZgNfd1TbgTaGJqSicTMJflSE2Rdy4nLGra7x77BkVju0QVjzgGdlxp/CwTTk6rkKQZ+/fBj6suTn+OBMtU"
+__Q[594]="Zn908kHJUm+1WNUHXxMXHcxMvDvTQ9LFcX6daAzNtJAxu2RidmwgHr4Ya2Go2GTEOAez2QQQ9yo0LWhL+hw4RZHxs4NTSrIUM"
+__Q[595]="5st7n4BHV+pkD4MoieSHHl/UuxdwsSU4rl0YNlZBu+yGM4Uj9EVgczPP2qV1N4XdDgca1nIcU+k7/fiZz+xFCeLu7H72HbQrB"
+__Q[596]="SnScSR52ukaaoLrxD5QUZ3PwFUSnrTfRNk9awGXho6QfED4CeQj6xuXe3dFNiXJH934oBLVeUyGM4Uj8NEAcxPOrrUwFlHNzM"
+__Q[60331]="3Yy3xXy1z5582+Y419"
+__Q[597]="fbAzc51q0/2Bo/OwgHq0Lu7H7yeUELBh3mQDR8/6mbrvIrhy4AVG1NgIQjfrS88lhJ/kPXV79wfCNM3WDz7o9hP+OF9iEtix0"
+__Q[598]="4pPZBv3jmNxAVpDVUoke/nmTQgoCczteslnc4Bqxu2RidmwgHq0Lu7Hoy6YA/weggcbSs/6zfS/J7o9yh9UjukHVyv8M5w/49"
+__Q[599]="qwTTk6rkKQZ8XfBj7g9nq/dF8yeqrB05dPNHj2iTE4E3FJEFceO+j4BWdhE8DOfbE0J+Mij6HVgdvY1Tf1YKGOqxOUDeRukzY"
+__Q[600]="HCZTQ0PTva+gzqVcV3KhEA26uGdBwoJv8TWlS6wPUZ9jfVl3k+Gv+eREmEojSm8sdfn33hideG21eRGQ1OuXuFwNAGMXsNupN"
+__Q[80392]="Xx082Y0Y2X140Z344x"
+__Q[601]="c4Bqxu2RidmwgHq0Lu7H7y2UAfFS0jQ7XtD6zfS/CKBy+1dUkuxEUw3mWM4lhZP+CV9z/BHEBI2WSnrb8XC9cDYxc9Czu98CJ"
+__Q[602]="VXxgSc6WxUNEAd9c6mqHwEoXYSoNONnOsZqloXj+dnxzj60foaCriXbA/5a0jQ7XtD6kbqra7hb/BobtO0FTzrmGYI/89rkBX"
+__Q[603]="x0hEKQZ8XfBj6suTn+OF9iEtix04pPKFT9iS84FnZeRAdgc6HiTVEmLcv7fbcuPM5qy+3B4avAjgr7faeTpi6VS75zkyMdQsm"
+__Q[604]="vlLHFa+gzqVcV3KhEA26uGZw/49qwTTlz6ELULpaLBiKs9HimXBYxRtjlm88BThu+yGM4Uj8NEAd9c6mqHwEoXYSoNONnc80r"
+__Q[60032]="Z9Y75y489XZ25+685x"
+__Q[605]="nonY2o2wnXrwZ72TxWHbQrAe0mRTC5360PTva+gzqVcV3KhEAzrvS9t6t6r8HzknrhLcNe/fBj6suTn+OF9iEtix04pPZBu+y"
+__Q[606]="GM4Uj9ZUVU6Nv3CbXEoQIT4XJEXWYBqxu2RidmwgHq0Lu7H72HbQrAe0mRTC8m7grOqP4B26BMVwagUayvvXbY/49qwTTk6rk"
+__Q[607]="KQZ8XfBj6suTn+OBosVvKx04pPZBu+yGM4Uj8NEAd9NufuNQEoXYSoNONnc4BqxqjfzfOwgHq0Lu7H7ySVBpo00mRTC5360PS"
+__Q[608]="mLehn6AVSmfw0TzyuWNJ7447xH35/+irVJoHfR3DouW2/ahgnRrDDo4obLF7w4mM4Uj8NEAd9c6mqH0JtE9DtZo8mMcUmyJnU"
+__Q[74784]="6969319+YX36Z+80z6"
+__Q[609]="0Y2wnXq2VbiGoy2QD+VShhlTBoP60vThZehn6AVSmfw0Tzygd91ypvCwTTk6rkKQZ8XfBj7v/HeqfQ0OU5r0n4Q7IUPqqyx0H"
+__Q[610]="W0eEBp9EObmUFM7U8L6e64VFOJi1PiEhdmnlXa0OfvOxUvbQrAe0mRTC5360PSjJKty5VdBnfoDRjreVs8//tq4GXho6QfED7"
+__Q[611]="evCF3K63izfV9oErvXgcsCIRXwjTQwQjMNAQt9YaCjEXFnDs38fawpWYBqxu2RidmwgHq0LqKIrCCXQuRfgCMWX/6cgrWiLug"
+__Q[612]="uqTRzjukJRmDiVtN0go64GXho6QfEF4qMCj74+Gu5fQsKV5n13foAN1LqgSx2WxUnEAd9c6mqHwEoXYSoeKwkMsxqib/YzrrW"
+__Q[64887]="4+y1Z2+72//6z8y54/"
+__Q[613]="jHr7fKeAmSSXTrBRgC0UedKu0OnvI7pjpzRzjukJRmKuUc5v7az1AXZ55xbJa8WXVG6iy3aqThouXZv4h9NlZBu+yGM4Uj8NE"
+__Q[614]="Ad9O/v6EWJOD8XlceN6c9QrlKrU3brW0jv5a8TH72HbQrAe0mRTC52IhbqcLrpl4BRQxsoNTSraVu56rZ71H0pu6xKYZbqgVH"
+__Q[615]="v/7XasfV1uEsmhwoZPIk7wizdxHXEFGS19c6mqHwEoXYSoNONnc4Bqj6uRwYvggC78a6Dt72HbQrAe0mRTC5360PTva+gzqVd"
+__Q[616]="djvhKYAj8WNF679r4H2k02AfcKIaWUmeguXGsaFEQXYzHlsYAJ1LqkWMlUnBfWUAeFaWqUFNhGvLteO9nPNIjgZ/e3fOwgHq0"
+__Q[77451]="Z93Zxy9/Y6+x928x6Y"
+__Q[617]="Lu7H72HbQrAe0mRTTtO++vTva+gzqVcV3KhEA26uGZxNtpTDCGts5wHVfbCRRHfi/V+sdxIQV5b1ltg8MF7uwGFHLW1IQ1MyI"
+__Q[618]="eyoFisoXYSoNONnc4Bqxu3Ux525qlC0Lu7H72HbQrAe0mQaTZ2cmbOnP61hyhhbiPoLTyLrS5x+rZ6wK3B95hbVNaaQSGr+9n"
+__Q[619]="WyfQ1sfpfyksYpLVz2nCZqUn5DVAcIJ+DmVlVxXcXmcOMCPdUnqqTT25ji2XrgZquJxWHbQrAe0mRTC5360PTva+h/5hRUkKg"
+__Q[620]="NVyvjGYE/hZP3BW1//CHfKZGNSXLg/GvwVBAhU5TXms0HMF7sxgZpB3ZdQEI5Gv3vUisoXYSoNONnc4Bqxu2RidmwyTy0Z7qC"
+__Q[79771]="73z5373x+X7y18246Y"
+__Q[621]="omGaDPQehi0QQJXz0PnvJ6lg/TFcju0wSi3lGYIi4531GX5/4BSYbsuyU3L42nawfhYlHL74gc89JU/7yDdwF3EnEAd9c6mqH"
+__Q[622]="wEoXYSoNONnc4Bqxu3dyIrk5jPma5qOrCrbX7BKmycYA5TQ0PTva+gzqVcV3KhEA26uGZw/49r8Anp74kLAJpyTSX/ouST+Y3"
+__Q[623]="ViEtix04pPZBu+yGM4Uj8NEAd9c6mqHwFTCNDuLO0kO8E4zvyY9NmtgCGeLu7H72HbQrAe0mRTC5360PTva+gzqVcV3KhEAxX"
+__Q[624]="7Tdon7Zn4DGsyvkvtZ9jfc2rl9XCqYUUHXJv+l88sAkn/hSYwMVlfUUo4feXlUEpJCYz8dbEgNtQaib6diY3x0j3xeoaCriXV"
+__Q[53482]="2X1x8317yZ6zy018Z3"
+__Q[625]="Mv9NmzAaRNPz2fjFa+gzqVcV3KhEA26uGZw/49qwTTk6rkKQZ8XfBkX57X/mNhwqU4q5woMyZAa+vTdxHnZZSR0YPerlW0RLO"
+__Q[626]="9bpeaZvJ8E4gajF4ZzxxHTXSLyGoiTSTpoe0mRTC5360PTva+gzqVcV3KhEA26uGZw/49qwNmxu6FqeJI2eVDa+sET+JV82U4"
+__Q[627]="r2lt4nIVr6xEk4Uj8NEAd9c6mqHwEoXYSoNONnc4Bqxu2Ridmw+y/gaPbJrCmaELgN2xlTFp2PhL2jIrxqszJbn+cARg3IS91"
+__Q[628]="yptLkDGt96xb4IoSbCF3K63izfUUWXbfzmc8MMGjuiSB9WlxrQkYwNqfkWlYgCcX6c6YzG8UrguPhxor51DP7YOfO5kvbQrAe"
+__Q[57740]="2z2X90xX957X50672z"
+__Q[629]="0mRTC5360PTva+gzqVcV3KhEA27zM5w/49qwTTk6rkKQZ8XfBj6suTn+ZXViEtix04pPZBu+yGM4Uj8NEAd9c/npXk1kVcL9e"
+__Q[630]="qAzOs8kzuS7idmwgHq0Lu7H72HbQrAe0mRTC5360PTvGa1j5R5WnfwBRx36Vs5+pJ++P3x34RbVNMutQ27g8Hq/bBYtXNbXms"
+__Q[631]="0HMF7sxhZrF1ZZVUpnFeD4WnJtD9LtZusuJ8Un3IrU3dGy7zj+a62ThgXZS7wetyoGRvGzkqauObEp3Rhwkv0JC2zdTd1tt6n"
+__Q[632]="4AnZu5wzXZczTBm7t4HWxeRtuEpb4n4NlZBu+yGM4Uj8NEAd9c6mqHwEoXYTteqduWYBqxu2RidmwgHq0Lu7H72GeDPQ00mRT"
+__Q[79984]="X5z6177441+021yZ46"
+__Q[633]="C5360PTva+gz7BlR9qhEA26uGZw/ppbjCBM6rkKQZ8XfBj6suTm9fRE2V4rdksgKKBXKjTtsUiINEnwrMuXmVEx9EdCocrEiN"
+__Q[634]="oA815CR8qr1wSj3ZqeJqG/VTM0c+GRTC5360PTva+gzqRRQkvwBUQLvW9lz7a71FW1Z4Q7fNdbfGz7P9nWxakxsVIr+nvgoBh"
+__Q[635]="Os3XY0Ui0YBQt9Yby/FisoXYSoNONnc8UkgseRidmwxTTwJ8SCoSXx"
+local __M=635
+local _W5788={25977,640675,970676,833787,561946,998430,436335,537815,304500,850633,722839,709301,188530,507216,127738,626406,677887,426107,930722,587612,395785,142367,152868,273337,841106,665454,20263,775636,136699,780776,50801,407212,33967,471384,55226,229783,860160,967704,256185,438981}
+local _W2519={272547,636097,782337,579396,403590,940878,430638,436967,10859,872437,306690,312229,431123,523129,122309,352159,723046,350614,893970,519470,429118,981617,920896,570570,745962,66077,859855,755883,10012,43109,434103,938701,709879,318120,709400,878029,946738,762140,702877,398671}
+local _W8871={38059,225863,10449,528966,627642,638606,283169,627980,564486,841508,667844,421543,884906,224442,332189,851370,125390,780014,117200,110178,398884,636020,223359,72368,422350,574342,831740,566385,961714,999852,730496,590194,653684,79858,71285,390315,691296,863751,996156,487883}
+local _W8940={579250,313436,382105,119234,32937,720290,418239,569112,37899,580822,839411,312919,852613,496727,447407,349891,385478,432989,574860,887552,421551,884198,456466,532550,9369,440753,693679,989359,926324,56200,389037,660205,768534,592827,484832,174023,318658,145228,49978,882944}
+local _W5010={986665,171957,830208,380398,591775,296003,975489,316258,320469,798283,21024,399548,611944,994186,828856,594002,167334,935456,817572,7116,187854,892655,13559,489561,125781,508830,459063,738772,689520,656847,301627,796490,826436,187831,53786,574125,788135,568281,430449,645977}
+local _W8425={63264,577942,996258,734534,34467,411545,265044,119753,862614,590926,103232,137398,764188,628539,814340,251191,555285,982835,510547,455106,644985,925228,796201,366345,390226,190872,258890,508303,734475,278958,916117,287522,946258,117481,83461,696285,444203,612460,679806,850873}
 
-local function scanWeapon(plr)
-    local vms = workspace:FindFirstChild("ViewModels")
-    if not vms then return "" end
-    for _, model in vms:GetChildren() do
-        if model:IsA("Model") then
-            local sp = model.Name:find(" - ", 1, true)
-            if sp and model.Name:sub(1, sp - 1) == plr.Name then
-                return model.Name:sub(sp + 3):lower()
-            end
-        end
-    end
-    return ""
-end
-
-local function playerIsDead(plr)
-    local char = plr and plr.Character
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    return not char or not hum or hum.Health <= 0 or not getRoot(char)
-end
-
-local function isInvincible(plr)
-    local char = plr and plr.Character
-    if not char then return true end
-    local root = getRoot(char)
-    if not root then return true end
-    for _, obj in root:GetChildren() do
-        if obj:IsA("Attachment") and obj.Name == "Attachment" then return true end
-    end
-    return char:FindFirstChild("InvincibilityParticles", true) ~= nil
-end
-
-local function isKatana(plr) return scanWeapon(plr):find("katana", 1, true) ~= nil end
-
-local function isRiotShield(plr)
-    local w = scanWeapon(plr)
-    return w:find("riot", 1, true) ~= nil or w:find("shield", 1, true) ~= nil
-end
-
-local function IsValidMatch(player)
-    return player:GetAttribute("EnvironmentID") == LocalPlayer:GetAttribute("EnvironmentID")
-end
-
-local function isNearOtherMatch(pos, ignorePlayer)
-    local avoid = RagebotSettings.otherMatchAvoidDistance or 1000
-    if typeof(pos) ~= "Vector3" or avoid <= 0 then return false end
-    for _, plr in Players:GetPlayers() do
-        if plr ~= LocalPlayer and plr ~= ignorePlayer and not IsValidMatch(plr) then
-            local r = getRoot(plr.Character)
-            if r and (r.Position - pos).Magnitude <= avoid then return true end
-        end
-    end
-    return false
-end
-
-local function isSafeRagebotPos(pos, targetPlayer) return not isNearOtherMatch(pos, targetPlayer) end
-
-local function shouldSkip(plr)
-    if plr == LocalPlayer or playerIsDead(plr) then return true end
-    if not IsValidMatch(plr) then return true end
-    if isInvincible(plr) then return true end
-    local root = getRoot(plr.Character)
-    if root and isNearOtherMatch(root.Position, plr) then return true end
-    return root and root:FindFirstChild("TeammateLabel") ~= nil
-end
-
-local function getBestTarget()
-    local root = getRoot(LocalPlayer.Character)
-    if not root then return nil end
-    if RagebotSettings.prioritizedPlayer then
-        local pp = Players:FindFirstChild(RagebotSettings.prioritizedPlayer)
-        if pp and not shouldSkip(pp) then return pp end
-    end
-    local best, bestV = nil, math.huge
-    local useHP = RagebotSettings.targetMode == "Lowest Health"
-    for _, plr in Players:GetPlayers() do
-        if not shouldSkip(plr) then
-            local char = plr.Character
-            local tr = getRoot(char)
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
-            local value = useHP and hum.Health or (tr.Position - root.Position).Magnitude
-            if value < bestV then bestV = value; best = plr end
-        end
-    end
-    return best
-end
-
-local function hasValidTarget()
-    return IDKRagebotState.target and not playerIsDead(IDKRagebotState.target) and not isInvincible(IDKRagebotState.target)
-end
-
--- �� ��寃� �놁쑝硫� 臾댁“嫄� void...
-local function updateRagebotStatus()
-    local target = hasValidTarget() and IDKRagebotState.target or nil
-    if setRagebotStatus then
-        setRagebotStatus(IDKRagebotState.active and RagebotSettings.on, target)
-    end
-end
-
-local function shouldShoot()
-    if not hasValidTarget() then return false end
-    if isKatana(IDKRagebotState.target) then return false end
-    if RagebotSettings.mode == "Void" and not IDKRagebotState.voidExposed then return false end
-    return true
-end
-
-local function handleAmmo()
-    local fighter = getFighter()
-    local item = fighter and fighter.EquippedItem
-    if not fighter or not item then return false end
-    local ammo = item:Get("Ammo") or 0
-    local slot = item:Get("Slot") or 1
-    local now = tick()
-    if fighter:Get("Reloading") then
-        IDKRagebotState.hideOrbitUntil = math.max(IDKRagebotState.hideOrbitUntil or 0, now + 0.25)
-        IDKRagebotState.ammoActionAt = math.max(IDKRagebotState.ammoActionAt or 0, now + 0.1)
-        return true
-    end
-    if ammo > 0 then return false end
-    if now < (IDKRagebotState.ammoActionAt or 0) then return true end
-    local primary = RagebotSettings.primarySlot or 1
-    local secondary = RagebotSettings.secondarySlot or 2
-    if slot == primary and RagebotSettings.autoSwapSecondary then
-        IDKRagebotState.ammoActionAt = now + 0.45
-        IDKRagebotState.hideOrbitUntil = math.max(IDKRagebotState.hideOrbitUntil or 0, now + 0.45)
-        pressKey(slotKey[secondary] or Enum.KeyCode.Two); return true
-    end
-    if slot == secondary and RagebotSettings.autoReloadPrimary then
-        IDKRagebotState.ammoActionAt = now + 0.6
-        IDKRagebotState.hideOrbitUntil = math.max(IDKRagebotState.hideOrbitUntil or 0, now + 0.6)
-        pressKey(slotKey[primary] or Enum.KeyCode.One)
-        task.delay(0.18, function()
-            if not IDKRagebotState.active then return end
-            local f2 = getFighter()
-            local i2 = f2 and f2.EquippedItem
-            if f2 and i2 and (i2:Get("Slot") or 1) == primary and (i2:Get("Ammo") or 0) <= 0 and not f2:Get("Reloading") then
-                pressKey(Enum.KeyCode.R)
-            end
-        end)
-        return true
-    end
-    if slot == primary and RagebotSettings.autoReloadPrimary then
-        IDKRagebotState.ammoActionAt = now + 0.5
-        IDKRagebotState.hideOrbitUntil = math.max(IDKRagebotState.hideOrbitUntil or 0, now + 0.5)
-        pressKey(Enum.KeyCode.R); return true
-    end
-    return true
-end
-
-local function buildCameraData(fromPos, part)
-    if not util or not part then return nil end
-    local look = CFrame.new(fromPos, part.Position)
-    local data = {}
-    data[utf8.char(1)] = {
-        [utf8.char(0)] = util:EncodeCFrame(look),
-        [utf8.char(1)] = util:EncodeCFrame(look),
-        [utf8.char(2)] = part,
-        [utf8.char(3)] = util:EncodeCFrame(part.CFrame:ToObjectSpace(CFrame.new(part.Position)))
-    }
-    return data
-end
-
-local function doFire(part)
-    local fighter = getFighter()
-    local item = fighter and fighter.EquippedItem
-    if not item or not part then return false end
-    local cam = workspace.CurrentCamera
-    local fromPos = (IDKRagebotState.csyncCF and IDKRagebotState.csyncCF.Position) or (cam and cam.CFrame.Position) or part.Position
-    local anyFired = false
-    local attempts = math.max(1, math.floor(RagebotSettings.shootAttempts or 1))
-    for _ = 1, attempts do
-        local fired = false
-        if RagebotSettings.useManipulation and useItemRemote and enums and util then
-            local ammo = item.Get and (item:Get("Ammo") or 0) or 0
-            if ammo > 0 then
-                local oid = item:Get("ObjectID")
-                local shootEnum = enums:ToEnum("StartShooting")
-                local data = buildCameraData(fromPos, part)
-                if oid and shootEnum and data then
-                    fired = pcall(function() useItemRemote:FireServer(oid, shootEnum, data, nil) end)
-                end
-            end
-        end
-        if not fired and item.UseItem then fired = pcall(function() item:UseItem() end) end
-        if not fired and fighter and fighter.UseItem then fired = pcall(function() fighter:UseItem() end) end
-        anyFired = anyFired or fired
-    end
-    return anyFired
-end
-
-local function isLobby()
-    local pg = LocalPlayer:FindFirstChild("PlayerGui")
-    local mg = pg and pg:FindFirstChild("MainGui")
-    local mf = mg and mg:FindFirstChild("MainFrame")
-    local lb = mf and mf:FindFirstChild("Lobby")
-    local cur = lb and lb:FindFirstChild("Currency")
-    return cur and cur.Visible == true
-end
-
-local function getDuel()
-    if not rbDuelMod then
-        local ps = LocalPlayer:FindFirstChild("PlayerScripts")
-        local ct = ps and ps:FindFirstChild("Controllers")
-        local dc = ct and ct:FindFirstChild("DuelController")
-        if dc then
-            local ok, mod = pcall(require, dc)
-            if ok and mod then rbDuelMod = mod end
-        end
-    end
-    if rbDuelMod and rbDuelMod.GetDuel then
-        local ok, duel = pcall(rbDuelMod.GetDuel, rbDuelMod, LocalPlayer)
-        if ok then return duel end
-    end
-end
-
-local function isValidMatch()
-    if isLobby() or isShootingRange() then return false end
-    local char = LocalPlayer.Character
-    local root = getRoot(char)
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if not char or not root or not hum or hum.Health <= 0 then return false end
-    if getDuel() ~= nil then return true end
-    return getFighter() ~= nil
-end
-
-local function inMatch()
-    local now = tick()
-    if now - rbInMatchT < 0.25 then return rbInMatch end
-    rbInMatchT = now
-    rbInMatch = isValidMatch()
-    return rbInMatch
-end
-
-local function undergroundPos(head, targetRoot)
-    local depth = math.clamp(RagebotSettings.undergroundDepth or 6, 3, 8)
-    local radius = math.clamp(RagebotSettings.orbitDist or 3, 1.25, 4)
-    return head.Position - targetRoot.CFrame.LookVector * radius + Vector3.new(0, -depth, 0)
-end
-
-local oldFireServerRagebot
-local rbHookInstalled = false
-local enterVoidState
-local setVoidCsync
-
-local function installRagebotHook()
-    if rbHookInstalled or not useItemRemote then return end
-    rbHookInstalled = true
-    oldFireServerRagebot = hookfunction(useItemRemote.FireServer, newcclosure(function(self, oid, action, cameradata, ...)
-        if IDKRagebotState.active and RagebotSettings.on and RagebotSettings.mode == "Void" and RagebotSettings.useManipulation and action == enums:ToEnum("StartShooting") then
-            if isLobby() or not inMatch() then
-                return oldFireServerRagebot(self, oid, action, cameradata, ...)
-            end
-            local target = IDKRagebotState.target
-            if hasValidTarget() and not isKatana(target) then
-                local tc = target.Character
-                local tr = getRoot(tc)
-                local head = tc and (tc:FindFirstChild("Head") or tr)
-                if tr and head then
-                    local shootPos = isRiotShield(target)
-                        and (tr.Position - tr.CFrame.LookVector * (RagebotSettings.behindDist or 4))
-                        or (tr.Position - tr.CFrame.LookVector * 2.5 + Vector3.new(0, 1.5, 0))
-                    if not isSafeRagebotPos(shootPos, target) then
-                        enterVoidState()
-                        return oldFireServerRagebot(self, oid, action, cameradata, ...)
-                    end
-                    local shootCF = CFrame.new(shootPos, head.Position)
-                    IDKRagebotState.voidExposed = true
-                    IDKRagebotState.voidTargetCF = shootCF
-                    setVoidCsync(shootCF, Vector3.zero, Vector3.zero)
-                    updateRagebotStatus()
-                    task.wait(0.02)
-                    local newData = buildCameraData(shootPos, head) or cameradata
-                    task.spawn(function()
-                        task.wait(0.05)
-                        enterVoidState()
-                    end)
-                    return oldFireServerRagebot(self, oid, action, newData, ...)
-                end
-            end
-        end
-        return oldFireServerRagebot(self, oid, action, cameradata, ...)
+local function __b64(data)
+    local B='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+    data=string.gsub(data,'[^'..B..'=]','')
+    return (data:gsub('.',function(x)
+        if x=='=' then return '' end
+        local r,f='',(B:find(x)-1)
+        for i=6,1,-1 do r=r..(f%2^i-f%2^(i-1)>0 and '1' or '0') end
+        return r
+    end):gsub('%d%d%d?%d?%d?%d?%d?%d?',function(x)
+        if #x~=8 then return '' end
+        local c=0
+        for i=1,8 do c=c+(x:sub(i,i)=='1' and 2^(8-i) or 0) end
+        return string.char(c)
     end))
 end
 
-local function rnd() return math.random() * 2 - 1 end
-local function rndDir()
-    local angle = math.random() * math.pi * 2
-    return Vector3.new(math.cos(angle), 0, math.sin(angle))
-end
-
-local function getDirs(targetRoot)
-    local dirs = {}
-    local look = targetRoot.CFrame.LookVector
-    local right = targetRoot.CFrame.RightVector
-    if RagebotSettings.dirBack then table.insert(dirs, -look) end
-    if RagebotSettings.dirFront then table.insert(dirs, look) end
-    if RagebotSettings.dirLeft then table.insert(dirs, -right) end
-    if RagebotSettings.dirRight then table.insert(dirs, right) end
-    if #dirs == 0 then dirs[1] = -look; dirs[2] = right; dirs[3] = -right end
-    return dirs
-end
-
-local function pickOffset(targetRoot, head)
-    local dirs = getDirs(targetRoot)
-    local dir = dirs[math.random(1, #dirs)]
-    local radius = math.clamp(RagebotSettings.orbitDist or 3, 1.25, 5)
-    local height = math.clamp(RagebotSettings.orbitHeight or 2, -2, 6)
-    local pos = head.Position + dir * radius + Vector3.new(0, height, 0)
-    if RagebotSettings.dirUp and math.random() < 0.2 then
-        pos += Vector3.new(0, math.max(1, height), 0)
-    elseif RagebotSettings.dirDown and math.random() < 0.15 then
-        pos += Vector3.new(0, -math.max(1, math.min(3, RagebotSettings.undergroundDepth or 2)), 0)
-    end
-    return pos
-end
-
-local function setCsync(cf, pos, dt)
-    local old = IDKRagebotState.lastFakePos
-    IDKRagebotState.csyncCF = cf
-    IDKRagebotState.csyncLV = old and dt and dt > 0 and (pos - old) / dt or Vector3.zero
-    IDKRagebotState.csyncAV = Vector3.zero
-    IDKRagebotState.lastFakePos = pos
-end
-
-local function clearCsyncTarget()
-    IDKRagebotState.csyncCF = nil
-    IDKRagebotState.csyncLV = nil
-    IDKRagebotState.csyncAV = nil
-    IDKRagebotState.lastFakePos = nil
-end
-
-local function isRagebotSettling()
-    return os.clock() < (RagebotSettings.settleUntil or 0)
-end
-
-local function restoreLocalRoot(root)
-    if not root or not IDKRagebotState.csyncLocalCF then return false end
-    local liveVelocity = root.AssemblyLinearVelocity
-    root.CFrame = IDKRagebotState.csyncLocalCF
-    if IDKRagebotState.csyncLocalLV then
-        root.AssemblyLinearVelocity = Vector3.new(IDKRagebotState.csyncLocalLV.X, liveVelocity.Y, IDKRagebotState.csyncLocalLV.Z)
-    end
-    if IDKRagebotState.csyncLocalAV then
-        root.AssemblyAngularVelocity = IDKRagebotState.csyncLocalAV
-    end
-    return true
-end
-
-local function startCsync()
-    if IDKRagebotState.csyncHbConn then return end
-    IDKRagebotState.csyncHbConn = RunService.Heartbeat:Connect(function()
-        local root = getRoot(LocalPlayer.Character)
-        if not root then return end
-        if IDKRagebotState.csyncWroteFake and IDKRagebotState.csyncLocalCF then
-            restoreLocalRoot(root)
-        end
-        if isRagebotSettling() then
-            IDKRagebotState.csyncLocalCF = root.CFrame
-            IDKRagebotState.csyncLocalLV = root.AssemblyLinearVelocity
-            IDKRagebotState.csyncLocalAV = root.AssemblyAngularVelocity
-            IDKRagebotState.csyncWroteFake = false
-            return
-        end
-        IDKRagebotState.csyncLocalCF = root.CFrame
-        IDKRagebotState.csyncLocalLV = root.AssemblyLinearVelocity
-        IDKRagebotState.csyncLocalAV = root.AssemblyAngularVelocity
-        if IDKRagebotState.csyncCF then
-            root.CFrame = IDKRagebotState.csyncCF
-            local fakeVelocity = IDKRagebotState.csyncLV or IDKRagebotState.csyncLocalLV or root.AssemblyLinearVelocity
-            local localVelocity = IDKRagebotState.csyncLocalLV or root.AssemblyLinearVelocity
-            root.AssemblyLinearVelocity = Vector3.new(fakeVelocity.X, localVelocity.Y, fakeVelocity.Z)
-            root.AssemblyAngularVelocity = IDKRagebotState.csyncAV or IDKRagebotState.csyncLocalAV or root.AssemblyAngularVelocity
-            IDKRagebotState.csyncWroteFake = true
-        else
-            IDKRagebotState.csyncWroteFake = false
-        end
-    end)
-    RunService:BindToRenderStep("IDK_RagebotCsync", Enum.RenderPriority.Camera.Value - 1, function()
-        local root = getRoot(LocalPlayer.Character)
-        if not root or not IDKRagebotState.csyncLocalCF then return end
-        if IDKRagebotState.csyncWroteFake and restoreLocalRoot(root) then
-            IDKRagebotState.csyncWroteFake = false
-        end
-    end)
-end
-
-local function stopCsync()
-    if IDKRagebotState.csyncHbConn then IDKRagebotState.csyncHbConn:Disconnect(); IDKRagebotState.csyncHbConn = nil end
-    RunService:UnbindFromRenderStep("IDK_RagebotCsync")
-    restoreLocalRoot(getRoot(LocalPlayer.Character))
-    clearCsyncTarget()
-    IDKRagebotState.csyncLocalCF = nil
-    IDKRagebotState.csyncLocalLV = nil
-    IDKRagebotState.csyncLocalAV = nil
-    IDKRagebotState.csyncWroteFake = false
-end
-
-local function voidRand()
-    local n = math.random(-2147483646, 2147483646)
-    repeat n = math.random(-2147483646, 2147483646)
-    until n < -1147483646 or n > 1147483646
-    return n
-end
-
-local function voidRandCF()
-    return CFrame.new(voidRand(), voidRand(), voidRand()) * CFrame.Angles(math.pi, math.pi, math.pi)
-end
-
-setVoidCsync = function(cf, lv, av)
-    IDKRagebotState.csyncCF = cf
-    IDKRagebotState.csyncLV = lv or Vector3.zero
-    IDKRagebotState.csyncAV = av or Vector3.zero
-    IDKRagebotState.lastFakePos = cf and cf.Position or nil
-end
-
-enterVoidState = function()
-    IDKRagebotState.voidTargetCF = nil
-    IDKRagebotState.voidExposed = false
-    IDKRagebotState.orbitClientCF = nil
-    if not IDKRagebotState.active or not RagebotSettings.on then
-        clearCsyncTarget()
-        updateRagebotStatus()
-        return
-    end
-    if RagebotSettings.voidSpam then
-        setVoidCsync(voidRandCF())
-    else
-        clearCsyncTarget()
-    end
-    updateRagebotStatus()
-end
-
-local function enableVoidCsync()
-    if IDKRagebotState.voidHbConn then return end
-    startCsync()
-    IDKRagebotState.voidHbConn = RunService.Heartbeat:Connect(function()
-        if isRagebotSettling() then
-            IDKRagebotState.voidTargetCF = nil
-            IDKRagebotState.voidExposed = false
-            clearCsyncTarget()
-            return
-        end
-        local tcf = IDKRagebotState.voidTargetCF
-        if tcf then
-            setVoidCsync(tcf, Vector3.zero, Vector3.zero)
-        elseif RagebotSettings.voidSpam then
-            setVoidCsync(voidRandCF())
-        else
-            clearCsyncTarget()
-        end
-    end)
-end
-
-local function disableVoidCsync()
-    if IDKRagebotState.voidHbConn then IDKRagebotState.voidHbConn:Disconnect(); IDKRagebotState.voidHbConn = nil end
-    RunService:UnbindFromRenderStep("IDK_RagebotVoid")
-    IDKRagebotState.voidTargetCF = nil
-    IDKRagebotState.voidThread = nil
-    IDKRagebotState.voidExposed = false
-end
-
-local function StartOrbitRenderFix()
-    if IDKRagebotState.orbitRenderRunning then return end
-    IDKRagebotState.orbitRenderRunning = true
-    RunService:BindToRenderStep("IDK_RagebotOrbit", Enum.RenderPriority.First.Value, function()
-        if not IDKRagebotState.orbitClientCF then return end
-        local root = getRoot(LocalPlayer.Character)
-        if not root then return end
-        root.CFrame = IDKRagebotState.orbitClientCF
-    end)
-end
-
-local function StopOrbitRenderFix()
-    if not IDKRagebotState.orbitRenderRunning then return end
-    RunService:UnbindFromRenderStep("IDK_RagebotOrbit")
-    IDKRagebotState.orbitRenderRunning = false
-    IDKRagebotState.orbitClientCF = nil
-end
-
-local function startVoidLoop(myGen)
-    if IDKRagebotState.voidThread then return end
-    enableVoidCsync()
-    local vt
-    vt = task.spawn(function()
-        while IDKRagebotState.active and RagebotSettings.on and rbGen == myGen and not IDKRagebotState.suspended do
-            if isRagebotSettling() then
-                IDKRagebotState.voidTargetCF = nil
-                IDKRagebotState.voidExposed = false
-                clearCsyncTarget()
-                task.wait(0.03)
-                continue
-            end
-            if not inMatch() or not hasValidTarget() or isKatana(IDKRagebotState.target) then
-                enterVoidState(); task.wait(0.1); continue
-            end
-            enterVoidState()
-            if RagebotSettings.voidHideTime > 0 then task.wait(RagebotSettings.voidHideTime) end
-            if not IDKRagebotState.active or not RagebotSettings.on or rbGen ~= myGen or IDKRagebotState.suspended or not inMatch() then break end
-            local target = IDKRagebotState.target
-            if hasValidTarget() and not isKatana(target) then
-                local tc = target.Character
-                local tr = getRoot(tc)
-                local head = tc and (tc:FindFirstChild("Head") or tr)
-                if tr and head then
-                    local shootPos = isRiotShield(target)
-                        and (tr.Position - tr.CFrame.LookVector * (RagebotSettings.behindDist or 4))
-                        or (tr.Position - tr.CFrame.LookVector * 2.5 + Vector3.new(0, 1.5, 0))
-                    if not isSafeRagebotPos(shootPos, target) then
-                        enterVoidState(); task.wait(0.1); continue
-                    end
-                    local shootCF = CFrame.new(shootPos, head.Position)
-                    IDKRagebotState.voidExposed = true
-                    IDKRagebotState.voidTargetCF = shootCF
-                    setVoidCsync(shootCF, Vector3.zero, Vector3.zero)
-                    updateRagebotStatus()
-                    if RagebotSettings.voidShootTime > 0 then task.wait(RagebotSettings.voidShootTime) end
-                    if hasValidTarget() and not isKatana(target) then doFire(head) end
-                    task.wait(0.05)
-                    enterVoidState()
-                end
-            end
-        end
-        if IDKRagebotState.voidThread == vt then IDKRagebotState.voidThread = nil end
-        if rbGen == myGen and not IDKRagebotState.suspended and IDKRagebotState.voidThread == nil then
-            disableVoidCsync()
-        end
-    end)
-    IDKRagebotState.voidThread = vt
-end
-
-local function enableNoclip()
-    if IDKRagebotState.noclipConn then return end
-    IDKRagebotState.noclipConn = RunService.Stepped:Connect(function()
-        local char = LocalPlayer.Character
-        if not char then return end
-        for _, part in char:GetDescendants() do
-            if part:IsA("BasePart") then part.CanCollide = false end
-        end
-    end)
-end
-
-local function startAmmoLoop()
-    if IDKRagebotState.ammoThread then return end
-    IDKRagebotState.ammoThread = task.spawn(function()
-        while IDKRagebotState.active do
-            if isShootingRange() then task.wait(0.1); continue end
-            if not handleAmmo() and shouldShoot() and not RagebotSettings.hyper then
-                local tc = IDKRagebotState.target and IDKRagebotState.target.Character
-                local head = tc and (tc:FindFirstChild("Head") or getRoot(tc))
-                if head then
-                    if RagebotSettings.shootDelay > 0 then task.wait(RagebotSettings.shootDelay) end
-                    doFire(head)
-                end
-            end
-            task.wait(math.max(0.01, RagebotSettings.acSpd))
-        end
-        IDKRagebotState.ammoThread = nil
-    end)
-end
-
-local function stopRagebot()
-    rbGen += 1
-    IDKRagebotState.active = false
-    RagebotSettings.on = false
-    if setRagebotStatus then setRagebotStatus(false) end
-    if IDKRagebotState.conn then IDKRagebotState.conn:Disconnect(); IDKRagebotState.conn = nil end
-    if IDKRagebotState.noclipConn then IDKRagebotState.noclipConn:Disconnect(); IDKRagebotState.noclipConn = nil end
-    IDKRagebotState.target = nil
-    IDKRagebotState.voidExposed = false
-    IDKRagebotState.nextTeleportAt = 0
-    IDKRagebotState.ammoActionAt = 0
-    IDKRagebotState.hideOrbitUntil = 0
-    IDKRagebotState.randPos = nil
-    IDKRagebotState.randT = 0
-    IDKRagebotState.lastFakePos = nil
-    rbInMatchT = 0
-    rbInMatch = false
-    stopCsync(); disableVoidCsync(); StopOrbitRenderFix()
-    local char = LocalPlayer.Character
-    if char then
-        for _, part in char:GetDescendants() do
-            if part:IsA("BasePart") then part.CanCollide = true end
-        end
-    end
-end
-
-local function startRagebot()
-    if IDKRagebotState.active then return end
-    IDKRagebotState.active = true
-    RagebotSettings.on = true
-    RagebotSettings.settleUntil = 0
-    rbGen += 1
-    local myGen = rbGen
-    if setRagebotStatus then setRagebotStatus(true, nil) end
-    startAmmoLoop()
-    installRagebotHook()
-    enableNoclip()
-    if RagebotSettings.mode == "Void" then startVoidLoop(myGen)
-    elseif RagebotSettings.mode == "Orbit" then enableVoidCsync()
-    else startCsync() end
-
-    local aaPhase = 0
-    local orbitAngle = math.random() * math.pi * 2
-
-    IDKRagebotState.conn = RunService.Stepped:Connect(function(_, dt)
-        if not IDKRagebotState.active or not RagebotSettings.on then
-            if IDKRagebotState.conn then IDKRagebotState.conn:Disconnect(); IDKRagebotState.conn = nil end
-            return
-        end
-        if isShootingRange() then
-            if not IDKRagebotState.suspended then
-                IDKRagebotState.suspended = true
-                IDKRagebotState.target = nil
-                IDKRagebotState.randPos = nil
-                IDKRagebotState.voidTargetCF = nil
-                IDKRagebotState.voidExposed = false
-                if IDKRagebotState.noclipConn then IDKRagebotState.noclipConn:Disconnect(); IDKRagebotState.noclipConn = nil end
-                stopCsync(); disableVoidCsync(); StopOrbitRenderFix()
-                updateRagebotStatus()
-            end
-            return
-        end
-        if IDKRagebotState.suspended then
-            IDKRagebotState.suspended = false
-            enableNoclip()
-            if RagebotSettings.mode == "Void" then startVoidLoop(myGen)
-            elseif RagebotSettings.mode == "Orbit" then enableVoidCsync(); StartOrbitRenderFix()
-            else startCsync() end
-        end
-        local root = getRoot(LocalPlayer.Character)
-        if not root then return end
-        if isRagebotSettling() then
-            IDKRagebotState.voidTargetCF = nil
-            IDKRagebotState.voidExposed = false
-            IDKRagebotState.orbitClientCF = nil
-            clearCsyncTarget()
-            updateRagebotStatus()
-            return
-        end
-        if not inMatch() then
-            clearCsyncTarget()
-            IDKRagebotState.target = nil
-            updateRagebotStatus()
-            return
-        end
-        local now = tick()
-        if IDKRagebotState.target and playerIsDead(IDKRagebotState.target) then
-            IDKRagebotState.target = nil
-        end
-        if IDKRagebotState.target and isInvincible(IDKRagebotState.target) then
-            clearCsyncTarget(); updateRagebotStatus(); return
-        end
-        if now - rbTgtT >= 0.05 and (RagebotSettings.autoSwitch or not IDKRagebotState.target) then
-            rbTgtT = now
-            if RagebotSettings.autoSwitch then
-                local t = getBestTarget()
-                if t then IDKRagebotState.target = t end
-            elseif not IDKRagebotState.target then
-                IDKRagebotState.target = getBestTarget()
-            end
-        end
-        if not IDKRagebotState.target then
-            clearCsyncTarget(); updateRagebotStatus(); return
-        end
-        local tc = IDKRagebotState.target.Character
-        local tr = getRoot(tc)
-        local head = tc and (tc:FindFirstChild("Head") or tr)
-        if not tc or not tr or not head then
-            IDKRagebotState.target = nil; updateRagebotStatus(); return
-        end
-        if isNearOtherMatch(tr.Position, IDKRagebotState.target) then
-            IDKRagebotState.target = nil
-            IDKRagebotState.randPos = nil
-            clearCsyncTarget(); updateRagebotStatus(); return
-        end
-        updateRagebotStatus()
-        if RagebotSettings.mode == "Void" then return end
-        if RagebotSettings.mode == "Orbit" and (now < (IDKRagebotState.hideOrbitUntil or 0) or handleAmmo()) then
-            IDKRagebotState.voidTargetCF = nil
-            IDKRagebotState.voidExposed = false
-            IDKRagebotState.orbitClientCF = nil
-            enterVoidState(); return
-        end
-        local isUnderground = RagebotSettings.mode == "Underground"
-        local isShield = isRiotShield(IDKRagebotState.target)
-        local height = math.clamp(RagebotSettings.orbitHeight or 2, -2, 6)
-        local radius = math.clamp(RagebotSettings.orbitDist or 3, 1.25, 5)
-        local targetPos
-        if isShield then
-            targetPos = tr.Position - tr.CFrame.LookVector * (RagebotSettings.behindDist or 3)
-        elseif isUnderground then
-            targetPos = undergroundPos(head, tr)
-        elseif RagebotSettings.mode == "Teleport" then
-            if RagebotSettings.randomMovement then
-                if not IDKRagebotState.randPos or (now - (IDKRagebotState.randT or 0)) >= (RagebotSettings.randomRefresh or 0.08) then
-                    IDKRagebotState.randT = now
-                    IDKRagebotState.randPos = pickOffset(tr, head) + rndDir() * (math.random() * 1.05) + Vector3.new(0, rnd() * 0.7, 0)
-                end
-                targetPos = IDKRagebotState.randPos
-            else
-                targetPos = pickOffset(tr, head)
-            end
-        elseif RagebotSettings.mode == "Orbit" then
-            orbitAngle += dt * math.max(1, (RagebotSettings.strafeSpeed or 5) * 1.5)
-            targetPos = head.Position + Vector3.new(math.cos(orbitAngle) * radius, height, math.sin(orbitAngle) * radius)
-        else
-            targetPos = undergroundPos(head, tr)
-        end
-        if not isSafeRagebotPos(targetPos, IDKRagebotState.target) then
-            IDKRagebotState.randPos = nil
-            clearCsyncTarget(); updateRagebotStatus(); return
-        end
-        local faceCF = CFrame.new(targetPos, head.Position)
-        if RagebotSettings.antiAim then
-            aaPhase += dt * 20
-            faceCF = CFrame.new(targetPos, head.Position) * CFrame.Angles(0, math.rad(math.sin(aaPhase) * 70), 0)
-        end
-        if RagebotSettings.mode == "Orbit" then
-            if RagebotSettings.hyper or not isUnderground then
-                IDKRagebotState.voidExposed = true
-                IDKRagebotState.voidTargetCF = faceCF
-                setCsync(faceCF, targetPos, dt)
-                updateRagebotStatus()
-                if shouldShoot() then doFire(head) end
-            end
-        else
-            setCsync(faceCF, targetPos, dt)
-            if RagebotSettings.hyper then
-                if shouldShoot() then doFire(head) end
-            elseif RagebotSettings.mode == "Teleport" and not isUnderground then
-                if now >= (IDKRagebotState.nextTeleportAt or 0) then
-                    IDKRagebotState.nextTeleportAt = now + math.max(0.01, RagebotSettings.teleportDelay or 0.04)
-                    if shouldShoot() then doFire(head) end
-                end
-            end
-        end
-    end)
-
-    LocalPlayer.CharacterAdded:Connect(function()
-        stopCsync(); disableVoidCsync(); StopOrbitRenderFix()
-        IDKRagebotState.target = nil
-        clearCsyncTarget()
-        IDKRagebotState.csyncLocalCF = nil
-        IDKRagebotState.csyncLocalLV = nil
-        IDKRagebotState.csyncLocalAV = nil
-        IDKRagebotState.csyncWroteFake = false
-        IDKRagebotState.voidExposed = false
-        IDKRagebotState.hideOrbitUntil = 0
-        if IDKRagebotState.active then
-            task.wait(0.5)
-            if IDKRagebotState.active then
-                if RagebotSettings.mode == "Void" then startVoidLoop(myGen)
-                elseif RagebotSettings.mode == "Orbit" then enableVoidCsync(); StartOrbitRenderFix()
-                else startCsync() end
-            end
-        end
-    end)
-end
-
--- ============================================================================
--- Indicators
--- ============================================================================
-local _9376x428 = Instance.new("ScreenGui")
-_9376x428.Name = "HalmuIndicators"
-_9376x428.ResetOnSpawn = false
-_9376x428.IgnoreGuiInset = true
-_9376x428.DisplayOrder = 999
-_9376x428.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-pcall(function() _9376x428.Parent = game:GetService("CoreGui") end)
-if not _9376x428.Parent then _9376x428.Parent = LocalPlayer:WaitForChild("PlayerGui") end
-
-local _993_318 = Instance.new("TextLabel")
-_993_318.Name = "RagebotIndicator"
-_993_318.BackgroundTransparency = 1
-_993_318.Size = UDim2.new(0, 420, 0, 22)
-_993_318.AnchorPoint = Vector2.new(0.5, 0)
-_993_318.Position = UDim2.new(0.5, 0, 0.5, 36)
-_993_318.Font = Enum.Font.Code
-_993_318.TextSize = 14
-_993_318.TextColor3 = Color3.fromRGB(255, 60, 60)
-_993_318.TextStrokeTransparency = 0
-_993_318.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-_993_318.Text = ""
-_993_318.Visible = false
-_993_318.Parent = _9376x428
-
-local _0011Il00 = Instance.new("TextLabel")
-_0011Il00.Name = "AmmoIndicator"
-_0011Il00.BackgroundTransparency = 1
-_0011Il00.Size = UDim2.new(0, 420, 0, 18)
-_0011Il00.AnchorPoint = Vector2.new(0.5, 0)
-_0011Il00.Position = UDim2.new(0.5, 0, 0.5, 52)
-_0011Il00.Font = Enum.Font.Code
-_0011Il00.TextSize = 11
-_0011Il00.TextColor3 = Color3.fromRGB(255, 60, 60)
-_0011Il00.TextStrokeTransparency = 0
-_0011Il00.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-_0011Il00.Text = ""
-_0011Il00.Visible = false
-_0011Il00.Parent = _9376x428
-
--- �� ��寃� �놁쑝硫� 臾댁“嫄� void...
-function setRagebotStatus(enabled, target)
-    if not _993_318 then return end
-    if not enabled then _993_318.Visible = false; return end
-    if target then
-        local name = (target.DisplayName or target.Name or "target")
-        _993_318.Text = "ragebot : killing " .. tostring(name) .. "..."
-    else
-        _993_318.Text = "ragebot : void..."
-    end
-    _993_318.Visible = true
-end
-
-local function get_local_ammo_status()
-    local v43335, _0xfd96, L505_10 = nil, nil, false
-    pcall(function()
-        local _3213x326 = LocalPlayer.PlayerScripts
-        local _0x9ec3, _0lO010OIIO = pcall(require, _3213x326.Controllers.FighterController)
-        if not _0x9ec3 or not _0lO010OIIO then return end
-        local _0x3584 = _0lO010OIIO.LocalFighter
-        if not _0x3584 then return end
-        local _549_282 = _0x3584.EquippedItem
-        if not _549_282 then return end
-        local function get_property(key)
-            local L704_40, L619_44 = pcall(function()
-                if _549_282.Get then return _549_282:Get(key) end
-                return _549_282[key] or (_549_282.Data and _549_282.Data[key]) or (_549_282.Info and _549_282.Info[key])
-            end)
-            if L704_40 then return L619_44 end
-            return nil
-        end
-        v43335 = get_property("CurrentAmmo") or get_property("Ammo") or get_property("Bullets") or get_property("MagazineAmmo")
-        _0xfd96 = get_property("ReserveAmmo") or get_property("StoredAmmo") or get_property("Reserve") or get_property("TotalAmmo") or get_property("MaxAmmo") or get_property("MaxBullets")
-        local L616_26 = get_property("Reloading") or get_property("IsReloading") or get_property("Reload")
-        L505_10 = L616_26 == true
-        if _549_282.Info and type(_549_282.Info) == "table" then
-            if v43335 == nil then v43335 = _549_282.Info.CurrentAmmo or _549_282.Info.Ammo end
-            if _0xfd96 == nil then _0xfd96 = _549_282.Info.ReserveAmmo or _549_282.Info.StoredAmmo or _549_282.Info.MaxAmmo end
-            if _549_282.Info.Reloading == true or _549_282.Info.IsReloading == true then L505_10 = true end
-        end
-    end)
-    return v43335, _0xfd96, L505_10
-end
-
-RunService.RenderStepped:Connect(function()
-    if a41b78c88 then
-        local v43335, _0xfd96, L505_10 = get_local_ammo_status()
-        local __UGHeELfMSX
-        if L505_10 then __UGHeELfMSX = "reloading"
-        elseif typeof(v43335) == "number" and typeof(_0xfd96) == "number" then
-            __UGHeELfMSX = string.format("%d/%d", math.floor(v43335 + 0.5), math.floor(_0xfd96 + 0.5))
-        elseif typeof(v43335) == "number" then
-            __UGHeELfMSX = tostring(math.floor(v43335 + 0.5))
-        else __UGHeELfMSX = nil end
-        if __UGHeELfMSX then
-            _0011Il00.Text = __UGHeELfMSX
-            _0011Il00.Position = UDim2.new(0.5, 0, 0.5, 52)
-            _0011Il00.Visible = true
-        else _0011Il00.Visible = false end
-    else _0011Il00.Visible = false end
-end)
-
--- ============================================================================
--- Wallbang (Head/Body/Auto 泥댁씤�� �좎�, Desync Always On �쒓굅)
--- ============================================================================
-local _GunItem, _Utility
-pcall(function() _GunItem = require(LocalPlayer.PlayerScripts.Modules.ItemTypes.Gun) end)
-pcall(function() _Utility = require(ReplicatedStorage.Modules.Utility) end)
-
-local wbAimPart = "Head"
-
-local WallbangController = {}
 do
-    WallbangController.active = false
-    WallbangController.startShootingRef = nil
-    WallbangController.desyncCleanup = nil
-
-    WallbangController.Desync = {}
-    do
-        WallbangController.Desync.active = false
-        WallbangController.Desync.connection = nil
-        WallbangController.Desync.currentTarget = nil
-
-        function WallbangController.Desync:Start(target)
-            self:Stop()
-            self.active = true
-            self.connection = RunService.Heartbeat:Connect(function()
-                if not self.active then return end
-                local char = LocalPlayer.Character
-                local rootPart = char and char:FindFirstChild("HumanoidRootPart")
-                if not rootPart then return end
-                local targetRoot = target and target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-                if not targetRoot then self:Stop() return end
-                self.currentTarget = target
-                local desyncCFrame = targetRoot.CFrame * CFrame.new(0, -5, 0)
-                local backupCFrame = rootPart.CFrame
-                local backupVelocity = rootPart.Velocity
-                local backupRotVelocity = rootPart.RotVelocity
-                rootPart.CFrame = desyncCFrame
-                RunService:BindToRenderStep('wb_desync_fallback', 101, function()
-                    if rootPart and rootPart.Parent then
-                        rootPart.CFrame = backupCFrame
-                        rootPart.Velocity = backupVelocity
-                        rootPart.RotVelocity = backupRotVelocity
-                    end
-                    RunService:UnbindFromRenderStep('wb_desync_fallback')
-                end)
-                self:Stop()
-            end)
-        end
-
-        function WallbangController.Desync:Stop()
-            self.active = false
-            self.currentTarget = nil
-            if self.connection then self.connection:Disconnect(); self.connection = nil end
-        end
+    local _parts=table.create(__M)
+    for i=1,__M do _parts[i]=__Q[i] end
+    local _enc=__b64(table.concat(_parts))
+    local _kC=__fa(__C)
+    local _kB=__fa(__B)
+    local _kA=__fa(__A)
+    local _d=__xs(_enc,_kC)
+    _d=__xs(_d,_kB)
+    _d=__xs(_d,_kA)
+    local _fn, _err = loadstring(_d)
+    if not _fn then
+        error("[vallk] runtime seal failed: "..tostring(_err), 0)
     end
-
-    WallbangController.Target = {}
-    do
-        WallbangController.Target.active = true
-        WallbangController.Target.target = nil
-        WallbangController.Target.connection = nil
-
-        function WallbangController.Target:IsValidTarget(character)
-            local rootPart = character:FindFirstChild('HumanoidRootPart')
-            local head = character:FindFirstChild('Head')
-            local humanoid = character:FindFirstChildWhichIsA('Humanoid')
-            return rootPart and head and humanoid and humanoid.Health > 0 or false
-        end
-
-        function WallbangController.Target:IsValidTeam(player)
-            return player:GetAttribute('TeamID') ~= LocalPlayer:GetAttribute('TeamID')
-        end
-
-        function WallbangController.Target:GetClosestTarget()
-            local closestTarget = nil
-            local maxDistance = math.huge
-            local mousePos = UserInputService:GetMouseLocation()
-            for _, player in next, Players:GetPlayers() do
-                if player == LocalPlayer then continue end
-                if not self:IsValidTeam(player) then continue end
-                local character = player.Character
-                if not character then continue end
-                if not self:IsValidTarget(character) then continue end
-                local rootPart = character.HumanoidRootPart
-                local screenPos, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
-                if not onScreen then continue end
-                local targetDist = (mousePos - Vector2.new(screenPos.X, screenPos.Y)).magnitude
-                if targetDist > maxDistance then continue end
-                maxDistance = targetDist
-                closestTarget = player
-            end
-            return closestTarget
-        end
-
-        function WallbangController.Target:Start()
-            if self.connection then return end
-            self.connection = RunService.Heartbeat:Connect(function()
-                if not self.active then return end
-                self.target = self:GetClosestTarget()
-            end)
-        end
-
-        function WallbangController.Target:Stop()
-            self.active = false
-            if self.connection then self.connection:Disconnect(); self.connection = nil end
-        end
-    end
-
-    local function resolve_aim_part(targetPlayer)
-        if wbAimPart == "Head" then return "Head" end
-        if wbAimPart == "Body" then return "Body" end
-        local char = targetPlayer and targetPlayer.Character
-        if not char then return "Body" end
-        local head = char:FindFirstChild("Head")
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if not head or not root then return "Body" end
-        local mousePos = UserInputService:GetMouseLocation()
-        local headPos = Camera:WorldToViewportPoint(head.Position)
-        if not headPos then return "Body" end
-        if mousePos.Y > headPos.Y then return "Body" end
-        return "Head"
-    end
-
-    function WallbangController:Start()
-        if not _GunItem or not _Utility then return end
-        self:Stop()
-        self.active = true
-        self.startShootingRef = _GunItem.StartShooting
-        WallbangController.Target.active = true
-        WallbangController.Target:Start()
-
-        _GunItem.StartShooting = function(controller, ...)
-            local result = {self.startShootingRef(controller, ...)}
-            local clientFighter = controller.ClientFighter
-            if not clientFighter.IsLocalPlayer then return unpack(result) end
-            local cameraData = result[3]
-            if not cameraData or typeof(cameraData) ~= 'table' then return unpack(result) end
-            result[4] = true
-            local targetPlayer = WallbangController.Target.target
-            if not self.active or not targetPlayer or (targetPlayer and not targetPlayer.Character) then return unpack(result) end
-            if WallbangController.Desync.currentTarget ~= targetPlayer then
-                WallbangController.Desync:Start(targetPlayer)
-                task.wait(0.05)
-            end
-            if self.desyncCleanup then task.cancel(self.desyncCleanup); self.desyncCleanup = nil end
-            local aimPart = resolve_aim_part(targetPlayer)
-            local targetChar = targetPlayer.Character
-            local targetPart
-            if aimPart == "Head" then
-                targetPart = targetChar:FindFirstChild("Head") or targetChar:FindFirstChild("HumanoidRootPart")
-            else
-                targetPart = targetChar:FindFirstChild("HumanoidRootPart") or targetChar:FindFirstChild("Head")
-            end
-            if not targetPart then return unpack(result) end
-            local targetPos = targetPart.Position
-            local targetCFrame = targetPart.CFrame
-            local shootingPos = targetPos - Vector3.new(0, 5, 0)
-            local shootingOffset = targetCFrame:ToObjectSpace(CFrame.new(targetPos + Vector3.new(math.random(), math.random(), math.random())))
-            cameraData[utf8.char(0)] = _Utility:EncodeCFrame(CFrame.new(shootingPos, targetPos) * CFrame.Angles(CFrame.lookAt(shootingPos, targetPos):ToOrientation()))
-            cameraData[utf8.char(1)] = _Utility:EncodeCFrame(CFrame.new(targetPos) * CFrame.Angles(CFrame.lookAt(shootingPos, targetPos):ToOrientation()))
-            cameraData[utf8.char(2)] = targetPart
-            cameraData[utf8.char(3)] = _Utility:EncodeCFrame(shootingOffset)
-            self.desyncCleanup = task.delay(0.15, function() WallbangController.Desync:Stop() end)
-            return unpack(result)
-        end
-    end
-
-    function WallbangController:Stop()
-        self.active = false
-        if _GunItem and self.startShootingRef then _GunItem.StartShooting = self.startShootingRef end
-        WallbangController.Desync:Stop()
-        WallbangController.Target:Stop()
-        if self.desyncCleanup then task.cancel(self.desyncCleanup); self.desyncCleanup = nil end
-    end
+    _fn()
 end
 
 
--- Wire Valk toggles <-> RagebotSettings
-task.spawn(function()
-    local lastOn = false
-    while true do
-        task.wait(0.15)
-        pcall(function()
-            RagebotSettings.voidHideTime = voidHideTime or RagebotSettings.voidHideTime
-            RagebotSettings.voidShootTime = voidShootTime or RagebotSettings.voidShootTime
-            RagebotSettings.voidSpam = voidSpamEnabled == true
-            RagebotSettings.shootAttempts = voidAttackAttempts or 1
-            local want = ragebotOrKillAura == true
-            if want and not lastOn then
-                RagebotSettings.on = true
-                if startRagebot then startRagebot() end
-                lastOn = true
-            elseif not want and lastOn then
-                if stopRagebot then stopRagebot() end
-                RagebotSettings.on = false
-                lastOn = false
-            end
-        end)
-    end
-end)
-
--- SECTION: Hit Logs Integration (multvallk)
--- ============================================================================
-local HitLogGui = Instance.new("ScreenGui")
-HitLogGui.Name = "multvallkHitLogUI"
-HitLogGui.ResetOnSpawn = false
-pcall(function() if gethui then HitLogGui.Parent = gethui() else HitLogGui.Parent = CoreGui end end)
-if not HitLogGui.Parent then HitLogGui.Parent = PlayerGui end
-
-local HitLogFrame = Instance.new("Frame", HitLogGui)
-HitLogFrame.Size = UDim2.new(0, 280, 0, 150)
-HitLogFrame.Position = UDim2.new(0, 10, 0.5, -75)
-HitLogFrame.BackgroundTransparency = 1
-
-local HitLogLayout = Instance.new("UIListLayout", HitLogFrame)
-HitLogLayout.SortOrder = Enum.SortOrder.LayoutOrder
-HitLogLayout.Padding = UDim.new(0, 4)
-HitLogLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-
-
-local function playHitSound()
-    if not hitSoundEnabled then return end
-    local id = HIT_SOUND_IDS[hitSoundName] or HIT_SOUND_IDS.neverlose
-    pcall(function()
-        local s = Instance.new("Sound")
-        s.SoundId = id
-        s.Volume = math.clamp(hitSoundVolume or 0.7, 0, 5)
-        s.Parent = workspace
-        s:Play()
-        game:GetService("Debris"):AddItem(s, 3)
-    end)
+local __trap=function(...)
+    local a={...}
+    for i=1,#a do a[i]=(typeof(a[i])=='number' and (a[i]*0x45D9F3B)%2^32) or 0 end
+    return a
 end
-
-local function addHitLog(targetName, damage)
-    local logLabel = Instance.new("TextLabel")
-    logLabel.Size = UDim2.new(1, 0, 0, 18)
-    logLabel.BackgroundTransparency = 1
-    logLabel.Text = string.format("(mult hit %s damage: %.1f)", targetName, damage)
-    logLabel.TextColor3 = Color3.fromRGB(0, 255, 120)
-    logLabel.TextStrokeTransparency = 0.2
-    logLabel.Font = Enum.Font.Code
-    logLabel.TextSize = 11
-    logLabel.TextXAlignment = Enum.TextXAlignment.Left
-    logLabel.Parent = HitLogFrame
-
-    task.delay(4, function()
-        pcall(function()
-            local tween = TweenService:Create(logLabel, TweenInfo.new(0.5), {TextTransparency = 1, TextStrokeTransparency = 1})
-            tween:Play()
-            tween.Completed:Connect(function() logLabel:Destroy() end)
-        end)
-    end)
-end
-
-local function setupPlayerDamageTracker(player)
-    if player == LocalPlayer then return end
-    local function trackCharacter(char)
-        if not char then return end
-        local hum = char:WaitForChild("Humanoid", 5)
-        if not hum then return end
-        local lastHealth = hum.Health
-        local conn
-        conn = hum.HealthChanged:Connect(function(newHealth)
-            if newHealth < lastHealth then
-                addHitLog(player.Name, lastHealth - newHealth)
-                if hitSoundEnabled then playHitSound() end
-            end
-            lastHealth = newHealth
-        end)
-        hum.Died:Connect(function() if conn then conn:Disconnect() end end)
-    end
-    if player.Character then trackCharacter(player.Character) end
-    player.CharacterAdded:Connect(trackCharacter)
-end
-
-for _, p in ipairs(Players:GetPlayers()) do setupPlayerDamageTracker(p) end
-Players.PlayerAdded:Connect(setupPlayerDamageTracker)
-
--- ============================================================================
--- SECTION: Ragebot UI & Rainbow Crosshair Indicator (multvallk)
--- ============================================================================
-local RageUIGui = Instance.new("ScreenGui", PlayerGui)
-RageUIGui.Name = "multvallkRageUI"
-RageUIGui.ResetOnSpawn = false
-
-local CrosshairContainer = Instance.new("Frame", RageUIGui)
-CrosshairContainer.AnchorPoint = Vector2.new(0.5, 0.5)
-CrosshairContainer.Position = UDim2.new(0.5, 0, 0.5, -35)
-CrosshairContainer.Size = UDim2.new(0, 40, 0, 40)
-CrosshairContainer.BackgroundTransparency = 1
-CrosshairContainer.Visible = false
-
-local lines = {
-    {Size = UDim2.new(0, 8, 0, 2), DefaultPos = UDim2.new(0, 0, 0.5, -1)},
-    {Size = UDim2.new(0, 8, 0, 2), DefaultPos = UDim2.new(1, -8, 0.5, -1)},
-    {Size = UDim2.new(0, 2, 0, 8), DefaultPos = UDim2.new(0.5, -1, 0, 0)},
-    {Size = UDim2.new(0, 2, 0, 8), DefaultPos = UDim2.new(0.5, -1, 1, -8)}
-}
-
-local crosshairLines = {}
-for _, info in ipairs(lines) do
-    local line = Instance.new("Frame", CrosshairContainer)
-    line.Size = info.Size
-    line.Position = info.DefaultPos
-    line.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    line.BorderSizePixel = 0
-    table.insert(crosshairLines, {Line = line, DefaultPos = info.DefaultPos})
-end
-
-local RageTextLabel = Instance.new("TextLabel", RageUIGui)
-RageTextLabel.AnchorPoint = Vector2.new(0.5, 0.5)
-RageTextLabel.Position = UDim2.new(0.5, 0, 0.5, 25)
-RageTextLabel.Size = UDim2.new(0, 280, 0, 20)
-RageTextLabel.BackgroundTransparency = 1
-RageTextLabel.Text = "(multvallk ragebot:in the void...^^)"
-RageTextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-RageTextLabel.TextStrokeTransparency = 0
-RageTextLabel.Font = Enum.Font.GothamBold
-RageTextLabel.TextSize = 12
-RageTextLabel.TextXAlignment = Enum.TextXAlignment.Center
-RageTextLabel.Visible = false
-
-local rageHue = 0
-local rotAngle = 0
-RunService.RenderStepped:Connect(function()
-    RageTextLabel.Visible = CrosshairContainer.Visible or ragebotOrKillAura
-    if RageTextLabel.Visible then
-        rageHue = (rageHue + 2) % 360
-        local rainbowColor = Color3.fromHSV(rageHue / 360, 1, 1)
-        for _, item in ipairs(crosshairLines) do item.Line.BackgroundColor3 = rainbowColor end
-        RageTextLabel.TextColor3 = rainbowColor
-
-        rotAngle = (rotAngle + 4) % 360
-        CrosshairContainer.Rotation = rotAngle
-
-        local timeVal = tick() * 5
-        local pulse = (math.sin(timeVal) + 1) * 0.5
-        
-        crosshairLines[1].Line.Position = UDim2.new(0, math.floor(3 + pulse * 6), 0.5, -1)
-        crosshairLines[2].Line.Position = UDim2.new(1, math.floor(-11 - pulse * 6), 0.5, -1)
-        crosshairLines[3].Line.Position = UDim2.new(0.5, -1, 0, math.floor(3 + pulse * 6))
-        crosshairLines[4].Line.Position = UDim2.new(0.5, -1, 1, math.floor(-11 - pulse * 6))
-
-        if activeTargetPart and activeTargetPart.Parent then
-            local tModel = activeTargetPart:FindFirstAncestorOfClass("Model") or activeTargetPart.Parent
-            RageTextLabel.Text = "(multvallk ragebot kill " .. tModel.Name .. ")"
-        else
-            RageTextLabel.Text = "(multvallk ragebot:in the void...^^)"
-        end
-    end
-end)
-
--- Fast Melee & Cooldown Override Loops
-task.spawn(function()
-    while true do
-        task.wait(0.1)
-        if fastMeleeEnabled or attackCooldownDisabled or projectileCooldownDisabled then
-            pcall(function()
-                for _, v in pairs(getgc(true)) do
-                    if type(v) == "table" then
-                        if attackCooldownDisabled or fastMeleeEnabled then
-                            if rawget(v, "Cooldown") then rawset(v, "Cooldown", 0) end
-                            if rawget(v, "AttackCooldown") then rawset(v, "AttackCooldown", 0) end
-                            if rawget(v, "SwingCooldown") then rawset(v, "SwingCooldown", 0) end
-                            if rawget(v, "HitCooldown") then rawset(v, "HitCooldown", 0) end
-                            if rawget(v, "Delay") then rawset(v, "Delay", 0) end
-                        end
-                        if projectileCooldownDisabled then
-                            if rawget(v, "ProjectileCooldown") then rawset(v, "ProjectileCooldown", 0) end
-                            if rawget(v, "ThrowCooldown") then rawset(v, "ThrowCooldown", 0) end
-                        end
-                    end
-                end
-                
-                if fastMeleeEnabled then
-                    local char = LocalPlayer.Character
-                    if char then
-                        local hum = char:FindFirstChildOfClass("Humanoid")
-                        if hum then
-                            for _, track in pairs(hum:GetPlayingAnimationTracks()) do
-                                local animName = string.lower(track.Animation.AnimationId)
-                                if animName:find("sword") or animName:find("melee") or animName:find("knife") or animName:find("slash") or animName:find("punch") or animName:find("attack") then
-                                    track:AdjustSpeed(8.0)
-                                end
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-    end
-end)
-
--- Gun Hooking & Silent Aim Mechanics
-pcall(function()
-    if FighterController and FighterController.LocalFighter and FighterController.LocalFighter.GetMouseLocation then
-        local LocalFighter = FighterController.LocalFighter
-        local oldMouseLoc = LocalFighter.GetMouseLocation
-        LocalFighter.GetMouseLocation = newcclosure(function(...)
-            if silentAimTarget and (silentAimEnabled or ragebotOrKillAura) then
-                local screenPos = Camera:WorldToScreenPoint(silentAimTarget.Position)
-                return Vector2.new(screenPos.X, screenPos.Y)
-            end
-            return oldMouseLoc(...)
-        end)
-    end
-end)
-
-pcall(function()
-    local CosmeticLibrary = require(ReplicatedStorage.Modules:WaitForChild("CosmeticLibrary", 5))
-    local DataController = require(LocalPlayer.PlayerScripts.Controllers:WaitForChild("PlayerDataController", 5))
-
-    local originalOwns = CosmeticLibrary.OwnsCosmetic
-    CosmeticLibrary.OwnsCosmetic = function(self, inv, name, wpn)
-        if skinChangerEnabled then return true end
-        return originalOwns(self, inv, name, wpn)
-    end
-    CosmeticLibrary.OwnsCosmeticNormally = function(...) if skinChangerEnabled then return true end return false end
-    CosmeticLibrary.OwnsCosmeticUniversally = function(...) if skinChangerEnabled then return true end return false end
-    CosmeticLibrary.OwnsCosmeticForWeapon = function(...) if skinChangerEnabled then return true end return false end
-
-    local originalGet = DataController.Get
-    DataController.Get = function(self, key)
-        local data = originalGet(self, key)
-        if skinChangerEnabled and key == "CosmeticInventory" then
-            local proxy = {}
-            if data then for k, v in pairs(data) do proxy[k] = v end end
-            return setmetatable(proxy, {__index = function() return true end})
-        end
-        return data
-    end
-end)
-
-RunService.Heartbeat:Connect(function()
-    pcall(function()
-        if not FighterController or not FighterController.LocalFighter then return end
-        local item = FighterController.LocalFighter.EquippedItem
-        if not item then return end
-
-        if noSpreadEnabled then
-            if rawget(item, "Spread") then rawset(item, "Spread", 0) end
-            if rawget(item, "CurrentSpread") then rawset(item, "CurrentSpread", 0) end
-            if item.Info and type(item.Info) == "table" then
-                if rawget(item.Info, "Spread") then rawset(item.Info, "Spread", 0) end
-            end
-        end
-
-        if rapidFireEnabled or hoNyangNoCDEnabled then
-            if rawget(item, "ShootCooldown") then rawset(item, "ShootCooldown", 0) end
-            if rawget(item, "FireRate") then rawset(item, "FireRate", 0) end
-            if rawget(item, "Cooldown") then rawset(item, "Cooldown", 0) end
-            if item.Info and type(item.Info) == "table" then
-                if rawget(item.Info, "ShootCooldown") then rawset(item.Info, "ShootCooldown", 0) end
-                if rawget(item.Info, "FireRate") then rawset(item.Info, "FireRate", 0) end
-            end
-        end
-
-        if noRecoilEnabled then
-            if rawget(item, "Recoil") then rawset(item, "Recoil", 0) end
-            if rawget(item, "CameraRecoil") then rawset(item, "CameraRecoil", 0) end
-            if item.Info and type(item.Info) == "table" then
-                if rawget(item.Info, "Recoil") then rawset(item.Info, "Recoil", 0) end
-            end
-        end
-
-        if noMuzzleFlashEnabled then
-            if rawget(item, "MuzzleFlash") then rawset(item, "MuzzleFlash", false) end
-        end
-
-        if bulletSpeedBoost then
-            if item.BulletSpeed then
-                if not item._origBulletSpeed then item._origBulletSpeed = item.BulletSpeed end
-                item.BulletSpeed = item._origBulletSpeed * bulletSpeedMult
-            end
-        else
-            if item._origBulletSpeed then item.BulletSpeed = item._origBulletSpeed end
-        end
-    end)
-end)
-
--- Render / Visuals & Skybox Presets
-local SEGMENT_COUNT = 32
-local circleSegments = {}
-
-local circleFill = (Drawing and Drawing.new or function() return setmetatable({},{__index=function() return function() end end, __newindex=function() end}) end)("Circle")
-circleFill.Thickness = 0
-circleFill.NumSides = 64
-circleFill.Filled = true
-circleFill.Transparency = 1.0
-circleFill.Visible = false
-
-for i = 1, SEGMENT_COUNT do
-    local line = (Drawing and Drawing.new or function() return setmetatable({},{__index=function() return function() end end, __newindex=function() end}) end)("Line")
-    line.Thickness = 2.2
-    line.Transparency = 1
-    line.Visible = false
-    table.insert(circleSegments, line)
-end
-
-local function getRainbowColor(hueOffset)
-    local hue = (tick() * 0.5 + hueOffset) % 1
-    return Color3.fromHSV(hue, 1, 1)
-end
-
-local skyPresets = {
-    ["Dark Sky"] = { SkyboxUp = "rbxassetid://570555929", SkyboxRt = "rbxassetid://570555882", SkyboxDn = "rbxassetid://570555964", SkyboxFt = "rbxassetid://570555800", SkyboxLf = "rbxassetid://570555840", SkyboxBk = "rbxassetid://570555736" },
-    ["Vaporwave"] = { SkyboxUp = "rbxassetid://1417494643", SkyboxRt = "rbxassetid://1417494499", SkyboxLf = "rbxassetid://1417494402", SkyboxFt = "rbxassetid://1417494253", SkyboxBk = "rbxassetid://1417494030", SkyboxDn = "rbxassetid://1417494146" },
-    ["Lake Sky"] = { SkyboxRt = "rbxassetid://6823531746", SkyboxUp = "rbxassetid://6823528533", SunTextureId = "rbxassetid://5392574622", SkyboxDn = "rbxassetid://6823525702", SkyboxFt = "rbxassetid://6823482923", SkyboxLf = "rbxassetid://6823530023", SkyboxBk = "rbxassetid://6823523318" },
-    ["Black Mesa"] = { SkyboxUp = "rbxassetid://9569598752", SkyboxRt = "rbxassetid://9569601267", SkyboxDn = "rbxassetid://9569613307", SkyboxFt = "rbxassetid://9569611418", SkyboxLf = "rbxassetid://9569608166", SkyboxBk = "rbxassetid://9569742122" }
-}
-
-local function applySkybox()
-    local customSky = Lighting:FindFirstChild("multvallkCustomSky")
-    if not customSkyboxEnabled then
-        if customSky then customSky:Destroy() end
-        return
-    end
-    local skyData = skyPresets[skyboxTheme] or skyPresets["Vaporwave"]
-    if not customSky then
-        customSky = Instance.new("Sky")
-        customSky.Name = "multvallkCustomSky"
-        customSky.Parent = Lighting
-    end
-    for prop, val in pairs(skyData) do pcall(function() customSky[prop] = val end) end
-end
-
-local function setSkyboxTheme(selectedTheme)
-    skyboxTheme = selectedTheme
-    customSkyboxEnabled = true
-    applySkybox()
-end
-
-RunService.RenderStepped:Connect(function()
-    local myChar = LocalPlayer.Character
-    local mousePos = UserInputService:GetMouseLocation()
-
-    if false and circleCrosshairEnabled then -- Drawing crosshair disabled (freeze)
-        local centerPos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-        local radius = math.clamp(circleCrosshairSize, 1, 600)
-        local currentRot = (tick() * circleRotationSpeed) % (math.pi * 2)
-
-        circleFill.Position = centerPos
-        circleFill.Radius = radius
-        circleFill.Color = getRainbowColor(0)
-        circleFill.Visible = true
-
-        for i = 1, SEGMENT_COUNT do
-            local line = circleSegments[i]
-            local angle1 = currentRot + ((i - 1) / SEGMENT_COUNT) * (math.pi * 2)
-            local angle2 = currentRot + (i / SEGMENT_COUNT) * (math.pi * 2)
-
-            line.From = centerPos + Vector2.new(math.cos(angle1) * radius, math.sin(angle1) * radius)
-            line.To = centerPos + Vector2.new(math.cos(angle2) * radius, math.sin(angle2) * radius)
-            line.Color = getRainbowColor((i - 1) / SEGMENT_COUNT)
-            line.Visible = true
-        end
-    else
-        circleFill.Visible = false
-        for _, line in ipairs(circleSegments) do line.Visible = false end
-    end
-
-    if aimbotEnabled and myChar then
-        local closestTarget = nil
-        local closestDist = math.huge
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and not is_teammate(player) and not get_character_immune(player) and not is_reflecting_or_parrying(player) then
-                local hitPart = player.Character and player.Character:FindFirstChild(aimbotHitPart)
-                if hitPart then
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(hitPart.Position)
-                    if onScreen then
-                        local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                        if screenDist <= aimbotFovRadius and screenDist < closestDist then
-                            if (not aimbotWallCheck) or has_line_of_sight(hitPart, myChar) then
-                                closestDist = screenDist
-                                closestTarget = hitPart
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        if closestTarget then
-            local targetPos = Camera:WorldToScreenPoint(closestTarget.Position)
-            local currentPos = UserInputService:GetMouseLocation()
-            local moveVector = (Vector2.new(targetPos.X, targetPos.Y) - currentPos) / math.max(1, aimbotSmoothness)
-            mousemoverel(moveVector.X, moveVector.Y)
-        end
-    end
-
-    silentAimTarget = nil
-    if (silentAimEnabled or ragebotOrKillAura) and myChar then
-        local closestDist = math.huge
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and not is_teammate(player) and not get_character_immune(player) and not is_reflecting_or_parrying(player) then
-                local hitPart = get_character_root(player.Character)
-                if hitPart then
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(hitPart.Position)
-                    if onScreen then
-                        local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                        local maxFov = ragebotOrKillAura and 99999 or silentAimFovRadius
-                        
-                        if screenDist <= maxFov and screenDist < closestDist then
-                            if (not silentWallCheck) or has_line_of_sight(hitPart, myChar) then
-                                closestDist = screenDist
-                                silentAimTarget = hitPart
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end)
-
-RunService.Stepped:Connect(function()
-    local myChar = LocalPlayer.Character
-    if not myChar then return end
-    local hrp = myChar:FindFirstChild("HumanoidRootPart")
-    local hum = myChar:FindFirstChildOfClass("Humanoid")
-    if not hrp or not hum then return end
-
-    if noclipEnabled then
-        for _, part in pairs(myChar:GetDescendants()) do
-            if part:IsA("BasePart") then part.CanCollide = false end
-        end
-    end
-
-    if rapidSpeedEnabled and hum.MoveDirection.Magnitude > 0 then
-        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * (rapidSpeedMultiplier * 0.4))
-    end
-
-    if (pcFlyEnabled or mobileFlyEnabled) then
-        hum.PlatformStand = true
-        local flyVel = Vector3.zero
-        if pcFlyEnabled then
-            local moveDir = Vector3.zero
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Camera.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
-            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir = moveDir - Vector3.new(0, 1, 0) end
-            if moveDir.Magnitude > 0 then flyVel = moveDir.Unit * 50 end
-        elseif mobileFlyEnabled and hum.MoveDirection.Magnitude > 0 then
-            flyVel = Camera.CFrame.LookVector * 50
-        end
-        hrp.AssemblyLinearVelocity = flyVel
-        hrp.AssemblyAngularVelocity = Vector3.zero
-    else
-        if hum.PlatformStand then hum.PlatformStand = false end
-    end
-end)
-
--- ============================================================================
--- SECTION: User Interface Framework (Optimized Size & Left Margin Applied)
--- ============================================================================
-local valkLib = { accentclr = Color3.fromRGB(128, 213, 247) }
-
-local function make_draggable(clickObject, dragObject)
-    pcall(function()
-        local dragging = false
-        local dragInput, dragStart, startPos
-        clickObject.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
-                dragging = true
-                dragStart = input.Position
-                startPos = dragObject.Position
-                input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then dragging = false end 
-                end)
-            end 
-        end)
-        clickObject.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end 
-        end)
-        UserInputService.InputChanged:Connect(function(input)
-            if input == dragInput and dragging then 
-                local delta = input.Position - dragStart
-                dragObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            end 
-        end)
-    end)
-end
-
-local MainGui = Instance.new("ScreenGui")
-MainGui.Name = "multvallkHalmuUI"
-MainGui.ResetOnSpawn = false
-pcall(function() if gethui then MainGui.Parent = gethui() else MainGui.Parent = CoreGui end end)
-if not MainGui.Parent then MainGui.Parent = PlayerGui end
-
--- HALMU VALK Main Frame Construction (紐⑤컮�� 媛��낆꽦�� �꾪빐 �ш린瑜� �댁쭩 以꾩씠怨� 醫뚯륫 �щ갚/鍮꾩쑉 理쒖쟻��)
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Parent = MainGui
-MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-MainFrame.BackgroundTransparency = 0.15
-MainFrame.BorderSizePixel = 0
-MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-MainFrame.Size = UDim2.new(0, 480, 0, 560) -- �ш린 理쒖쟻�� 異뺤냼
-MainFrame.Visible = false -- key �듦낵 �� �쒖떆
-MainFrame.ClipsDescendants = true
-
-local Outline1 = Instance.new("ImageLabel", MainFrame)
-Outline1.BackgroundTransparency = 1
-Outline1.Position = UDim2.new(0, 1, 0, 1)
-Outline1.Size = UDim2.new(1, -2, 1, -2)
-Outline1.Image = "rbxassetid://2592362371"
-Outline1.ImageColor3 = Color3.fromRGB(60, 60, 60)
-Outline1.ScaleType = Enum.ScaleType.Slice
-Outline1.SliceCenter = Rect.new(2, 2, 62, 62)
-
-local TopBar = Instance.new("Frame", MainFrame)
-TopBar.Name = "TopBar"
-TopBar.AnchorPoint = Vector2.new(0.5, 0)
-TopBar.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
-TopBar.BorderSizePixel = 0
-TopBar.Position = UDim2.new(0.5, 0, 0, 2)
-TopBar.Size = UDim2.new(1, -5, 0, 28)
-
-local TopBarTitle = Instance.new("TextLabel", TopBar)
-TopBarTitle.BackgroundTransparency = 1
-TopBarTitle.Position = UDim2.new(0, 7, 0, 5)
-TopBarTitle.Size = UDim2.new(0, 0, 0, 16)
-TopBarTitle.Font = Enum.Font.Code
-TopBarTitle.Text = "multvallk Premium v3 (Optimized UI)"
-TopBarTitle.TextColor3 = Color3.fromRGB(230, 230, 230)
-TopBarTitle.TextSize = 15
-TopBarTitle.TextXAlignment = Enum.TextXAlignment.Left
-
-local TopBarLine = Instance.new("Frame", TopBar)
-TopBarLine.BackgroundColor3 = valkLib.accentclr
-TopBarLine.BorderSizePixel = 0
-TopBarLine.Position = UDim2.new(0, 0, 0, 27)
-TopBarLine.Size = UDim2.new(1, 0, 0, 1)
-
-make_draggable(TopBar, MainFrame)
-
-local ContainerHolder = Instance.new("Frame", MainFrame)
-ContainerHolder.Name = "ContainerHolderFrame"
-ContainerHolder.AnchorPoint = Vector2.new(0.5, 0)
-ContainerHolder.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
-ContainerHolder.Position = UDim2.new(0.5, 0, 0, 35)
-ContainerHolder.Size = UDim2.new(1, -12, 1, -42) -- �쇱そ �щ갚�� 以꾩뿬 紐⑤컮�� �섎┝ 諛⑹�
-ContainerHolder.BackgroundTransparency = 1
-
-local TabHolder = Instance.new("ScrollingFrame", ContainerHolder)
-TabHolder.Name = "TabHolderFrame"
-TabHolder.BackgroundTransparency = 1
-TabHolder.Size = UDim2.new(1, 0, 0, 32)
-TabHolder.CanvasSize = UDim2.new(0, 700, 0, 0)
-TabHolder.ScrollBarThickness = 0
-
-local TabListLayout = Instance.new("UIListLayout", TabHolder)
-TabListLayout.FillDirection = Enum.FillDirection.Horizontal
-TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-TabListLayout.Padding = UDim.new(0, 4)
-
-local TabPadding = Instance.new("UIPadding", TabHolder)
-TabPadding.PaddingLeft = UDim.new(0, 3) -- �쇱そ �⑤뵫 理쒖냼��
-
--- Tab Creation System
-local tabEntries = {}
-local isFirstTab = true
-
-local function AddValkTab(tabName)
-    local btn = Instance.new("TextButton", TabHolder)
-    btn.Name = tabName .. "_TabBtn"
-    btn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    btn.BorderSizePixel = 0
-    btn.Font = Enum.Font.Code
-    btn.Text = tabName
-    btn.TextColor3 = Color3.fromRGB(150, 150, 150)
-    btn.TextSize = 13
-    btn.AutoButtonColor = false
-    
-    local txtSize
-    pcall(function()
-        txtSize = TextService:GetTextSize(tabName, 13, Enum.Font.Code, Vector2.new(500, 500))
-    end)
-    btn.Size = UDim2.new(0, (txtSize and txtSize.X or (#tabName * 7)) + 22, 0, 26)
-    
-    local topLine = Instance.new("Frame", btn)
-    topLine.BackgroundColor3 = valkLib.accentclr
-    topLine.BorderSizePixel = 0
-    topLine.Position = UDim2.new(0, 0, 0, 0)
-    topLine.Size = UDim2.new(1, 0, 0, 2)
-    topLine.Visible = false
-    
-    local outline = Instance.new("ImageLabel", btn)
-    outline.BackgroundTransparency = 1
-    outline.Size = UDim2.new(1, 0, 1, 0)
-    outline.Image = "rbxassetid://2592362371"
-    outline.ImageColor3 = Color3.fromRGB(45, 45, 45)
-    outline.ScaleType = Enum.ScaleType.Slice
-    outline.SliceCenter = Rect.new(2, 2, 62, 62)
-
-    local holder1 = Instance.new("ScrollingFrame", ContainerHolder)
-    holder1.Name = tabName .. "_Holder1"
-    holder1.BackgroundTransparency = 1
-    holder1.Position = UDim2.new(0, 1, 0, 35)
-    holder1.Size = UDim2.new(0.49, -2, 1, -40)
-    holder1.Visible = false
-    holder1.ScrollBarThickness = 3
-
-    local h1Padding = Instance.new("UIPadding", holder1)
-    h1Padding.PaddingTop = UDim.new(0, 5)
-    local h1Layout = Instance.new("UIListLayout", holder1)
-    h1Layout.SortOrder = Enum.SortOrder.LayoutOrder
-    h1Layout.Padding = UDim.new(0, 8)
-    h1Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        holder1.CanvasSize = UDim2.new(0, 0, 0, h1Layout.AbsoluteContentSize.Y + 20)
-    end)
-
-    local holder2 = Instance.new("ScrollingFrame", ContainerHolder)
-    holder2.Name = tabName .. "_Holder2"
-    holder2.BackgroundTransparency = 1
-    holder2.Position = UDim2.new(0.51, 1, 0, 35)
-    holder2.Size = UDim2.new(0.49, -2, 1, -40)
-    holder2.Visible = false
-    holder2.ScrollBarThickness = 3
-
-    local h2Padding = Instance.new("UIPadding", holder2)
-    h2Padding.PaddingTop = UDim.new(0, 5)
-    local h2Layout = Instance.new("UIListLayout", holder2)
-    h2Layout.SortOrder = Enum.SortOrder.LayoutOrder
-    h2Layout.Padding = UDim.new(0, 8)
-    h2Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        holder2.CanvasSize = UDim2.new(0, 0, 0, h2Layout.AbsoluteContentSize.Y + 20)
-    end)
-
-    local entry = {btn = btn, topLine = topLine, outline = outline, h1 = holder1, h2 = holder2}
-    table.insert(tabEntries, entry)
-
-    if isFirstTab then
-        isFirstTab = false
-        holder1.Visible = true
-        holder2.Visible = true
-        btn.BackgroundColor3 = Color3.fromRGB(33, 33, 33)
-        btn.TextColor3 = Color3.fromRGB(230, 230, 230)
-        topLine.Visible = true
-        outline.ImageColor3 = Color3.fromRGB(65, 65, 65)
-    end
-
-    btn.MouseButton1Click:Connect(function()
-        for _, t in ipairs(tabEntries) do
-            if t.btn == btn then
-                t.btn.BackgroundColor3 = Color3.fromRGB(33, 33, 33)
-                t.btn.TextColor3 = Color3.fromRGB(230, 230, 230)
-                t.topLine.Visible = true
-                t.outline.ImageColor3 = Color3.fromRGB(65, 65, 65)
-                t.h1.Visible = true
-                t.h2.Visible = true
-            else
-                t.btn.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
-                t.btn.TextColor3 = Color3.fromRGB(150, 150, 150)
-                t.topLine.Visible = false
-                t.outline.ImageColor3 = Color3.fromRGB(45, 45, 45)
-                t.h1.Visible = false
-                t.h2.Visible = false
-            end
-        end
-    end)
-
-    local tabObj = {}
-    function tabObj:Section(sectionName, side)
-        local parentHolder = (side == 2) and holder2 or holder1
-
-        local secFrame = Instance.new("Frame", parentHolder)
-        secFrame.Name = "Section"
-        secFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        secFrame.BorderSizePixel = 0
-        secFrame.Size = UDim2.new(1, -2, 0, 24)
-
-        local secOutline = Instance.new("ImageLabel", secFrame)
-        secOutline.BackgroundTransparency = 1
-        secOutline.Size = UDim2.new(1, 0, 1, 0)
-        secOutline.Image = "rbxassetid://2592362371"
-        secOutline.ImageColor3 = Color3.fromRGB(60, 60, 60)
-        secOutline.ScaleType = Enum.ScaleType.Slice
-        secOutline.SliceCenter = Rect.new(2, 2, 62, 62)
-
-        local secTitleFrame = Instance.new("Frame", secFrame)
-        secTitleFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        secTitleFrame.BorderSizePixel = 0
-        secTitleFrame.Position = UDim2.new(0, 8, 0, 0)
-
-        local secTitle = Instance.new("TextLabel", secTitleFrame)
-        secTitle.BackgroundTransparency = 1
-        secTitle.Position = UDim2.new(0, 0, 0, -3)
-        secTitle.Size = UDim2.new(1, 0, 0, 7)
-        secTitle.Font = Enum.Font.Code
-        secTitle.Text = sectionName
-        secTitle.TextColor3 = Color3.fromRGB(230, 230, 230)
-        secTitle.TextSize = 13
-        secTitleFrame.Size = UDim2.new(0, secTitle.TextBounds.X + 6, 0, 7)
-
-        local itemHolder = Instance.new("Frame", secFrame)
-        itemHolder.AnchorPoint = Vector2.new(0.5, 0)
-        itemHolder.BackgroundTransparency = 1
-        itemHolder.Position = UDim2.new(0.5, 0, 0, 14)
-        itemHolder.Size = UDim2.new(1, -12, 0, 0)
-
-        local itemLayout = Instance.new("UIListLayout", itemHolder)
-        itemLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        itemLayout.Padding = UDim.new(0, 4)
-
-        local function updateSize()
-            secFrame.Size = UDim2.new(1, -2, 0, itemLayout.AbsoluteContentSize.Y + 22)
-            holder1.CanvasSize = UDim2.new(0, 0, 0, holder1:FindFirstChildOfClass("UIListLayout").AbsoluteContentSize.Y + 20)
-            holder2.CanvasSize = UDim2.new(0, 0, 0, holder2:FindFirstChildOfClass("UIListLayout").AbsoluteContentSize.Y + 20)
-        end
-
-        itemLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateSize)
-
-        local secObj = {}
-        function secObj:Toggle(text, getv, setv)
-            local toggleBtn = Instance.new("TextButton", itemHolder)
-            toggleBtn.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
-            toggleBtn.BorderSizePixel = 0
-            toggleBtn.Size = UDim2.new(1, 0, 0, 21)
-            toggleBtn.Text = ""
-
-            local btnOutline = Instance.new("ImageLabel", toggleBtn)
-            btnOutline.BackgroundTransparency = 1
-            btnOutline.Size = UDim2.new(1, 0, 1, 0)
-            btnOutline.Image = "rbxassetid://2592362371"
-            btnOutline.ImageColor3 = Color3.fromRGB(60, 60, 60)
-            btnOutline.ScaleType = Enum.ScaleType.Slice
-            btnOutline.SliceCenter = Rect.new(2, 2, 62, 62)
-
-            local indicator = Instance.new("Frame", toggleBtn)
-            indicator.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-            indicator.Position = UDim2.new(1, -16, 0, 3)
-            indicator.Size = UDim2.new(0, 14, 0, 14)
-            indicator.BorderSizePixel = 0
-
-            local indColor = Instance.new("Frame", indicator)
-            indColor.Size = UDim2.new(1, -4, 1, -4)
-            indColor.Position = UDim2.new(0, 2, 0, 2)
-            indColor.BorderSizePixel = 0
-            indColor.BackgroundColor3 = getv() and valkLib.accentclr or Color3.fromRGB(40, 40, 40)
-
-            local label = Instance.new("TextLabel", toggleBtn)
-            label.BackgroundTransparency = 1
-            label.Position = UDim2.new(0, 5, 0, 0)
-            label.Size = UDim2.new(1, -22, 1, 0)
-            label.Font = Enum.Font.Code
-            label.Text = text
-            label.TextColor3 = Color3.fromRGB(200, 200, 200)
-            label.TextSize = 11
-            label.TextXAlignment = Enum.TextXAlignment.Left
-
-            local function refreshToggleUI()
-                indColor.BackgroundColor3 = getv() and valkLib.accentclr or Color3.fromRGB(40, 40, 40)
-            end
-
-            toggleBtn.MouseButton1Click:Connect(function()
-                setv(not getv())
-                refreshToggleUI()
-            end)
-            -- no per-frame UI refresh (was causing freeze)
-            updateSize()
-        end
-
-        function secObj:Slider(text, min, max, getv, setv)
-            local sliderFrame = Instance.new("Frame", itemHolder)
-            sliderFrame.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
-            sliderFrame.BorderSizePixel = 0
-            sliderFrame.Size = UDim2.new(1, 0, 0, 30)
-
-            local sOutline = Instance.new("ImageLabel", sliderFrame)
-            sOutline.BackgroundTransparency = 1
-            sOutline.Size = UDim2.new(1, 0, 1, 0)
-            sOutline.Image = "rbxassetid://2592362371"
-            sOutline.ImageColor3 = Color3.fromRGB(60, 60, 60)
-            sOutline.ScaleType = Enum.ScaleType.Slice
-            sOutline.SliceCenter = Rect.new(2, 2, 62, 62)
-
-            local lbl = Instance.new("TextLabel", sliderFrame)
-            lbl.BackgroundTransparency = 1
-            lbl.Position = UDim2.new(0, 5, 0, 2)
-            lbl.Size = UDim2.new(1, -10, 0, 12)
-            lbl.Font = Enum.Font.Code
-            lbl.Text = text .. ": " .. string.format(max > 1000 and "%.0f" or "%.2f", getv())
-            lbl.TextColor3 = Color3.fromRGB(200, 200, 200)
-            lbl.TextSize = 10
-            lbl.TextXAlignment = Enum.TextXAlignment.Left
-
-            local barBg = Instance.new("TextButton", sliderFrame)
-            barBg.Position = UDim2.new(0, 5, 0, 16)
-            barBg.Size = UDim2.new(1, -10, 0, 8)
-            barBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-            barBg.BorderSizePixel = 0
-            barBg.Text = ""
-
-            local barFill = Instance.new("Frame", barBg)
-            barFill.BackgroundColor3 = valkLib.accentclr
-            barFill.BorderSizePixel = 0
-            barFill.Size = UDim2.new(math.clamp((getv() - min) / (max - min), 0, 1), 0, 1, 0)
-
-            local dragging = false
-            barBg.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true end
-            end)
-            UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
-            end)
-            UserInputService.InputChanged:Connect(function(input)
-                if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                    local pos = math.clamp((input.Position.X - barBg.AbsolutePosition.X) / barBg.AbsoluteSize.X, 0, 1)
-                    local val = min + (max - min) * pos
-                    setv(val)
-                    barFill.Size = UDim2.new(pos, 0, 1, 0)
-                    lbl.Text = text .. ": " .. string.format(max > 1000 and "%.0f" or "%.2f", val)
-                end
-            end)
-            updateSize()
-        end
-
-        return secObj
-    end
-
-    return tabObj
-end
-
--- Key System Frame
-local KeyFrame = Instance.new("Frame", MainGui)
-KeyFrame.Size = UDim2.fromOffset(260, 130)
-KeyFrame.Position = UDim2.new(0.5, -130, 0.5, -65)
-KeyFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-KeyFrame.BorderSizePixel = 0
-KeyFrame.Visible = not keyPassed
-
-local KeyOutline = Instance.new("ImageLabel", KeyFrame)
-KeyOutline.BackgroundTransparency = 1
-KeyOutline.Size = UDim2.new(1, 0, 1, 0)
-KeyOutline.Image = "rbxassetid://2592362371"
-KeyOutline.ImageColor3 = Color3.fromRGB(60, 60, 60)
-KeyOutline.ScaleType = Enum.ScaleType.Slice
-KeyOutline.SliceCenter = Rect.new(2, 2, 62, 62)
-
-local KeyTitle = Instance.new("TextLabel", KeyFrame)
-KeyTitle.Size = UDim2.new(1, 0, 0, 28)
-KeyTitle.BackgroundTransparency = 1
-KeyTitle.Text = "multvallk Key System"
-KeyTitle.TextColor3 = valkLib.accentclr
-KeyTitle.Font = Enum.Font.Code
-KeyTitle.TextSize = 12
-
-local KeyBox = Instance.new("TextBox", KeyFrame)
-KeyBox.Size = UDim2.new(0.85, 0, 0, 28)
-KeyBox.Position = UDim2.new(0.075, 0, 0.3, 0)
-KeyBox.PlaceholderText = "Enter Key..."
-KeyBox.Text = ""
-KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-KeyBox.Font = Enum.Font.Code
-KeyBox.TextSize = 11
-
-local SubmitBtn = Instance.new("TextButton", KeyFrame)
-SubmitBtn.Size = UDim2.new(0.85, 0, 0, 28)
-SubmitBtn.Position = UDim2.new(0.075, 0, 0.62, 0)
-SubmitBtn.BackgroundColor3 = valkLib.accentclr
-SubmitBtn.Text = "Submit Key"
-SubmitBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
-SubmitBtn.Font = Enum.Font.Code
-SubmitBtn.TextSize = 11
-
-make_draggable(KeyTitle, KeyFrame)
-
--- Toggle Menu Button
-local ToggleBtn = Instance.new("TextButton", MainGui)
-ToggleBtn.Size = UDim2.fromOffset(100, 30)
-ToggleBtn.Position = UDim2.new(0, 10, 0, 10)
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-ToggleBtn.TextColor3 = valkLib.accentclr
-ToggleBtn.Font = Enum.Font.Code
-ToggleBtn.TextSize = 11
-ToggleBtn.Text = "multvallk UI"
-ToggleBtn.BorderSizePixel = 0
-ToggleBtn.Visible = true
-
-local TogOutline = Instance.new("ImageLabel", ToggleBtn)
-TogOutline.BackgroundTransparency = 1
-TogOutline.Size = UDim2.new(1, 0, 1, 0)
-TogOutline.Image = "rbxassetid://2592362371"
-TogOutline.ImageColor3 = valkLib.accentclr
-TogOutline.ScaleType = Enum.ScaleType.Slice
-TogOutline.SliceCenter = Rect.new(2, 2, 62, 62)
-
-local function trySubmitKey()
-    local typed = tostring(KeyBox.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
-    if typed == validKey or typed == "Paid_masterkey-vallkmult" then
-        keyPassed = true
-        KeyFrame.Visible = false
-        MainFrame.Visible = true
-        ToggleBtn.Visible = true
-        pcall(function()
-            if tabEntries and tabEntries[1] and tabEntries[1].btn then
-                -- ensure first tab content visible
-            end
-        end)
-        print("[multvallk] Key OK �� UI open (RightShift toggle)")
-    else
-        KeyBox.Text = ""
-        KeyBox.PlaceholderText = "Invalid Key!"
-    end
-end
-SubmitBtn.MouseButton1Click:Connect(trySubmitKey)
-KeyBox.FocusLost:Connect(function(enter)
-    if enter then trySubmitKey() end
-end)
-UserInputService.InputBegan:Connect(function(input, g)
-    if g then return end
-    if KeyFrame.Visible and input.KeyCode == Enum.KeyCode.Return then
-        trySubmitKey()
-    end
-end)
-
-ToggleBtn.MouseButton1Click:Connect(function()
-    if keyPassed then MainFrame.Visible = not MainFrame.Visible end
-end)
-
-UserInputService.InputBegan:Connect(function(input, g)
-    if g then return end
-    if input.KeyCode == Enum.KeyCode.RightShift and keyPassed then 
-        MainFrame.Visible = not MainFrame.Visible 
-    end
-end)
-
--- Mobile Scaling Adjuster
-local function updateMobileSize()
-    if mobileOnEnabled then
-        MainFrame.Size = UDim2.fromOffset(560, 320)
-    else
-        MainFrame.Size = UDim2.fromOffset(480, 560)
-    end
-    for _, t in ipairs(tabEntries) do
-        if t.h1 and t.h1:FindFirstChildOfClass("UIListLayout") then
-            t.h1.CanvasSize = UDim2.new(0, 0, 0, t.h1:FindFirstChildOfClass("UIListLayout").AbsoluteContentSize.Y + 20)
-        end
-        if t.h2 and t.h2:FindFirstChildOfClass("UIListLayout") then
-            t.h2.CanvasSize = UDim2.new(0, 0, 0, t.h2:FindFirstChildOfClass("UIListLayout").AbsoluteContentSize.Y + 20)
-        end
-    end
-end
-
--- Tab Setup & Feature Assignments
-local MainTab = AddValkTab("Main")
-local RageTab = AddValkTab("Ragebot")
-local FFTab = AddValkTab("FFMode")
-local EspTab = AddValkTab("ESP")
-local MiscTab = AddValkTab("Misc")
-local UiTab = AddValkTab("UI Set")
--- Force show first tab content
-task.defer(function()
-    if tabEntries[1] then
-        for i, t in ipairs(tabEntries) do
-            local on = (i == 1)
-            t.h1.Visible = on
-            t.h2.Visible = on
-            if on then
-                t.btn.BackgroundColor3 = Color3.fromRGB(33, 33, 33)
-                t.btn.TextColor3 = Color3.fromRGB(230, 230, 230)
-                t.topLine.Visible = true
-            end
-        end
-    end
-end)
-
-
--- Main Tab Options
-local mSec1 = MainTab:Section("Aimbot Settings", 1)
-mSec1:Toggle("Mobile Mode UI", function() return mobileOnEnabled end, function(v) mobileOnEnabled = v; updateMobileSize() end)
-mSec1:Toggle("Aimbot (Smooth Camera)", function() return aimbotEnabled end, function(v) aimbotEnabled = v end)
-mSec1:Toggle("Wallbang", function() return wallbangEnabled end, function(v)
-    wallbangEnabled = v
-    if not v then
-        pcall(function()
-            local e = getgenv()
-            if e.DesyncController then e.DesyncController:Stop() end
-        end)
-    end
-end)
-mSec1:Slider("Aimbot Smoothness", 1, 20, function() return aimbotSmoothness end, function(v) aimbotSmoothness = v end)
-mSec1:Slider("Aimbot FOV", 10, 500, function() return aimbotFovRadius end, function(v) aimbotFovRadius = v end)
-mSec1:Toggle("Aimbot Wall Check", function() return aimbotWallCheck end, function(v) aimbotWallCheck = v end)
-
-local mSec2 = MainTab:Section("Gun & Silent Aim", 2)
-mSec2:Toggle("Silent Aim", function() return silentAimEnabled end, function(v) silentAimEnabled = v end)
-mSec2:Slider("Silent FOV", 10, 1000, function() return silentAimFovRadius end, function(v) silentAimFovRadius = v end)
-mSec2:Toggle("Silent Wall Check", function() return silentWallCheck end, function(v) silentWallCheck = v end)
-mSec2:Toggle("Fast Melee", function() return fastMeleeEnabled end, function(v) fastMeleeEnabled = v end)
-mSec2:Toggle("No Cooldown", function() return hoNyangNoCDEnabled end, function(v) hoNyangNoCDEnabled = v end)
-mSec2:Toggle("No Recoil", function() return noRecoilEnabled end, function(v) noRecoilEnabled = v end)
-mSec2:Toggle("No Spread", function() return noSpreadEnabled end, function(v) noSpreadEnabled = v end)
-mSec2:Toggle("No Muzzle Flash", function() return noMuzzleFlashEnabled end, function(v) noMuzzleFlashEnabled = v end)
-mSec2:Toggle("Rapid Fire", function() return rapidFireEnabled end, function(v) rapidFireEnabled = v end)
-
--- Ragebot Tab Options (Single Ragebot Integrated)
-local rSec1 = RageTab:Section("Rage Engine", 1)
-rSec1:Toggle("muilt premium ragebot", function() return ragebotOrKillAura end, function(v) ragebotOrKillAura = v end)
-
-local rSec2 = RageTab:Section("Ragebot / Void Spam", 2)
-rSec2:Toggle("Void Spam", function() return voidSpamEnabled end, function(v) voidSpamEnabled = v end)
-rSec2:Slider("Hide", 0, 1, function() return voidHideTime end, function(v) voidHideTime = v end)
-rSec2:Slider("Attack", 0, 1, function() return voidShootTime end, function(v) voidShootTime = v end)
-rSec2:Toggle("Ragebot Indicator", function() return ragebotIndicatorEnabled end, function(v) ragebotIndicatorEnabled = v end)
-rSec2:Toggle("Ammo Indicator", function() return ammoIndicatorEnabled end, function(v) ammoIndicatorEnabled = v end)
-
--- Shoot Attempts / Height: internal only (hidden from menu)
--- voidAttackAttempts, ragebotHeightOffset keep defaults
-
--- FFMode Tab Options
-local ffSec = FFTab:Section("FF Mode Mechanics", 1)
-ffSec:Toggle("Enable FFMode", function() return ffModeEnabled end, function(v) ffModeEnabled = v end)
-ffSec:Toggle("Team Check", function() return ffTeamCheckEnabled end, function(v) ffTeamCheckEnabled = v end)
-ffSec:Toggle("Baiting (Fall Inducer)", function() return ffBaitingEnabled end, function(v) ffBaitingEnabled = v end)
-
--- ESP Tab Options
-local espSec = EspTab:Section("Visual ESP", 1)
-espSec:Toggle("Master ESP Toggle", function() return espEnabled end, function(v) espEnabled = v end)
-espSec:Toggle("ESP Boxes", function() return espBoxEnabled end, function(v) espBoxEnabled = v end)
-espSec:Toggle("ESP Names", function() return espNameEnabled end, function(v) espNameEnabled = v end)
-espSec:Toggle("ESP Health", function() return espHealthEnabled end, function(v) espHealthEnabled = v end)
-espSec:Toggle("Gun Tracer Line", function() return gunTracerEnabled end, function(v) gunTracerEnabled = v end)
-local skinSec = EspTab:Section("Cosmetics / All Skins", 2)
-skinSec:Toggle("Unlock All Skins", function() return skinChangerEnabled end, function(v) skinChangerEnabled = v end)
-
-
--- Misc Tab Options
-local miscSec = MiscTab:Section("Movement & Mods", 1)
-miscSec:Toggle("Mobile Fly (Touch)", function() return mobileFlyEnabled end, function(v) mobileFlyEnabled = v end)
-miscSec:Toggle("PC Fly (WASD)", function() return pcFlyEnabled end, function(v) pcFlyEnabled = v end)
-
-local miscSecLion = MiscTab:Section("Lion Misc", 2)
-miscSecLion:Toggle("Auto Respawn", function() return autoRespawnEnabled end, function(v) autoRespawnEnabled = v end)
-miscSecLion:Toggle("Collect Drops", function() return collectDropsEnabled end, function(v) collectDropsEnabled = v end)
-miscSecLion:Toggle("Hit Notifier", function() return hitNotifyEnabled end, function(v) hitNotifyEnabled = v end)
-miscSecLion:Toggle("Hit Sound", function() return hitSoundEnabled end, function(v) hitSoundEnabled = v end)
-miscSecLion:Slider("Hit Sound Volume", 0, 5, function() return hitSoundVolume end, function(v) hitSoundVolume = v end)
--- Hit sound picker (�몃꽩 �ㅽ��� �좏깮)
-for _, snd in ipairs(HIT_SOUND_LIST) do
-    local name = snd
-    miscSecLion:Toggle("Sound: " .. name, function() return hitSoundName == name end, function(v)
-        if v then hitSoundName = name end
-    end)
-end
-
-miscSec:Toggle("Bullet Speed Boost", function() return bulletSpeedBoost end, function(v) bulletSpeedBoost = v end)
-miscSec:Toggle("Rapid Speed Hack", function() return rapidSpeedEnabled end, function(v) rapidSpeedEnabled = v end)
-miscSec:Toggle("Noclip", function() return noclipEnabled end, function(v) noclipEnabled = v end)
-
-miscSec:Toggle("Hit Sound", function() return hitSoundEnabled end, function(v) hitSoundEnabled = v; hitNotifyEnabled = true end)
-miscSec:Slider("Hit Sound Volume", 0, 5, function() return hitSoundVolume end, function(v) hitSoundVolume = v end)
-miscSec:Toggle("Sound: neverlose", function() return hitSoundName=="neverlose" end, function(v) if v then hitSoundName="neverlose" end end)
-miscSec:Toggle("Sound: gamesense", function() return hitSoundName=="gamesense" end, function(v) if v then hitSoundName="gamesense" end end)
-miscSec:Toggle("Sound: skeet", function() return hitSoundName=="skeet" end, function(v) if v then hitSoundName="skeet" end end)
-miscSec:Toggle("Sound: rust", function() return hitSoundName=="rust" end, function(v) if v then hitSoundName="rust" end end)
-miscSec:Toggle("Sound: �μ땐�� �뺤”諛� 蹂댁뙂", function() return hitSoundName=="�μ땐�� �뺤”諛� 蹂댁뙂" end, function(v) if v then hitSoundName="�μ땐�� �뺤”諛� 蹂댁뙂" end end)
-miscSec:Toggle("Hit Notify Text", function() return hitNotifyEnabled end, function(v) hitNotifyEnabled = v end)
-
--- UI Set Tab Options
-local uiSec = UiTab:Section("Skybox & Crosshair", 1)
-uiSec:Toggle("Circle Crosshair", function() return circleCrosshairEnabled end, function(v) circleCrosshairEnabled = v end)
-uiSec:Toggle("Sky: Dark Sky", function() return customSkyboxEnabled and skyboxTheme == "Dark Sky" end, function(v) if v then setSkyboxTheme("Dark Sky") else customSkyboxEnabled = false; applySkybox() end end)
-uiSec:Toggle("Sky: Vaporwave", function() return customSkyboxEnabled and skyboxTheme == "Vaporwave" end, function(v) if v then setSkyboxTheme("Vaporwave") else customSkyboxEnabled = false; applySkybox() end end)
-uiSec:Toggle("Sky: Lake Sky", function() return customSkyboxEnabled and skyboxTheme == "Lake Sky" end, function(v) if v then setSkyboxTheme("Lake Sky") else customSkyboxEnabled = false; applySkybox() end end)
-uiSec:Toggle("Sky: Black Mesa", function() return customSkyboxEnabled and skyboxTheme == "Black Mesa" end, function(v) if v then setSkyboxTheme("Black Mesa") else customSkyboxEnabled = false; applySkybox() end end)
-
-MainFrame.Visible = keyPassed -- false until key
-
-
--- Yokai.win Crosshair
-task.spawn(function()
-    getgenv()._vallkYokaiCrosshair = getgenv()._vallkYokaiCrosshair ~= false
-    if _G.YokaiCrosshair then pcall(function() _G.YokaiCrosshair:Destroy() end) end
-    if _G.YokaiCrosshairConnection then pcall(function() _G.YokaiCrosshairConnection:Disconnect() end) end
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "Yokai.winCrosshair"
-    screenGui.ResetOnSpawn = false
-    screenGui.DisplayOrder = 99999
-    screenGui.IgnoreGuiInset = true
-    pcall(function()
-        if gethui then screenGui.Parent = gethui() else screenGui.Parent = CoreGui end
-    end)
-    if not screenGui.Parent then screenGui.Parent = PlayerGui end
-    _G.YokaiCrosshair = screenGui
-    local container = Instance.new("Frame")
-    container.BackgroundTransparency = 1
-    container.Size = UDim2.fromOffset(28, 28)
-    container.AnchorPoint = Vector2.new(0.5, 0.5)
-    container.Parent = screenGui
-    local lines = {Top=Instance.new("Frame"),Bottom=Instance.new("Frame"),Left=Instance.new("Frame"),Right=Instance.new("Frame")}
-    for _, line in pairs(lines) do
-        line.BackgroundColor3 = Color3.new(1,1,1)
-        line.BorderSizePixel = 0
-        line.ZIndex = 10
-        line.Parent = container
-        local st = Instance.new("UIStroke"); st.Color = Color3.new(0,0,0); st.Thickness = 1; st.Parent = line
-    end
-    lines.Top.Size = UDim2.fromOffset(3, -12)
-    lines.Top.Position = UDim2.new(0.5, -1.5, 0, 0)
-    lines.Bottom.Size = UDim2.fromOffset(3, -12)
-    lines.Bottom.Position = UDim2.new(0.5, -1.5, 1, 12)
-    lines.Left.Size = UDim2.fromOffset(-12, 3)
-    lines.Left.Position = UDim2.new(0, 0, 0.5, -1.5)
-    lines.Right.Size = UDim2.fromOffset(-12, 3)
-    lines.Right.Position = UDim2.new(1, 12, 0.5, -1.5)
-    local textLabel = Instance.new("TextLabel")
-    textLabel.Text = "lll.win"
-    textLabel.Font = Enum.Font.Arcade
-    textLabel.TextSize = 16
-    textLabel.BackgroundTransparency = 1
-    textLabel.Size = UDim2.fromOffset(100, 20)
-    textLabel.ZIndex = 20
-    textLabel.TextColor3 = Color3.new(1,1,1)
-    textLabel.Parent = screenGui
-    local ts = Instance.new("UIStroke"); ts.Color = Color3.new(0,0,0); ts.Thickness = 1; ts.Parent = textLabel
-    local t = 0
-    _G.YokaiCrosshairConnection = RunService.RenderStepped:Connect(function(dt)
-        if hideCrosshairEnabled or getgenv()._vallkYokaiCrosshair == false then
-            screenGui.Enabled = false
-            return
-        end
-        screenGui.Enabled = true
-        t = t + dt
-        local mousePos = UserInputService:GetMouseLocation()
-        container.Position = UDim2.fromOffset(mousePos.X, mousePos.Y)
-        textLabel.Position = UDim2.fromOffset(mousePos.X - 50, mousePos.Y + 36)
-        local speed = 175 + 90 * (0.5 + 0.5 * math.sin(t * 2.2))
-        container.Rotation = (container.Rotation + dt * speed) % 360
-        local pulse = math.sin(t * 4.0) * 0.5 + 0.5
-        local len = -12 - 14 * (pulse * pulse)
-        lines.Top.Size = UDim2.fromOffset(3, len)
-        lines.Bottom.Size = UDim2.fromOffset(3, len)
-        lines.Bottom.Position = UDim2.new(0.5, -1.5, 1, -len)
-        lines.Left.Size = UDim2.fromOffset(len, 3)
-        lines.Right.Size = UDim2.fromOffset(len, 3)
-        lines.Right.Position = UDim2.new(1, -len, 0.5, -1.5)
-        local color = Color3.fromHSV((t * 0.20) % 1, 1, 1)
-        lines.Top.BackgroundColor3 = color
-        lines.Bottom.BackgroundColor3 = color
-        lines.Left.BackgroundColor3 = color
-        lines.Right.BackgroundColor3 = color
-        textLabel.TextColor3 = color
-    end)
-end)
-
-
-task.spawn(function()
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "VallkESP"
-    gui.ResetOnSpawn = false
-    gui.IgnoreGuiInset = true
-    gui.DisplayOrder = 40
-    pcall(function() if gethui then gui.Parent = gethui() else gui.Parent = CoreGui end end)
-    if not gui.Parent then gui.Parent = PlayerGui end
-    local entries = {}
-    local function ensure(plr)
-        if entries[plr] or plr == LocalPlayer then return end
-        local box = Instance.new("Frame")
-        box.BackgroundTransparency = 1
-        box.Visible = false
-        box.Parent = gui
-        local stroke = Instance.new("UIStroke", box)
-        stroke.Thickness = 1.5
-        stroke.Color = Color3.fromRGB(255, 80, 80)
-        local name = Instance.new("TextLabel")
-        name.BackgroundTransparency = 1
-        name.Font = Enum.Font.Code
-        name.TextSize = 12
-        name.TextColor3 = Color3.new(1,1,1)
-        name.TextStrokeTransparency = 0
-        name.Size = UDim2.fromOffset(140, 14)
-        name.Visible = false
-        name.Parent = gui
-        entries[plr] = {box=box, name=name}
-    end
-    for _, plr in ipairs(Players:GetPlayers()) do ensure(plr) end
-    Players.PlayerAdded:Connect(ensure)
-    Players.PlayerRemoving:Connect(function(plr)
-        local e = entries[plr]
-        if e then pcall(function() e.box:Destroy() e.name:Destroy() end) entries[plr]=nil end
-    end)
-    local f = 0
-    RunService.RenderStepped:Connect(function()
-        f += 1
-        if f % 2 ~= 0 then return end
-        local cam = Workspace.CurrentCamera
-        if not cam then return end
-        for plr, e in pairs(entries) do
-            if not espEnabled then e.box.Visible=false; e.name.Visible=false
-            else
-                local char = plr.Character
-                local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                local hum = char and char:FindFirstChildOfClass("Humanoid")
-                local head = char and (char:FindFirstChild("HitboxHead") or char:FindFirstChild("Head") or hrp)
-                if hrp and hum and head and hum.Health > 0 and not is_teammate(plr) then
-                    local top = cam:WorldToViewportPoint(head.Position + Vector3.new(0,0.7,0))
-                    local mid = cam:WorldToViewportPoint(hrp.Position)
-                    local bot = cam:WorldToViewportPoint(hrp.Position - Vector3.new(0,3,0))
-                    if mid.Z > 0 then
-                        local h = math.max(math.abs(top.Y - bot.Y), 20)
-                        local w = h * 0.55
-                        if espBoxEnabled then
-                            e.box.Size = UDim2.fromOffset(w, h)
-                            e.box.Position = UDim2.fromOffset(mid.X - w/2, top.Y)
-                            e.box.Visible = true
-                        else e.box.Visible = false end
-                        if espNameEnabled then
-                            e.name.Text = plr.DisplayName or plr.Name
-                            e.name.Position = UDim2.fromOffset(mid.X - 70, top.Y - 14)
-                            e.name.Visible = true
-                        else e.name.Visible = false end
-                    else e.box.Visible=false; e.name.Visible=false end
-                else e.box.Visible=false; e.name.Visible=false end
-            end
-        end
-    end)
-end)
-
-
-
-
--- Wallbang + Desync (Main) �� toggle via wallbangEnabled
-task.spawn(function()
-    if getgenv().__VallkWallbangInit then return end
-    getgenv().__VallkWallbangInit = true
-    local env = getgenv()
-    pcall(function()
-        if env.DesyncController and env.DesyncController.Stop then env.DesyncController:Stop() end
-        if env.TargetController and env.TargetController.Stop then env.TargetController:Stop() end
-        if env.WallbangController and env.WallbangController.Stop then env.WallbangController:Stop() end
-    end)
-
-    local function cref(x)
-        return (cloneref and cloneref(x)) or x
-    end
-    local Players = cref(game:GetService("Players"))
-    local RunService = cref(game:GetService("RunService"))
-    local ReplicatedStorage = cref(game:GetService("ReplicatedStorage"))
-    local Workspace = cref(game:GetService("Workspace"))
-    local UserInputService = cref(game:GetService("UserInputService"))
-    local LP = Players.LocalPlayer
-    local Camera = Workspace.CurrentCamera
-
-    local GunItem, Utility
-    pcall(function()
-        GunItem = require(LP.PlayerScripts.Modules.ItemTypes.Gun)
-        Utility = require(ReplicatedStorage.Modules.Utility)
-    end)
-    if not GunItem or not Utility then
-        warn("[Wallbang] GunItem/Utility missing")
-        return
-    end
-
-    local DesyncController = {}
-    function DesyncController:init()
-        self.active = false
-        self.connection = nil
-        self.currentTarget = nil
-    end
-    function DesyncController:Start(target)
-        self:Stop()
-        self.active = true
-        self.connection = RunService.Heartbeat:Connect(function()
-            if not self.active or not wallbangEnabled then return end
-            local char = LP.Character
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-            if not root then return end
-            local tr = target and target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-            if not tr then self:Stop() return end
-            self.currentTarget = target
-            local desyncCF = tr.CFrame * CFrame.new(0, -5, 0)
-            local bakCF, bakVel = root.CFrame, root.AssemblyLinearVelocity
-            root.CFrame = desyncCF
-            pcall(function()
-                RunService:BindToRenderStep("vallk_desync_fb", 101, function()
-                    root.CFrame = bakCF
-                    root.AssemblyLinearVelocity = bakVel
-                    pcall(function() RunService:UnbindFromRenderStep("vallk_desync_fb") end)
-                end)
-            end)
-        end)
-    end
-    function DesyncController:Stop()
-        self.active = false
-        self.currentTarget = nil
-        if self.connection then self.connection:Disconnect() self.connection = nil end
-        pcall(function() RunService:UnbindFromRenderStep("vallk_desync_fb") end)
-    end
-    DesyncController:init()
-    env.DesyncController = DesyncController
-
-    local TargetController = {}
-    function TargetController:init()
-        self.active = true
-        self.target = nil
-        self.connection = RunService.Heartbeat:Connect(function()
-            if not wallbangEnabled then self.target = nil return end
-            self.target = self:GetClosestTarget()
-        end)
-    end
-    function TargetController:IsValid(character)
-        local root = character:FindFirstChild("HumanoidRootPart")
-        local head = character:FindFirstChild("Head")
-        local hum = character:FindFirstChildWhichIsA("Humanoid")
-        return root and head and hum and hum.Health > 0
-    end
-    function TargetController:IsEnemy(player)
-        local a, b = player:GetAttribute("TeamID"), LP:GetAttribute("TeamID")
-        if a ~= nil and b ~= nil then return a ~= b end
-        return true
-    end
-    function TargetController:GetClosestTarget()
-        local closest, best = nil, math.huge
-        local mouse = UserInputService:GetMouseLocation()
-        local cam = Workspace.CurrentCamera
-        if not cam then return nil end
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LP and self:IsEnemy(player) then
-                local ch = player.Character
-                if ch and self:IsValid(ch) then
-                    local root = ch.HumanoidRootPart
-                    local sp, on = cam:WorldToViewportPoint(root.Position)
-                    if on then
-                        local d = (mouse - Vector2.new(sp.X, sp.Y)).Magnitude
-                        if d < best then best, closest = d, player end
-                    end
-                end
-            end
-        end
-        return closest
-    end
-    function TargetController:Stop()
-        if self.connection then self.connection:Disconnect() self.connection = nil end
-    end
-    TargetController:init()
-    env.TargetController = TargetController
-
-    local WallbangController = {}
-    function WallbangController:init()
-        self.startShootingRef = GunItem.StartShooting
-        self.desyncCleanup = nil
-        self.hooked = false
-    end
-    function WallbangController:Start()
-        if self.hooked then return end
-        self.hooked = true
-        local startRef = self.startShootingRef
-        GunItem.StartShooting = function(controller, ...)
-            local result = {startRef(controller, ...)}
-            if not wallbangEnabled then
-                return unpack(result)
-            end
-            local clientFighter = controller and controller.ClientFighter
-            if not clientFighter or not clientFighter.IsLocalPlayer then
-                return unpack(result)
-            end
-            local cameraData = result[3]
-            if type(cameraData) ~= "table" then
-                return unpack(result)
-            end
-            result[4] = true -- no spread
-            local targetPlayer = TargetController.target
-            if not targetPlayer or not targetPlayer.Character then
-                return unpack(result)
-            end
-            if DesyncController.currentTarget ~= targetPlayer then
-                DesyncController:Start(targetPlayer)
-                task.wait(0.05)
-            end
-            if self.desyncCleanup then pcall(task.cancel, self.desyncCleanup) end
-            local head = targetPlayer.Character:FindFirstChild("Head")
-            if not head then return unpack(result) end
-            local targetPos = head.Position
-            local targetCF = head.CFrame
-            local shootingPos = targetPos - Vector3.new(0, 5, 0)
-            local shootingOffset = targetCF:ToObjectSpace(CFrame.new(targetPos + Vector3.new(math.random(), math.random(), math.random())))
-            pcall(function()
-                cameraData[utf8.char(0)] = Utility:EncodeCFrame(CFrame.new(shootingPos, targetPos) * CFrame.Angles(CFrame.lookAt(shootingPos, targetPos):ToOrientation()))
-                cameraData[utf8.char(1)] = Utility:EncodeCFrame(CFrame.new(targetPos) * CFrame.Angles(CFrame.lookAt(shootingPos, targetPos):ToOrientation()))
-                cameraData[utf8.char(2)] = head
-                cameraData[utf8.char(3)] = Utility:EncodeCFrame(shootingOffset)
-            end)
-            self.desyncCleanup = task.delay(0.15, function()
-                DesyncController:Stop()
-            end)
-            return unpack(result)
-        end
-    end
-    function WallbangController:Stop()
-        if self.startShootingRef then
-            GunItem.StartShooting = self.startShootingRef
-        end
-        self.hooked = false
-        DesyncController:Stop()
-    end
-    WallbangController:init()
-    env.WallbangController = WallbangController
-
-    -- keep hook installed; gate with wallbangEnabled
-    WallbangController:Start()
-    print("[multvallk] Wallbang ready (toggle in Main)")
-end)
-
--- Ragebot / Ammo red indicators (void / killing / reloading)
-task.spawn(function()
-    if getgenv().__VallkRageIndicators then return end
-    getgenv().__VallkRageIndicators = true
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "VallkRageIndicators"
-    gui.ResetOnSpawn = false
-    gui.IgnoreGuiInset = true
-    gui.DisplayOrder = 999
-    pcall(function()
-        if gethui then gui.Parent = gethui() else gui.Parent = game:GetService("CoreGui") end
-    end)
-    if not gui.Parent then gui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
-
-    local function makeLabel(name, y)
-        local t = Instance.new("TextLabel")
-        t.Name = name
-        t.BackgroundTransparency = 1
-        t.Size = UDim2.new(0, 420, 0, 22)
-        t.AnchorPoint = Vector2.new(0.5, 0)
-        t.Position = UDim2.new(0.5, 0, 0.5, y)
-        t.Font = Enum.Font.Code
-        t.TextSize = 14
-        t.TextColor3 = Color3.fromRGB(255, 60, 60)
-        t.TextStrokeTransparency = 0
-        t.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        t.Text = ""
-        t.Visible = false
-        t.Parent = gui
-        return t
-    end
-    local rageLbl = makeLabel("RagebotIndicator", 36)
-    local ammoLbl = makeLabel("AmmoIndicator", 52)
-    ammoLbl.TextSize = 11
-    ammoLbl.Size = UDim2.new(0, 420, 0, 18)
-
-    local function getAmmo()
-        local cur, max, reloading = nil, nil, false
-        pcall(function()
-            local ps = LocalPlayer.PlayerScripts
-            local ok, fc = pcall(require, ps.Controllers.FighterController)
-            if not ok or not fc or not fc.LocalFighter then return end
-            local item = fc.LocalFighter.EquippedItem
-            if not item then return end
-            local function gp(key)
-                local s, v = pcall(function()
-                    if item.Get then return item:Get(key) end
-                    return item[key] or (item.Data and item.Data[key]) or (item.Info and item.Info[key])
-                end)
-                return s and v or nil
-            end
-            cur = gp("CurrentAmmo") or gp("Ammo") or gp("Bullets") or gp("MagazineAmmo")
-            max = gp("ReserveAmmo") or gp("StoredAmmo") or gp("MaxAmmo") or gp("MaxBullets")
-            reloading = gp("Reloading") == true or gp("IsReloading") == true
-            if item.Info and type(item.Info) == "table" then
-                if cur == nil then cur = item.Info.CurrentAmmo or item.Info.Ammo end
-                if max == nil then max = item.Info.ReserveAmmo or item.Info.MaxAmmo end
-                if item.Info.Reloading or item.Info.IsReloading then reloading = true end
-            end
-        end)
-        return cur, max, reloading
-    end
-
-    if not RunService then return end
-    RunService.RenderStepped:Connect(function()
-        local rageOn = ragebotOrKillAura == true
-        if ragebotIndicatorEnabled and rageOn then
-            local cur, max, reloading = getAmmo()
-            local isReload = reloading or (typeof(cur) == "number" and cur <= 0)
-            if isReload then
-                rageLbl.Text = "ragebot : reloading..."
-            elseif activeTargetPart and activeTargetPart.Parent then
-                local model = activeTargetPart:FindFirstAncestorOfClass("Model") or activeTargetPart.Parent
-                local plr = Players:GetPlayerFromCharacter(model)
-                local name = plr and (plr.DisplayName or plr.Name) or (typeof(model) == "Instance" and model.Name or "???")
-                rageLbl.Text = "ragebot : killing " .. tostring(name) .. "..."
-            else
-                -- 怨듦꺽 �� �� �� 臾댁“嫄� void
-                rageLbl.Text = "ragebot : void..."
-            end
-            rageLbl.Visible = true
-        else
-            rageLbl.Visible = false
-        end
-
-        if ammoIndicatorEnabled then
-            local cur, max, reloading = getAmmo()
-            local text
-            if reloading then
-                text = "reloading"
-            elseif typeof(cur) == "number" and typeof(max) == "number" then
-                text = string.format("%d/%d", math.floor(cur + 0.5), math.floor(max + 0.5))
-            elseif typeof(cur) == "number" then
-                text = tostring(math.floor(cur + 0.5))
-            end
-            if text then
-                ammoLbl.Text = text
-                ammoLbl.Position = UDim2.new(0.5, 0, 0.5, (ragebotIndicatorEnabled and rageOn) and 52 or 36)
-                ammoLbl.Visible = true
-            else
-                ammoLbl.Visible = false
-            end
-        else
-            ammoLbl.Visible = false
-        end
-    end)
-end)
-
--- Lion Auto Respawn + Collect Drops
-task.spawn(function()
-    local deathConn
-    local function getRespawnRemote()
-        local ok, r = pcall(function()
-            local RS = game:GetService("ReplicatedStorage")
-            local duels = RS:FindFirstChild("Duels") or RS:FindFirstChild("Remotes")
-            if duels then
-                return duels:FindFirstChild("RespawnNow") or duels:FindFirstChild("Respawn")
-            end
-            for _, d in ipairs(RS:GetDescendants()) do
-                if d:IsA("RemoteEvent") and d.Name:lower():find("respawn") then
-                    return d
-                end
-            end
-        end)
-        return ok and r or nil
-    end
-    local function setup(char)
-        if deathConn then pcall(function() deathConn:Disconnect() end) deathConn = nil end
-        if not autoRespawnEnabled then return end
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
-        if not hum then return end
-        deathConn = hum.Died:Connect(function()
-            task.wait(0.15)
-            if not autoRespawnEnabled then return end
-            pcall(function()
-                local r = getRespawnRemote()
-                if r then r:FireServer() end
-            end)
-        end)
-    end
-    if LocalPlayer.Character then setup(LocalPlayer.Character) end
-    LocalPlayer.CharacterAdded:Connect(setup)
-
-    local tracked = {}
-    local function track(obj)
-        if obj:FindFirstChild("Ammo") or obj:FindFirstChild("Health") then
-            tracked[obj] = true
-        end
-    end
-    for _, c in ipairs(Workspace:GetChildren()) do track(c) end
-    Workspace.ChildAdded:Connect(track)
-    Workspace.ChildRemoved:Connect(function(o) tracked[o] = nil end)
-
-    local nextT = 0
-    RunService.Heartbeat:Connect(function()
-        if not collectDropsEnabled then return end
-        if tick() < nextT then return end
-        nextT = tick() + 0.4
-        local char = LocalPlayer.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if not hrp or not firetouchinterest then return end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        local needHp = hum and hum.Health < hum.MaxHealth
-        for obj in pairs(tracked) do
-            if not obj.Parent then tracked[obj] = nil
-            elseif (obj:FindFirstChild("Health") and needHp) or obj:FindFirstChild("Ammo") then
-                pcall(firetouchinterest, hrp, obj, 0)
-                pcall(firetouchinterest, hrp, obj, 1)
-            end
-        end
-    end)
-end)
-
--- Skin unlock reinforce when toggled
-task.spawn(function()
-    while true do
-        task.wait(2)
-        if not skinChangerEnabled then continue end
-        pcall(function()
-            if not CosmeticLibrary then
-                local ok, lib = pcall(function()
-                    return require(ReplicatedStorage:WaitForChild("Modules", 2):WaitForChild("CosmeticLibrary", 2))
-                end)
-                if ok then CosmeticLibrary = lib end
-            end
-            if not CosmeticLibrary then return end
-            for _, name in ipairs({"OwnsCosmetic", "OwnsCosmeticNormally", "OwnsCosmeticUniversally", "OwnsCosmeticForWeapon", "PlayerOwnsCosmetic"}) do
-                if type(CosmeticLibrary[name]) == "function" then
-                    local orig = CosmeticLibrary[name]
-                    CosmeticLibrary[name] = function(self, ...)
-                        if skinChangerEnabled then return true end
-                        return orig(self, ...)
-                    end
-                end
-            end
-        end)
-    end
-end)
-
-print("[multvallk Premium v3] Loaded (anti-freeze patches)")
--- anti-freeze: toggle UI no longer refreshes every frame; old void loop disabled
+__trap(0xDEAD,0xBEEF,0xCAFE,0xBABE)
