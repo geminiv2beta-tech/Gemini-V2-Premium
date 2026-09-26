@@ -1,3206 +1,1354 @@
-
--- ============================================================================
-
--- ============================================================================
-
--- ============================================================================
-
--- ============================================================================
-
--- ============================================================================
-
--- ============================================================================
-
--- ============================================================================
-
--- ============================================================================
--- 諛붿씠�⑥뒪 FULL (�덉쟾 踰꾩쟾 �� overflow �좊컻 ��ぉ �쒖쇅)
--- �ы븿: Kick, setmetatable, namecall Kick, GetMouse, Ping, CameraSecurity soft
--- �쒖쇅: FireServer 愿묒뿭 李⑤떒, CameraSecurity __index=nil, getgc 媛뺤젣 ��
--- ============================================================================
-task.defer(function()
-    if getgenv().__VallkBypassFullSafe then return end
-    getgenv().__VallkBypassFullSafe = true
-
-    local function sc(fn)
-        return newcclosure and newcclosure(fn) or fn
-    end
-
-    pcall(function()
-        if setthreadidentity then setthreadidentity(8) end
-    end)
-
-    local LP = game:GetService("Players").LocalPlayer
-
-    -- Kick
-    pcall(function()
-        if not LP then return end
-        if hookfunction and typeof(LP.Kick) == "function" then
-            local oldKick
-            oldKick = hookfunction(LP.Kick, sc(function(self, ...)
-                if self == LP then return nil end
-                return oldKick(self, ...)
-            end))
-        else
-            pcall(function() LP.Kick = function() end end)
-        end
-    end)
-
-    -- setmetatable weak-mode (original only)
-    pcall(function()
-        local okEnv, renv = pcall(getrenv)
-        local sm = okEnv and renv and renv.setmetatable
-        if not (hookfunction and sm) then return end
-        local oldSM
-        oldSM = hookfunction(sm, sc(function(tbl, mt)
-            -- pass-through by default to avoid lobby pairs(nil) breakage
-            if type(oldSM) ~= "function" then
-                return tbl
-            end
-            if mt and type(mt) == "table" then
-                local mode = rawget(mt, "__mode")
-                if mode == "kv" or mode == "v" or mode == "k" then
-                    local ok, tr = pcall(debug.traceback)
-                    tr = ok and tr or ""
-                    -- only CameraSecurity / Analytics �� avoid Lobby/Misc lobby paths
-                    if tr:find("CameraSecurity", 1, true)
-                        or tr:find("AnalyticsPipelineController", 1, true) then
-                        if not tr:find("Lobby", 1, true) and not tr:find("LobbyElements", 1, true) then
-                            return oldSM({1, 2, 3}, {})
-                        end
-                    end
-                end
-            end
-            return oldSM(tbl, mt)
-        end))
-    end)
-
-    -- namecall Kick only
-    pcall(function()
-        if getgenv().__VallkNCFull then return end
-        if not (hookmetamethod and getnamecallmethod) then return end
-        local old
-        old = hookmetamethod(game, "__namecall", sc(function(self, ...)
-            local method = getnamecallmethod()
-            if method == "Kick" or method == "kick" then
-                return
-            end
-            return old(self, ...)
-        end))
-        getgenv().__VallkNCFull = true
-    end)
-
-    -- GetMouse (Misc only) �� return real mouse, no fake mt
-    task.delay(1, function()
-        pcall(function()
-            if not (LP and hookfunction) then return end
-            local oldGetMouse
-            oldGetMouse = hookfunction(LP.GetMouse, sc(function(self, ...)
-                return oldGetMouse(self, ...)
-            end))
-        end)
-    end)
-
-    -- CameraSecurity soft (tostring only, no __index nil)
-    task.delay(2, function()
-        pcall(function()
-            local ps = LP and LP:FindFirstChild("PlayerScripts")
-            local mod = ps and ps:FindFirstChild("Modules") and ps.Modules:FindFirstChild("CameraSecurity")
-            if not mod then return end
-            local ok, cs = pcall(require, mod)
-            if not ok or not cs then return end
-            local mt = getrawmetatable and getrawmetatable(cs)
-            if not mt then return end
-            if setreadonly then pcall(setreadonly, mt, false) end
-            pcall(function()
-                mt.__tostring = function() return "CameraSecurity" end
-            end)
-        end)
-    end)
-
-    -- Ping
-    task.delay(4, function()
-        pcall(function()
-            local RS = game:GetService("ReplicatedStorage")
-            local ServerPing = workspace:FindFirstChild("ServerPing")
-            local Remotes = RS and RS:FindFirstChild("Remotes")
-            local PingRemote = Remotes and Remotes:FindFirstChild("Ping")
-            if not PingRemote then return end
-            while true do
-                task.wait(15 + math.random() * 10)
-                local rnd = math.random(1, 9999)
-                local sp = ServerPing and ServerPing.Value
-                local value = rnd == 6961 and 2137 or (sp and rnd == sp and 2138 or rnd)
-                pcall(function() PingRemote:FireServer(value) end)
-            end
-        end)
-    end)
-end)
-
--- SECTION: Anti-Kick / Security / Anti-Cheat Bypass
--- ============================================================================
-pcall(function()
-    if LocalPlayer and typeof(LocalPlayer.Kick) == "function" then
-        LocalPlayer.Kick = function(...) end
-    end
-end)
-
--- Anti-Kick namecall block removed (syntax fix + overflow)
-
--- Player Spawn Tracker
-local _Players = game:GetService("Players")
-_Players.PlayerAdded:Connect(function(player)
-    player.CharacterAdded:Connect(function(char)
-        player:SetAttribute("SpawnTime", tick())
-    end)
-end)
-
-for _, player in ipairs(_Players:GetPlayers()) do
-    player.CharacterAdded:Connect(function(char)
-        player:SetAttribute("SpawnTime", tick())
-    end)
-    if player.Character then
-        player:SetAttribute("SpawnTime", tick())
-    end
-end
-
--- ============================================================================
-
--- Services
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local TextService = game:GetService("TextService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
-local Lighting = game:GetService("Lighting")
-local CoreGui = game:GetService("CoreGui")
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-local Camera = Workspace.CurrentCamera
-Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
-    Camera = Workspace.CurrentCamera
-end)
-
--- SECTION: Key System & Settings Variables
--- ============================================================================
-local validKey = "Paid_masterkey-vallkmult"
-local keyPassed = false
-
-local mobileOnEnabled = false
-
--- Aimbot & Silent Aim
-local aimbotEnabled = false
-local aimbotSmoothness = 5
-local aimbotFovRadius = 100
-local aimbotHitPart = "head"
-local aimbotWallCheck = false
-
-local silentAimEnabled = false
-local wallbangEnabled = false
-local silentAimHitPart = "head"
-local silentAimFovRadius = 300
-local silentWallCheck = false
-local silentAimTarget = nil
-
--- Ragebot Toggle (Single Engine Integration)
-local ragebotOrKillAura = false
-local ragebotHeightOffset = 3
-
--- Vallk Features & Cooldowns
-local fastMeleeEnabled = false
-local hoNyangNoCDEnabled = false
-local attackCooldownDisabled = false
-local projectileCooldownDisabled = false
-
--- FFMode
-local ffModeEnabled = false
-local ffTeamCheckEnabled = true
-local ffBaitingEnabled = false
-
--- Orbit & Void Spam
-local orbitEnabled = false
-local orbitRange = 50
-local orbitDelay = 0.01
-
-local voidSpamEnabled = false
-local voidSpamRange = 50
-local voidSpamDelay = 0.01
-local voidHideTime = 0.25
-local voidShootTime = 0.03
-local voidAttackAttempts = 1
-local hitNotifyEnabled = true
-local ragebotIndicatorEnabled = true
-local ammoIndicatorEnabled = true
-local hitSoundVolume = 0.7
-local hitSoundEnabled = false
-local hitSoundName = "neverlose"
-local HIT_SOUND_IDS = {
-    neverlose = "rbxassetid://6607204501",
-    gamesense = "rbxassetid://4817809188",
-    skeet = "rbxassetid://5447626464",
-    rust = "rbxassetid://5043539486",
-    bell = "rbxassetid://6534947240",
-    bubble = "rbxassetid://6534947588",
-    minecraft = "rbxassetid://4018616850",
-    osu = "rbxassetid://7149255551",
-    tf2 = "rbxassetid://2868331684",
-    ["�μ땐�� �뺤”諛� 蹂댁뙂"] = "rbxassetid://85775332966635",
-}
-local HIT_SOUND_LIST = {"neverlose","gamesense","skeet","rust","bell","bubble","minecraft","osu","tf2","�μ땐�� �뺤”諛� 蹂댁뙂"}
-
-local hideCrosshairEnabled = false
-
--- Gun Utilities
-local triggerbotEnabled = false
-local rapidFireEnabled = false
-local noRecoilEnabled = false
-local noSpreadEnabled = false
-local noMuzzleFlashEnabled = false
-local bulletSpeedBoost = false
-local bulletSpeedMult = 100000
-
--- ESP & Movement
-local espEnabled = false
-local espBoxEnabled = false
-local espNameEnabled = false
-local espHealthEnabled = false
-local gunTracerEnabled = false
-
-local pcFlyEnabled = false
-local mobileFlyEnabled = false
-local noclipEnabled = false
-local rapidSpeedEnabled = false
-local rapidSpeedMultiplier = 2.5
-
-local skinChangerEnabled = false
-local autoRespawnEnabled = false
-local collectDropsEnabled = false
-local arcadeEnabled = false
-local customSkyboxEnabled = false
-local skyboxTheme = "Vaporwave"
-
-local circleCrosshairEnabled = false
-local circleCrosshairSize = 60
-local circleRotationSpeed = 4
-
--- Controller Modules
-local FighterController, SpectateController, CameraController, GunModule, UtilityModule, EnumLibrary
-task.defer(function()
-    pcall(function()
-        local ps = LocalPlayer:WaitForChild("PlayerScripts", 10)
-        if not ps then return end
-        local ctrl = ps:WaitForChild("Controllers", 10)
-        if not ctrl then return end
-        pcall(function() FighterController = require(ctrl:WaitForChild("FighterController", 5)) end)
-        pcall(function() SpectateController = require(ctrl:WaitForChild("SpectateController", 2)) end)
-        pcall(function() CameraController = require(ctrl:WaitForChild("CameraController", 2)) end)
-        pcall(function() GunModule = require(ps:WaitForChild("Modules"):WaitForChild("ItemTypes"):WaitForChild("Gun")) end)
-        pcall(function() UtilityModule = require(ReplicatedStorage:WaitForChild("Modules", 5):WaitForChild("Utility", 5)) end)
-        pcall(function() EnumLibrary = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("EnumLibrary")) end)
-    end)
-end)
-
--- Helpers & Safety Checks
-local function is_teammate(player)
-    if ffModeEnabled and ffTeamCheckEnabled then
-        local myTeam = LocalPlayer:GetAttribute("TeamID")
-        local pTeam = player:GetAttribute("TeamID")
-        if myTeam ~= nil and pTeam ~= nil and myTeam == pTeam then return true end
-    end
-    local myTeam = LocalPlayer:GetAttribute("TeamID")
-    local pTeam = player:GetAttribute("TeamID")
-    if myTeam == nil or pTeam == nil then return false end
-    return myTeam == pTeam
-end
-
-local function get_character_immune(playerOrChar)
-    local char = playerOrChar
-    if typeof(playerOrChar) == "Instance" and playerOrChar:IsA("Player") then
-        char = playerOrChar.Character
-    end
-    if not char then return true end
-    if char:FindFirstChildOfClass("ForceField") then return true end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if hrp and hrp:FindFirstChild("Attachment") then return true end
-    local isImmuneAttr = char:GetAttribute("Immune") or char:GetAttribute("Invincible") or char:GetAttribute("IsImmune")
-    if isImmuneAttr == true then return true end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if hum then
-        if hum.Health <= 0 then return true end
-        local humImmune = hum:GetAttribute("Immune") or hum:GetAttribute("Invincible")
-        if humImmune == true then return true end
-    end
-    return false
-end
-
-local function is_reflecting_or_parrying(player)
-    local char = player and player.Character
-    if not char then return false end
-
-    local reflectAttrs = {"Reflecting", "IsReflecting", "BulletReflect", "Reflect", "Deflecting", "Parrying"}
-    for _, attr in ipairs(reflectAttrs) do
-        local val = char:GetAttribute(attr)
-        if val == true or val == 1 or val == "true" then return true end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then
-            local hVal = hum:GetAttribute(attr)
-            if hVal == true or hVal == 1 then return true end
-        end
-    end
-
-    local isKatana = false
-    local tool = char:FindFirstChildOfClass("Tool")
-    if tool and string.find(string.lower(tool.Name), "katana", 1, true) then isKatana = true end
-    for _, child in ipairs(char:GetChildren()) do
-        local childName = string.lower(child.Name)
-        if string.find(childName, "katana", 1, true) then isKatana = true end
-        if string.find(childName, "reflect", 1, true) or string.find(childName, "deflect", 1, true) then return true end
-    end
-
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if hum then
-        local ok, anims = pcall(function() return hum:GetPlayingAnimationTracks() end)
-        if ok and anims then
-            for _, track in ipairs(anims) do
-                local animName = string.lower(tostring(track.Name or ""))
-                local animId = ""
-                pcall(function()
-                    if track.Animation then animId = tostring(track.Animation.AnimationId or "") end
-                end)
-                local fullStr = animName .. " " .. string.lower(animId)
-                if string.find(fullStr, "reflect", 1, true) or string.find(fullStr, "deflect", 1, true)
-                    or string.find(fullStr, "parry", 1, true) or string.find(fullStr, "block", 1, true) then
-                    if isKatana or string.find(fullStr, "katana", 1, true) then return true end
-                    if string.find(fullStr, "reflect", 1, true) or string.find(fullStr, "deflect", 1, true) then return true end
-                end
-            end
-        end
-    end
-    return false
-end
-
-local function get_character_root(char)
-    if not char then return nil end
-    return char:FindFirstChild("HitboxHead")
-        or char:FindFirstChild("HitboxHeadSmall")
-        or char:FindFirstChild("Head")
-end
-
-local function can_shoot()
-    local canShoot = true
-    pcall(function()
-        if not FighterController or not FighterController.LocalFighter then return end
-        local item = FighterController.LocalFighter.EquippedItem
-        if not item then canShoot = false; return end
-        local function getProp(key)
-            local ok, res = pcall(function()
-                if item.Get then return item:Get(key) end
-                return item[key] or (item.Data and item.Data[key]) or (item.Info and item.Info[key])
-            end)
-            return ok and res or nil
-        end
-        local ammo = getProp("CurrentAmmo") or getProp("Ammo") or getProp("Bullets") or getProp("MagazineAmmo")
-        local isReloading = getProp("Reloading") or getProp("IsReloading")
-        if item.Info and type(item.Info) == "table" then
-            if ammo == nil then ammo = item.Info.CurrentAmmo or item.Info.Ammo end
-            if item.Info.Reloading == true or item.Info.IsReloading == true then isReloading = true end
-        end
-        if isReloading == true or (typeof(ammo) == "number" and ammo <= 0) then canShoot = false end
-    end)
-    return canShoot
-end
-
-local function has_line_of_sight(targetPart, myChar)
-    if not targetPart then return false end
-    local origin = Camera.CFrame.Position
-    local dir = targetPart.Position - origin
-    local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = { myChar, Camera }
-    params.IgnoreWater = true
-    local result = Workspace:Raycast(origin, dir, params)
-    if not result then return true end
-    local model = result.Instance and result.Instance:FindFirstAncestorOfClass("Model")
-    return model == targetPart:FindFirstAncestorOfClass("Model")
-end
-
--- ============================================================================
-
-
--- ============================================================================
--- PASTED RAGEBOT ENGINE (no dual UI �� wired to Valk toggles)
--- ============================================================================
-local function setRagebotStatus(active, target)
-    -- indicator uses activeTargetPart / ragebotOrKillAura
-    if active and target and target.Character then
-        activeTargetPart = target.Character:FindFirstChild("HitboxHead")
-            or target.Character:FindFirstChild("Head")
-    elseif not active then
-        activeTargetPart = nil
-    end
-end
-
--- RAGEBOT SETTINGS
--- ============================================================================
-local RagebotSettings = {
-    on = false,
-    targetMode = "Closest",
-    autoSwitch = true,
-    autoSwapSecondary = true,
-    autoReloadPrimary = true,
-    primarySlot = 1,
-    secondarySlot = 2,
-    acSpd = 0.05,
-    shootDelay = 0,
-    teleportDelay = 0.04,
-    orbitDist = 3,
-    orbitHeight = 2,
-    randomMovement = false,
-    randomRefresh = 0.08,
-    mode = "Orbit",
-    strafeSpeed = 5,
-    undergroundDepth = 6,
-    behindDist = 4,
-    antiAim = false,
-    hyper = false,
-    useManipulation = true,
-    voidSpam = true,
-    voidHideTime = 0.25,
-    voidShootTime = 0.03,
-    shootAttempts = 1,
-    otherMatchAvoidDistance = 1000,
-    settleUntil = 0,
-    dirBack = true, dirFront = false, dirLeft = true, dirRight = true, dirUp = true, dirDown = false,
-}
-
-local rbGen = 0
-local rbDuelMod, rbInMatchT, rbInMatch = nil, 0, false
-local rbTgtT = 0
-local slotKey = {[1] = Enum.KeyCode.One, [2] = Enum.KeyCode.Two, [3] = Enum.KeyCode.Three, [4] = Enum.KeyCode.Four}
-
-local util, enums, useItemRemote, fighterCtrl
-pcall(function()
-    util = require(ReplicatedStorage.Modules.Utility)
-    enums = require(ReplicatedStorage.Modules.EnumLibrary)
-    useItemRemote = ReplicatedStorage.Remotes.Replication.Fighter.UseItem
-    fighterCtrl = require(LocalPlayer.PlayerScripts.Controllers.FighterController)
-end)
-
-local function isShootingRange()
-    local function matches(value)
-        if value == nil then return false end
-        local text = tostring(value):lower():gsub("[%s_%-]", "")
-        return text:find("shootingrange", 1, true) ~= nil
-            or text:find("firingrange", 1, true) ~= nil
-            or text:find("�ш꺽��", 1, true) ~= nil
-    end
-    for _, object in ipairs({workspace, LocalPlayer}) do
-        for _, attribute in ipairs({"Map","MapName","Mode","GameMode","Arena","Environment","EnvironmentName","ShootingRange"}) do
-            local value = object:GetAttribute(attribute)
-            if (value == true and attribute == "ShootingRange") or matches(value) then
-                return true
-            end
-        end
-    end
-    return false
-end
-
-local IDKRagebotState = {
-    active = false, target = nil, conn = nil, ammoThread = nil, voidThread = nil,
-    voidHbConn = nil, csyncHbConn = nil, voidExposed = false, voidTargetCF = nil,
-    nextTeleportAt = 0, ammoActionAt = 0, hideOrbitUntil = 0, randPos = nil, randT = 0,
-    lastFakePos = nil, csyncCF = nil, csyncLV = nil, csyncAV = nil,
-    csyncLocalCF = nil, csyncLocalLV = nil, csyncLocalAV = nil, csyncWroteFake = false,
-    noclipConn = nil, orbitClientCF = nil, orbitRenderRunning = false, suspended = false,
-}
-
-local function getRoot(char) return char and char:FindFirstChild("HumanoidRootPart") end
-
-local function getFighter()
-    if fighterCtrl and fighterCtrl.LocalFighter then return fighterCtrl.LocalFighter end
-    if fighterCtrl and fighterCtrl.GetFighter then
-        local ok, fighter = pcall(fighterCtrl.GetFighter, fighterCtrl, LocalPlayer)
-        if ok then return fighter end
-    end
-    return nil
-end
-
-local function pressKey(kc)
-    local vim = game:GetService("VirtualInputManager")
-    vim:SendKeyEvent(true, kc, false, game)
-    task.wait(0.03)
-    vim:SendKeyEvent(false, kc, false, game)
-end
-
-local function scanWeapon(plr)
-    local vms = workspace:FindFirstChild("ViewModels")
-    if not vms then return "" end
-    for _, model in vms:GetChildren() do
-        if model:IsA("Model") then
-            local sp = model.Name:find(" - ", 1, true)
-            if sp and model.Name:sub(1, sp - 1) == plr.Name then
-                return model.Name:sub(sp + 3):lower()
-            end
-        end
-    end
-    return ""
-end
-
-local function playerIsDead(plr)
-    local char = plr and plr.Character
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    return not char or not hum or hum.Health <= 0 or not getRoot(char)
-end
-
-local function isInvincible(plr)
-    local char = plr and plr.Character
-    if not char then return true end
-    local root = getRoot(char)
-    if not root then return true end
-    for _, obj in root:GetChildren() do
-        if obj:IsA("Attachment") and obj.Name == "Attachment" then return true end
-    end
-    return char:FindFirstChild("InvincibilityParticles", true) ~= nil
-end
-
-local function isKatana(plr) return scanWeapon(plr):find("katana", 1, true) ~= nil end
-
-local function isRiotShield(plr)
-    local w = scanWeapon(plr)
-    return w:find("riot", 1, true) ~= nil or w:find("shield", 1, true) ~= nil
-end
-
-local function IsValidMatch(player)
-    return player:GetAttribute("EnvironmentID") == LocalPlayer:GetAttribute("EnvironmentID")
-end
-
-local function isNearOtherMatch(pos, ignorePlayer)
-    local avoid = RagebotSettings.otherMatchAvoidDistance or 1000
-    if typeof(pos) ~= "Vector3" or avoid <= 0 then return false end
-    for _, plr in Players:GetPlayers() do
-        if plr ~= LocalPlayer and plr ~= ignorePlayer and not IsValidMatch(plr) then
-            local r = getRoot(plr.Character)
-            if r and (r.Position - pos).Magnitude <= avoid then return true end
-        end
-    end
-    return false
-end
-
-local function isSafeRagebotPos(pos, targetPlayer) return not isNearOtherMatch(pos, targetPlayer) end
-
-local function shouldSkip(plr)
-    if plr == LocalPlayer or playerIsDead(plr) then return true end
-    if not IsValidMatch(plr) then return true end
-    if isInvincible(plr) then return true end
-    local root = getRoot(plr.Character)
-    if root and isNearOtherMatch(root.Position, plr) then return true end
-    return root and root:FindFirstChild("TeammateLabel") ~= nil
-end
-
-local function getBestTarget()
-    local root = getRoot(LocalPlayer.Character)
-    if not root then return nil end
-    if RagebotSettings.prioritizedPlayer then
-        local pp = Players:FindFirstChild(RagebotSettings.prioritizedPlayer)
-        if pp and not shouldSkip(pp) then return pp end
-    end
-    local best, bestV = nil, math.huge
-    local useHP = RagebotSettings.targetMode == "Lowest Health"
-    for _, plr in Players:GetPlayers() do
-        if not shouldSkip(plr) then
-            local char = plr.Character
-            local tr = getRoot(char)
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
-            local value = useHP and hum.Health or (tr.Position - root.Position).Magnitude
-            if value < bestV then bestV = value; best = plr end
-        end
-    end
-    return best
-end
-
-local function hasValidTarget()
-    return IDKRagebotState.target and not playerIsDead(IDKRagebotState.target) and not isInvincible(IDKRagebotState.target)
-end
-
--- �� ��寃� �놁쑝硫� 臾댁“嫄� void...
-local function updateRagebotStatus()
-    local target = hasValidTarget() and IDKRagebotState.target or nil
-    if setRagebotStatus then
-        setRagebotStatus(IDKRagebotState.active and RagebotSettings.on, target)
-    end
-end
-
-local function shouldShoot()
-    if not hasValidTarget() then return false end
-    if isKatana(IDKRagebotState.target) then return false end
-    if RagebotSettings.mode == "Void" and not IDKRagebotState.voidExposed then return false end
-    return true
-end
-
-local function handleAmmo()
-    local fighter = getFighter()
-    local item = fighter and fighter.EquippedItem
-    if not fighter or not item then return false end
-    local ammo = item:Get("Ammo") or 0
-    local slot = item:Get("Slot") or 1
-    local now = tick()
-    if fighter:Get("Reloading") then
-        IDKRagebotState.hideOrbitUntil = math.max(IDKRagebotState.hideOrbitUntil or 0, now + 0.25)
-        IDKRagebotState.ammoActionAt = math.max(IDKRagebotState.ammoActionAt or 0, now + 0.1)
-        return true
-    end
-    if ammo > 0 then return false end
-    if now < (IDKRagebotState.ammoActionAt or 0) then return true end
-    local primary = RagebotSettings.primarySlot or 1
-    local secondary = RagebotSettings.secondarySlot or 2
-    if slot == primary and RagebotSettings.autoSwapSecondary then
-        IDKRagebotState.ammoActionAt = now + 0.45
-        IDKRagebotState.hideOrbitUntil = math.max(IDKRagebotState.hideOrbitUntil or 0, now + 0.45)
-        pressKey(slotKey[secondary] or Enum.KeyCode.Two); return true
-    end
-    if slot == secondary and RagebotSettings.autoReloadPrimary then
-        IDKRagebotState.ammoActionAt = now + 0.6
-        IDKRagebotState.hideOrbitUntil = math.max(IDKRagebotState.hideOrbitUntil or 0, now + 0.6)
-        pressKey(slotKey[primary] or Enum.KeyCode.One)
-        task.delay(0.18, function()
-            if not IDKRagebotState.active then return end
-            local f2 = getFighter()
-            local i2 = f2 and f2.EquippedItem
-            if f2 and i2 and (i2:Get("Slot") or 1) == primary and (i2:Get("Ammo") or 0) <= 0 and not f2:Get("Reloading") then
-                pressKey(Enum.KeyCode.R)
-            end
-        end)
-        return true
-    end
-    if slot == primary and RagebotSettings.autoReloadPrimary then
-        IDKRagebotState.ammoActionAt = now + 0.5
-        IDKRagebotState.hideOrbitUntil = math.max(IDKRagebotState.hideOrbitUntil or 0, now + 0.5)
-        pressKey(Enum.KeyCode.R); return true
-    end
-    return true
-end
-
-local function buildCameraData(fromPos, part)
-    if not util or not part then return nil end
-    local look = CFrame.new(fromPos, part.Position)
-    local data = {}
-    data[utf8.char(1)] = {
-        [utf8.char(0)] = util:EncodeCFrame(look),
-        [utf8.char(1)] = util:EncodeCFrame(look),
-        [utf8.char(2)] = part,
-        [utf8.char(3)] = util:EncodeCFrame(part.CFrame:ToObjectSpace(CFrame.new(part.Position)))
-    }
-    return data
-end
-
-local function doFire(part)
-    local fighter = getFighter()
-    local item = fighter and fighter.EquippedItem
-    if not item or not part then return false end
-    local cam = workspace.CurrentCamera
-    local fromPos = (IDKRagebotState.csyncCF and IDKRagebotState.csyncCF.Position) or (cam and cam.CFrame.Position) or part.Position
-    local anyFired = false
-    local attempts = math.max(1, math.floor(RagebotSettings.shootAttempts or 1))
-    for _ = 1, attempts do
-        local fired = false
-        if RagebotSettings.useManipulation and useItemRemote and enums and util then
-            local ammo = item.Get and (item:Get("Ammo") or 0) or 0
-            if ammo > 0 then
-                local oid = item:Get("ObjectID")
-                local shootEnum = enums:ToEnum("StartShooting")
-                local data = buildCameraData(fromPos, part)
-                if oid and shootEnum and data then
-                    fired = pcall(function() useItemRemote:FireServer(oid, shootEnum, data, nil) end)
-                end
-            end
-        end
-        if not fired and item.UseItem then fired = pcall(function() item:UseItem() end) end
-        if not fired and fighter and fighter.UseItem then fired = pcall(function() fighter:UseItem() end) end
-        anyFired = anyFired or fired
-    end
-    return anyFired
-end
-
-local function isLobby()
-    local pg = LocalPlayer:FindFirstChild("PlayerGui")
-    local mg = pg and pg:FindFirstChild("MainGui")
-    local mf = mg and mg:FindFirstChild("MainFrame")
-    local lb = mf and mf:FindFirstChild("Lobby")
-    local cur = lb and lb:FindFirstChild("Currency")
-    return cur and cur.Visible == true
-end
-
-local function getDuel()
-    if not rbDuelMod then
-        local ps = LocalPlayer:FindFirstChild("PlayerScripts")
-        local ct = ps and ps:FindFirstChild("Controllers")
-        local dc = ct and ct:FindFirstChild("DuelController")
-        if dc then
-            local ok, mod = pcall(require, dc)
-            if ok and mod then rbDuelMod = mod end
-        end
-    end
-    if rbDuelMod and rbDuelMod.GetDuel then
-        local ok, duel = pcall(rbDuelMod.GetDuel, rbDuelMod, LocalPlayer)
-        if ok then return duel end
-    end
-end
-
-local function isValidMatch()
-    if isLobby() or isShootingRange() then return false end
-    local char = LocalPlayer.Character
-    local root = getRoot(char)
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if not char or not root or not hum or hum.Health <= 0 then return false end
-    if getDuel() ~= nil then return true end
-    return getFighter() ~= nil
-end
-
-local function inMatch()
-    local now = tick()
-    if now - rbInMatchT < 0.25 then return rbInMatch end
-    rbInMatchT = now
-    rbInMatch = isValidMatch()
-    return rbInMatch
-end
-
-local function undergroundPos(head, targetRoot)
-    local depth = math.clamp(RagebotSettings.undergroundDepth or 6, 3, 8)
-    local radius = math.clamp(RagebotSettings.orbitDist or 3, 1.25, 4)
-    return head.Position - targetRoot.CFrame.LookVector * radius + Vector3.new(0, -depth, 0)
-end
-
-local oldFireServerRagebot
-local rbHookInstalled = false
-local enterVoidState
-local setVoidCsync
-
-local function installRagebotHook()
-    if rbHookInstalled or not useItemRemote then return end
-    rbHookInstalled = true
-    oldFireServerRagebot = hookfunction(useItemRemote.FireServer, newcclosure(function(self, oid, action, cameradata, ...)
-        if IDKRagebotState.active and RagebotSettings.on and RagebotSettings.mode == "Void" and RagebotSettings.useManipulation and action == enums:ToEnum("StartShooting") then
-            if isLobby() or not inMatch() then
-                return oldFireServerRagebot(self, oid, action, cameradata, ...)
-            end
-            local target = IDKRagebotState.target
-            if hasValidTarget() and not isKatana(target) then
-                local tc = target.Character
-                local tr = getRoot(tc)
-                local head = tc and (tc:FindFirstChild("Head") or tr)
-                if tr and head then
-                    local shootPos = isRiotShield(target)
-                        and (tr.Position - tr.CFrame.LookVector * (RagebotSettings.behindDist or 4))
-                        or (tr.Position - tr.CFrame.LookVector * 2.5 + Vector3.new(0, 1.5, 0))
-                    if not isSafeRagebotPos(shootPos, target) then
-                        enterVoidState()
-                        return oldFireServerRagebot(self, oid, action, cameradata, ...)
-                    end
-                    local shootCF = CFrame.new(shootPos, head.Position)
-                    IDKRagebotState.voidExposed = true
-                    IDKRagebotState.voidTargetCF = shootCF
-                    setVoidCsync(shootCF, Vector3.zero, Vector3.zero)
-                    updateRagebotStatus()
-                    task.wait(0.02)
-                    local newData = buildCameraData(shootPos, head) or cameradata
-                    task.spawn(function()
-                        task.wait(0.05)
-                        enterVoidState()
-                    end)
-                    return oldFireServerRagebot(self, oid, action, newData, ...)
-                end
-            end
-        end
-        return oldFireServerRagebot(self, oid, action, cameradata, ...)
-    end))
-end
-
-local function rnd() return math.random() * 2 - 1 end
-local function rndDir()
-    local angle = math.random() * math.pi * 2
-    return Vector3.new(math.cos(angle), 0, math.sin(angle))
-end
-
-local function getDirs(targetRoot)
-    local dirs = {}
-    local look = targetRoot.CFrame.LookVector
-    local right = targetRoot.CFrame.RightVector
-    if RagebotSettings.dirBack then table.insert(dirs, -look) end
-    if RagebotSettings.dirFront then table.insert(dirs, look) end
-    if RagebotSettings.dirLeft then table.insert(dirs, -right) end
-    if RagebotSettings.dirRight then table.insert(dirs, right) end
-    if #dirs == 0 then dirs[1] = -look; dirs[2] = right; dirs[3] = -right end
-    return dirs
-end
-
-local function pickOffset(targetRoot, head)
-    local dirs = getDirs(targetRoot)
-    local dir = dirs[math.random(1, #dirs)]
-    local radius = math.clamp(RagebotSettings.orbitDist or 3, 1.25, 5)
-    local height = math.clamp(RagebotSettings.orbitHeight or 2, -2, 6)
-    local pos = head.Position + dir * radius + Vector3.new(0, height, 0)
-    if RagebotSettings.dirUp and math.random() < 0.2 then
-        pos += Vector3.new(0, math.max(1, height), 0)
-    elseif RagebotSettings.dirDown and math.random() < 0.15 then
-        pos += Vector3.new(0, -math.max(1, math.min(3, RagebotSettings.undergroundDepth or 2)), 0)
-    end
-    return pos
-end
-
-local function setCsync(cf, pos, dt)
-    local old = IDKRagebotState.lastFakePos
-    IDKRagebotState.csyncCF = cf
-    IDKRagebotState.csyncLV = old and dt and dt > 0 and (pos - old) / dt or Vector3.zero
-    IDKRagebotState.csyncAV = Vector3.zero
-    IDKRagebotState.lastFakePos = pos
-end
-
-local function clearCsyncTarget()
-    IDKRagebotState.csyncCF = nil
-    IDKRagebotState.csyncLV = nil
-    IDKRagebotState.csyncAV = nil
-    IDKRagebotState.lastFakePos = nil
-end
-
-local function isRagebotSettling()
-    return os.clock() < (RagebotSettings.settleUntil or 0)
-end
-
-local function restoreLocalRoot(root)
-    if not root or not IDKRagebotState.csyncLocalCF then return false end
-    local liveVelocity = root.AssemblyLinearVelocity
-    root.CFrame = IDKRagebotState.csyncLocalCF
-    if IDKRagebotState.csyncLocalLV then
-        root.AssemblyLinearVelocity = Vector3.new(IDKRagebotState.csyncLocalLV.X, liveVelocity.Y, IDKRagebotState.csyncLocalLV.Z)
-    end
-    if IDKRagebotState.csyncLocalAV then
-        root.AssemblyAngularVelocity = IDKRagebotState.csyncLocalAV
-    end
-    return true
-end
-
-local function startCsync()
-    if IDKRagebotState.csyncHbConn then return end
-    IDKRagebotState.csyncHbConn = RunService.Heartbeat:Connect(function()
-        local root = getRoot(LocalPlayer.Character)
-        if not root then return end
-        if IDKRagebotState.csyncWroteFake and IDKRagebotState.csyncLocalCF then
-            restoreLocalRoot(root)
-        end
-        if isRagebotSettling() then
-            IDKRagebotState.csyncLocalCF = root.CFrame
-            IDKRagebotState.csyncLocalLV = root.AssemblyLinearVelocity
-            IDKRagebotState.csyncLocalAV = root.AssemblyAngularVelocity
-            IDKRagebotState.csyncWroteFake = false
-            return
-        end
-        IDKRagebotState.csyncLocalCF = root.CFrame
-        IDKRagebotState.csyncLocalLV = root.AssemblyLinearVelocity
-        IDKRagebotState.csyncLocalAV = root.AssemblyAngularVelocity
-        if IDKRagebotState.csyncCF then
-            root.CFrame = IDKRagebotState.csyncCF
-            local fakeVelocity = IDKRagebotState.csyncLV or IDKRagebotState.csyncLocalLV or root.AssemblyLinearVelocity
-            local localVelocity = IDKRagebotState.csyncLocalLV or root.AssemblyLinearVelocity
-            root.AssemblyLinearVelocity = Vector3.new(fakeVelocity.X, localVelocity.Y, fakeVelocity.Z)
-            root.AssemblyAngularVelocity = IDKRagebotState.csyncAV or IDKRagebotState.csyncLocalAV or root.AssemblyAngularVelocity
-            IDKRagebotState.csyncWroteFake = true
-        else
-            IDKRagebotState.csyncWroteFake = false
-        end
-    end)
-    RunService:BindToRenderStep("IDK_RagebotCsync", Enum.RenderPriority.Camera.Value - 1, function()
-        local root = getRoot(LocalPlayer.Character)
-        if not root or not IDKRagebotState.csyncLocalCF then return end
-        if IDKRagebotState.csyncWroteFake and restoreLocalRoot(root) then
-            IDKRagebotState.csyncWroteFake = false
-        end
-    end)
-end
-
-local function stopCsync()
-    if IDKRagebotState.csyncHbConn then IDKRagebotState.csyncHbConn:Disconnect(); IDKRagebotState.csyncHbConn = nil end
-    RunService:UnbindFromRenderStep("IDK_RagebotCsync")
-    restoreLocalRoot(getRoot(LocalPlayer.Character))
-    clearCsyncTarget()
-    IDKRagebotState.csyncLocalCF = nil
-    IDKRagebotState.csyncLocalLV = nil
-    IDKRagebotState.csyncLocalAV = nil
-    IDKRagebotState.csyncWroteFake = false
-end
-
-local function voidRand()
-    local n = math.random(-2147483646, 2147483646)
-    repeat n = math.random(-2147483646, 2147483646)
-    until n < -1147483646 or n > 1147483646
-    return n
-end
-
-local function voidRandCF()
-    return CFrame.new(voidRand(), voidRand(), voidRand()) * CFrame.Angles(math.pi, math.pi, math.pi)
-end
-
-setVoidCsync = function(cf, lv, av)
-    IDKRagebotState.csyncCF = cf
-    IDKRagebotState.csyncLV = lv or Vector3.zero
-    IDKRagebotState.csyncAV = av or Vector3.zero
-    IDKRagebotState.lastFakePos = cf and cf.Position or nil
-end
-
-enterVoidState = function()
-    IDKRagebotState.voidTargetCF = nil
-    IDKRagebotState.voidExposed = false
-    IDKRagebotState.orbitClientCF = nil
-    if not IDKRagebotState.active or not RagebotSettings.on then
-        clearCsyncTarget()
-        updateRagebotStatus()
-        return
-    end
-    if RagebotSettings.voidSpam then
-        setVoidCsync(voidRandCF())
-    else
-        clearCsyncTarget()
-    end
-    updateRagebotStatus()
-end
-
-local function enableVoidCsync()
-    if IDKRagebotState.voidHbConn then return end
-    startCsync()
-    IDKRagebotState.voidHbConn = RunService.Heartbeat:Connect(function()
-        if isRagebotSettling() then
-            IDKRagebotState.voidTargetCF = nil
-            IDKRagebotState.voidExposed = false
-            clearCsyncTarget()
-            return
-        end
-        local tcf = IDKRagebotState.voidTargetCF
-        if tcf then
-            setVoidCsync(tcf, Vector3.zero, Vector3.zero)
-        elseif RagebotSettings.voidSpam then
-            setVoidCsync(voidRandCF())
-        else
-            clearCsyncTarget()
-        end
-    end)
-end
-
-local function disableVoidCsync()
-    if IDKRagebotState.voidHbConn then IDKRagebotState.voidHbConn:Disconnect(); IDKRagebotState.voidHbConn = nil end
-    RunService:UnbindFromRenderStep("IDK_RagebotVoid")
-    IDKRagebotState.voidTargetCF = nil
-    IDKRagebotState.voidThread = nil
-    IDKRagebotState.voidExposed = false
-end
-
-local function StartOrbitRenderFix()
-    if IDKRagebotState.orbitRenderRunning then return end
-    IDKRagebotState.orbitRenderRunning = true
-    RunService:BindToRenderStep("IDK_RagebotOrbit", Enum.RenderPriority.First.Value, function()
-        if not IDKRagebotState.orbitClientCF then return end
-        local root = getRoot(LocalPlayer.Character)
-        if not root then return end
-        root.CFrame = IDKRagebotState.orbitClientCF
-    end)
-end
-
-local function StopOrbitRenderFix()
-    if not IDKRagebotState.orbitRenderRunning then return end
-    RunService:UnbindFromRenderStep("IDK_RagebotOrbit")
-    IDKRagebotState.orbitRenderRunning = false
-    IDKRagebotState.orbitClientCF = nil
-end
-
-local function startVoidLoop(myGen)
-    if IDKRagebotState.voidThread then return end
-    enableVoidCsync()
-    local vt
-    vt = task.spawn(function()
-        while IDKRagebotState.active and RagebotSettings.on and rbGen == myGen and not IDKRagebotState.suspended do
-            if isRagebotSettling() then
-                IDKRagebotState.voidTargetCF = nil
-                IDKRagebotState.voidExposed = false
-                clearCsyncTarget()
-                task.wait(0.03)
-                continue
-            end
-            if not inMatch() or not hasValidTarget() or isKatana(IDKRagebotState.target) then
-                enterVoidState(); task.wait(0.1); continue
-            end
-            enterVoidState()
-            if RagebotSettings.voidHideTime > 0 then task.wait(RagebotSettings.voidHideTime) end
-            if not IDKRagebotState.active or not RagebotSettings.on or rbGen ~= myGen or IDKRagebotState.suspended or not inMatch() then break end
-            local target = IDKRagebotState.target
-            if hasValidTarget() and not isKatana(target) then
-                local tc = target.Character
-                local tr = getRoot(tc)
-                local head = tc and (tc:FindFirstChild("Head") or tr)
-                if tr and head then
-                    local shootPos = isRiotShield(target)
-                        and (tr.Position - tr.CFrame.LookVector * (RagebotSettings.behindDist or 4))
-                        or (tr.Position - tr.CFrame.LookVector * 2.5 + Vector3.new(0, 1.5, 0))
-                    if not isSafeRagebotPos(shootPos, target) then
-                        enterVoidState(); task.wait(0.1); continue
-                    end
-                    local shootCF = CFrame.new(shootPos, head.Position)
-                    IDKRagebotState.voidExposed = true
-                    IDKRagebotState.voidTargetCF = shootCF
-                    setVoidCsync(shootCF, Vector3.zero, Vector3.zero)
-                    updateRagebotStatus()
-                    if RagebotSettings.voidShootTime > 0 then task.wait(RagebotSettings.voidShootTime) end
-                    if hasValidTarget() and not isKatana(target) then doFire(head) end
-                    task.wait(0.05)
-                    enterVoidState()
-                end
-            end
-        end
-        if IDKRagebotState.voidThread == vt then IDKRagebotState.voidThread = nil end
-        if rbGen == myGen and not IDKRagebotState.suspended and IDKRagebotState.voidThread == nil then
-            disableVoidCsync()
-        end
-    end)
-    IDKRagebotState.voidThread = vt
-end
-
-local function enableNoclip()
-    if IDKRagebotState.noclipConn then return end
-    IDKRagebotState.noclipConn = RunService.Stepped:Connect(function()
-        local char = LocalPlayer.Character
-        if not char then return end
-        for _, part in char:GetDescendants() do
-            if part:IsA("BasePart") then part.CanCollide = false end
-        end
-    end)
-end
-
-local function startAmmoLoop()
-    if IDKRagebotState.ammoThread then return end
-    IDKRagebotState.ammoThread = task.spawn(function()
-        while IDKRagebotState.active do
-            if isShootingRange() then task.wait(0.1); continue end
-            if not handleAmmo() and shouldShoot() and not RagebotSettings.hyper then
-                local tc = IDKRagebotState.target and IDKRagebotState.target.Character
-                local head = tc and (tc:FindFirstChild("Head") or getRoot(tc))
-                if head then
-                    if RagebotSettings.shootDelay > 0 then task.wait(RagebotSettings.shootDelay) end
-                    doFire(head)
-                end
-            end
-            task.wait(math.max(0.01, RagebotSettings.acSpd))
-        end
-        IDKRagebotState.ammoThread = nil
-    end)
-end
-
-local function stopRagebot()
-    rbGen += 1
-    IDKRagebotState.active = false
-    RagebotSettings.on = false
-    if setRagebotStatus then setRagebotStatus(false) end
-    if IDKRagebotState.conn then IDKRagebotState.conn:Disconnect(); IDKRagebotState.conn = nil end
-    if IDKRagebotState.noclipConn then IDKRagebotState.noclipConn:Disconnect(); IDKRagebotState.noclipConn = nil end
-    IDKRagebotState.target = nil
-    IDKRagebotState.voidExposed = false
-    IDKRagebotState.nextTeleportAt = 0
-    IDKRagebotState.ammoActionAt = 0
-    IDKRagebotState.hideOrbitUntil = 0
-    IDKRagebotState.randPos = nil
-    IDKRagebotState.randT = 0
-    IDKRagebotState.lastFakePos = nil
-    rbInMatchT = 0
-    rbInMatch = false
-    stopCsync(); disableVoidCsync(); StopOrbitRenderFix()
-    local char = LocalPlayer.Character
-    if char then
-        for _, part in char:GetDescendants() do
-            if part:IsA("BasePart") then part.CanCollide = true end
-        end
-    end
-end
-
-local function startRagebot()
-    if IDKRagebotState.active then return end
-    IDKRagebotState.active = true
-    RagebotSettings.on = true
-    RagebotSettings.settleUntil = 0
-    rbGen += 1
-    local myGen = rbGen
-    if setRagebotStatus then setRagebotStatus(true, nil) end
-    startAmmoLoop()
-    installRagebotHook()
-    enableNoclip()
-    if RagebotSettings.mode == "Void" then startVoidLoop(myGen)
-    elseif RagebotSettings.mode == "Orbit" then enableVoidCsync()
-    else startCsync() end
-
-    local aaPhase = 0
-    local orbitAngle = math.random() * math.pi * 2
-
-    IDKRagebotState.conn = RunService.Stepped:Connect(function(_, dt)
-        if not IDKRagebotState.active or not RagebotSettings.on then
-            if IDKRagebotState.conn then IDKRagebotState.conn:Disconnect(); IDKRagebotState.conn = nil end
-            return
-        end
-        if isShootingRange() then
-            if not IDKRagebotState.suspended then
-                IDKRagebotState.suspended = true
-                IDKRagebotState.target = nil
-                IDKRagebotState.randPos = nil
-                IDKRagebotState.voidTargetCF = nil
-                IDKRagebotState.voidExposed = false
-                if IDKRagebotState.noclipConn then IDKRagebotState.noclipConn:Disconnect(); IDKRagebotState.noclipConn = nil end
-                stopCsync(); disableVoidCsync(); StopOrbitRenderFix()
-                updateRagebotStatus()
-            end
-            return
-        end
-        if IDKRagebotState.suspended then
-            IDKRagebotState.suspended = false
-            enableNoclip()
-            if RagebotSettings.mode == "Void" then startVoidLoop(myGen)
-            elseif RagebotSettings.mode == "Orbit" then enableVoidCsync(); StartOrbitRenderFix()
-            else startCsync() end
-        end
-        local root = getRoot(LocalPlayer.Character)
-        if not root then return end
-        if isRagebotSettling() then
-            IDKRagebotState.voidTargetCF = nil
-            IDKRagebotState.voidExposed = false
-            IDKRagebotState.orbitClientCF = nil
-            clearCsyncTarget()
-            updateRagebotStatus()
-            return
-        end
-        if not inMatch() then
-            clearCsyncTarget()
-            IDKRagebotState.target = nil
-            updateRagebotStatus()
-            return
-        end
-        local now = tick()
-        if IDKRagebotState.target and playerIsDead(IDKRagebotState.target) then
-            IDKRagebotState.target = nil
-        end
-        if IDKRagebotState.target and isInvincible(IDKRagebotState.target) then
-            clearCsyncTarget(); updateRagebotStatus(); return
-        end
-        if now - rbTgtT >= 0.05 and (RagebotSettings.autoSwitch or not IDKRagebotState.target) then
-            rbTgtT = now
-            if RagebotSettings.autoSwitch then
-                local t = getBestTarget()
-                if t then IDKRagebotState.target = t end
-            elseif not IDKRagebotState.target then
-                IDKRagebotState.target = getBestTarget()
-            end
-        end
-        if not IDKRagebotState.target then
-            clearCsyncTarget(); updateRagebotStatus(); return
-        end
-        local tc = IDKRagebotState.target.Character
-        local tr = getRoot(tc)
-        local head = tc and (tc:FindFirstChild("Head") or tr)
-        if not tc or not tr or not head then
-            IDKRagebotState.target = nil; updateRagebotStatus(); return
-        end
-        if isNearOtherMatch(tr.Position, IDKRagebotState.target) then
-            IDKRagebotState.target = nil
-            IDKRagebotState.randPos = nil
-            clearCsyncTarget(); updateRagebotStatus(); return
-        end
-        updateRagebotStatus()
-        if RagebotSettings.mode == "Void" then return end
-        if RagebotSettings.mode == "Orbit" and (now < (IDKRagebotState.hideOrbitUntil or 0) or handleAmmo()) then
-            IDKRagebotState.voidTargetCF = nil
-            IDKRagebotState.voidExposed = false
-            IDKRagebotState.orbitClientCF = nil
-            enterVoidState(); return
-        end
-        local isUnderground = RagebotSettings.mode == "Underground"
-        local isShield = isRiotShield(IDKRagebotState.target)
-        local height = math.clamp(RagebotSettings.orbitHeight or 2, -2, 6)
-        local radius = math.clamp(RagebotSettings.orbitDist or 3, 1.25, 5)
-        local targetPos
-        if isShield then
-            targetPos = tr.Position - tr.CFrame.LookVector * (RagebotSettings.behindDist or 3)
-        elseif isUnderground then
-            targetPos = undergroundPos(head, tr)
-        elseif RagebotSettings.mode == "Teleport" then
-            if RagebotSettings.randomMovement then
-                if not IDKRagebotState.randPos or (now - (IDKRagebotState.randT or 0)) >= (RagebotSettings.randomRefresh or 0.08) then
-                    IDKRagebotState.randT = now
-                    IDKRagebotState.randPos = pickOffset(tr, head) + rndDir() * (math.random() * 1.05) + Vector3.new(0, rnd() * 0.7, 0)
-                end
-                targetPos = IDKRagebotState.randPos
-            else
-                targetPos = pickOffset(tr, head)
-            end
-        elseif RagebotSettings.mode == "Orbit" then
-            orbitAngle += dt * math.max(1, (RagebotSettings.strafeSpeed or 5) * 1.5)
-            targetPos = head.Position + Vector3.new(math.cos(orbitAngle) * radius, height, math.sin(orbitAngle) * radius)
-        else
-            targetPos = undergroundPos(head, tr)
-        end
-        if not isSafeRagebotPos(targetPos, IDKRagebotState.target) then
-            IDKRagebotState.randPos = nil
-            clearCsyncTarget(); updateRagebotStatus(); return
-        end
-        local faceCF = CFrame.new(targetPos, head.Position)
-        if RagebotSettings.antiAim then
-            aaPhase += dt * 20
-            faceCF = CFrame.new(targetPos, head.Position) * CFrame.Angles(0, math.rad(math.sin(aaPhase) * 70), 0)
-        end
-        if RagebotSettings.mode == "Orbit" then
-            if RagebotSettings.hyper or not isUnderground then
-                IDKRagebotState.voidExposed = true
-                IDKRagebotState.voidTargetCF = faceCF
-                setCsync(faceCF, targetPos, dt)
-                updateRagebotStatus()
-                if shouldShoot() then doFire(head) end
-            end
-        else
-            setCsync(faceCF, targetPos, dt)
-            if RagebotSettings.hyper then
-                if shouldShoot() then doFire(head) end
-            elseif RagebotSettings.mode == "Teleport" and not isUnderground then
-                if now >= (IDKRagebotState.nextTeleportAt or 0) then
-                    IDKRagebotState.nextTeleportAt = now + math.max(0.01, RagebotSettings.teleportDelay or 0.04)
-                    if shouldShoot() then doFire(head) end
-                end
-            end
-        end
-    end)
-
-    LocalPlayer.CharacterAdded:Connect(function()
-        stopCsync(); disableVoidCsync(); StopOrbitRenderFix()
-        IDKRagebotState.target = nil
-        clearCsyncTarget()
-        IDKRagebotState.csyncLocalCF = nil
-        IDKRagebotState.csyncLocalLV = nil
-        IDKRagebotState.csyncLocalAV = nil
-        IDKRagebotState.csyncWroteFake = false
-        IDKRagebotState.voidExposed = false
-        IDKRagebotState.hideOrbitUntil = 0
-        if IDKRagebotState.active then
-            task.wait(0.5)
-            if IDKRagebotState.active then
-                if RagebotSettings.mode == "Void" then startVoidLoop(myGen)
-                elseif RagebotSettings.mode == "Orbit" then enableVoidCsync(); StartOrbitRenderFix()
-                else startCsync() end
-            end
-        end
-    end)
-end
-
--- ============================================================================
--- Indicators
--- ============================================================================
-local _9376x428 = Instance.new("ScreenGui")
-_9376x428.Name = "HalmuIndicators"
-_9376x428.ResetOnSpawn = false
-_9376x428.IgnoreGuiInset = true
-_9376x428.DisplayOrder = 999
-_9376x428.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-pcall(function() _9376x428.Parent = game:GetService("CoreGui") end)
-if not _9376x428.Parent then _9376x428.Parent = LocalPlayer:WaitForChild("PlayerGui") end
-
-local _993_318 = Instance.new("TextLabel")
-_993_318.Name = "RagebotIndicator"
-_993_318.BackgroundTransparency = 1
-_993_318.Size = UDim2.new(0, 420, 0, 22)
-_993_318.AnchorPoint = Vector2.new(0.5, 0)
-_993_318.Position = UDim2.new(0.5, 0, 0.5, 36)
-_993_318.Font = Enum.Font.Code
-_993_318.TextSize = 14
-_993_318.TextColor3 = Color3.fromRGB(255, 60, 60)
-_993_318.TextStrokeTransparency = 0
-_993_318.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-_993_318.Text = ""
-_993_318.Visible = false
-_993_318.Parent = _9376x428
-
-local _0011Il00 = Instance.new("TextLabel")
-_0011Il00.Name = "AmmoIndicator"
-_0011Il00.BackgroundTransparency = 1
-_0011Il00.Size = UDim2.new(0, 420, 0, 18)
-_0011Il00.AnchorPoint = Vector2.new(0.5, 0)
-_0011Il00.Position = UDim2.new(0.5, 0, 0.5, 52)
-_0011Il00.Font = Enum.Font.Code
-_0011Il00.TextSize = 11
-_0011Il00.TextColor3 = Color3.fromRGB(255, 60, 60)
-_0011Il00.TextStrokeTransparency = 0
-_0011Il00.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-_0011Il00.Text = ""
-_0011Il00.Visible = false
-_0011Il00.Parent = _9376x428
-
--- �� ��寃� �놁쑝硫� 臾댁“嫄� void...
-function setRagebotStatus(enabled, target)
-    if not _993_318 then return end
-    if not enabled then _993_318.Visible = false; return end
-    if target then
-        local name = (target.DisplayName or target.Name or "target")
-        _993_318.Text = "ragebot : killing " .. tostring(name) .. "..."
-    else
-        _993_318.Text = "ragebot : void..."
-    end
-    _993_318.Visible = true
-end
-
-local function get_local_ammo_status()
-    local v43335, _0xfd96, L505_10 = nil, nil, false
-    pcall(function()
-        local _3213x326 = LocalPlayer.PlayerScripts
-        local _0x9ec3, _0lO010OIIO = pcall(require, _3213x326.Controllers.FighterController)
-        if not _0x9ec3 or not _0lO010OIIO then return end
-        local _0x3584 = _0lO010OIIO.LocalFighter
-        if not _0x3584 then return end
-        local _549_282 = _0x3584.EquippedItem
-        if not _549_282 then return end
-        local function get_property(key)
-            local L704_40, L619_44 = pcall(function()
-                if _549_282.Get then return _549_282:Get(key) end
-                return _549_282[key] or (_549_282.Data and _549_282.Data[key]) or (_549_282.Info and _549_282.Info[key])
-            end)
-            if L704_40 then return L619_44 end
-            return nil
-        end
-        v43335 = get_property("CurrentAmmo") or get_property("Ammo") or get_property("Bullets") or get_property("MagazineAmmo")
-        _0xfd96 = get_property("ReserveAmmo") or get_property("StoredAmmo") or get_property("Reserve") or get_property("TotalAmmo") or get_property("MaxAmmo") or get_property("MaxBullets")
-        local L616_26 = get_property("Reloading") or get_property("IsReloading") or get_property("Reload")
-        L505_10 = L616_26 == true
-        if _549_282.Info and type(_549_282.Info) == "table" then
-            if v43335 == nil then v43335 = _549_282.Info.CurrentAmmo or _549_282.Info.Ammo end
-            if _0xfd96 == nil then _0xfd96 = _549_282.Info.ReserveAmmo or _549_282.Info.StoredAmmo or _549_282.Info.MaxAmmo end
-            if _549_282.Info.Reloading == true or _549_282.Info.IsReloading == true then L505_10 = true end
-        end
-    end)
-    return v43335, _0xfd96, L505_10
-end
-
-RunService.RenderStepped:Connect(function()
-    if a41b78c88 then
-        local v43335, _0xfd96, L505_10 = get_local_ammo_status()
-        local __UGHeELfMSX
-        if L505_10 then __UGHeELfMSX = "reloading"
-        elseif typeof(v43335) == "number" and typeof(_0xfd96) == "number" then
-            __UGHeELfMSX = string.format("%d/%d", math.floor(v43335 + 0.5), math.floor(_0xfd96 + 0.5))
-        elseif typeof(v43335) == "number" then
-            __UGHeELfMSX = tostring(math.floor(v43335 + 0.5))
-        else __UGHeELfMSX = nil end
-        if __UGHeELfMSX then
-            _0011Il00.Text = __UGHeELfMSX
-            _0011Il00.Position = UDim2.new(0.5, 0, 0.5, 52)
-            _0011Il00.Visible = true
-        else _0011Il00.Visible = false end
-    else _0011Il00.Visible = false end
-end)
-
--- ============================================================================
--- Wallbang (Head/Body/Auto 泥댁씤�� �좎�, Desync Always On �쒓굅)
--- ============================================================================
-local _GunItem, _Utility
-pcall(function() _GunItem = require(LocalPlayer.PlayerScripts.Modules.ItemTypes.Gun) end)
-pcall(function() _Utility = require(ReplicatedStorage.Modules.Utility) end)
-
-local wbAimPart = "Head"
-
-local WallbangController = {}
-do
-    WallbangController.active = false
-    WallbangController.startShootingRef = nil
-    WallbangController.desyncCleanup = nil
-
-    WallbangController.Desync = {}
-    do
-        WallbangController.Desync.active = false
-        WallbangController.Desync.connection = nil
-        WallbangController.Desync.currentTarget = nil
-
-        function WallbangController.Desync:Start(target)
-            self:Stop()
-            self.active = true
-            self.connection = RunService.Heartbeat:Connect(function()
-                if not self.active then return end
-                local char = LocalPlayer.Character
-                local rootPart = char and char:FindFirstChild("HumanoidRootPart")
-                if not rootPart then return end
-                local targetRoot = target and target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-                if not targetRoot then self:Stop() return end
-                self.currentTarget = target
-                local desyncCFrame = targetRoot.CFrame * CFrame.new(0, -5, 0)
-                local backupCFrame = rootPart.CFrame
-                local backupVelocity = rootPart.Velocity
-                local backupRotVelocity = rootPart.RotVelocity
-                rootPart.CFrame = desyncCFrame
-                RunService:BindToRenderStep('wb_desync_fallback', 101, function()
-                    if rootPart and rootPart.Parent then
-                        rootPart.CFrame = backupCFrame
-                        rootPart.Velocity = backupVelocity
-                        rootPart.RotVelocity = backupRotVelocity
-                    end
-                    RunService:UnbindFromRenderStep('wb_desync_fallback')
-                end)
-                self:Stop()
-            end)
-        end
-
-        function WallbangController.Desync:Stop()
-            self.active = false
-            self.currentTarget = nil
-            if self.connection then self.connection:Disconnect(); self.connection = nil end
-        end
-    end
-
-    WallbangController.Target = {}
-    do
-        WallbangController.Target.active = true
-        WallbangController.Target.target = nil
-        WallbangController.Target.connection = nil
-
-        function WallbangController.Target:IsValidTarget(character)
-            local rootPart = character:FindFirstChild('HumanoidRootPart')
-            local head = character:FindFirstChild('Head')
-            local humanoid = character:FindFirstChildWhichIsA('Humanoid')
-            return rootPart and head and humanoid and humanoid.Health > 0 or false
-        end
-
-        function WallbangController.Target:IsValidTeam(player)
-            return player:GetAttribute('TeamID') ~= LocalPlayer:GetAttribute('TeamID')
-        end
-
-        function WallbangController.Target:GetClosestTarget()
-            local closestTarget = nil
-            local maxDistance = math.huge
-            local mousePos = UserInputService:GetMouseLocation()
-            for _, player in next, Players:GetPlayers() do
-                if player == LocalPlayer then continue end
-                if not self:IsValidTeam(player) then continue end
-                local character = player.Character
-                if not character then continue end
-                if not self:IsValidTarget(character) then continue end
-                local rootPart = character.HumanoidRootPart
-                local screenPos, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
-                if not onScreen then continue end
-                local targetDist = (mousePos - Vector2.new(screenPos.X, screenPos.Y)).magnitude
-                if targetDist > maxDistance then continue end
-                maxDistance = targetDist
-                closestTarget = player
-            end
-            return closestTarget
-        end
-
-        function WallbangController.Target:Start()
-            if self.connection then return end
-            self.connection = RunService.Heartbeat:Connect(function()
-                if not self.active then return end
-                self.target = self:GetClosestTarget()
-            end)
-        end
-
-        function WallbangController.Target:Stop()
-            self.active = false
-            if self.connection then self.connection:Disconnect(); self.connection = nil end
-        end
-    end
-
-    local function resolve_aim_part(targetPlayer)
-        if wbAimPart == "Head" then return "Head" end
-        if wbAimPart == "Body" then return "Body" end
-        local char = targetPlayer and targetPlayer.Character
-        if not char then return "Body" end
-        local head = char:FindFirstChild("Head")
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if not head or not root then return "Body" end
-        local mousePos = UserInputService:GetMouseLocation()
-        local headPos = Camera:WorldToViewportPoint(head.Position)
-        if not headPos then return "Body" end
-        if mousePos.Y > headPos.Y then return "Body" end
-        return "Head"
-    end
-
-    function WallbangController:Start()
-        if not _GunItem or not _Utility then return end
-        self:Stop()
-        self.active = true
-        self.startShootingRef = _GunItem.StartShooting
-        WallbangController.Target.active = true
-        WallbangController.Target:Start()
-
-        _GunItem.StartShooting = function(controller, ...)
-            local result = {self.startShootingRef(controller, ...)}
-            local clientFighter = controller.ClientFighter
-            if not clientFighter.IsLocalPlayer then return unpack(result) end
-            local cameraData = result[3]
-            if not cameraData or typeof(cameraData) ~= 'table' then return unpack(result) end
-            result[4] = true
-            local targetPlayer = WallbangController.Target.target
-            if not self.active or not targetPlayer or (targetPlayer and not targetPlayer.Character) then return unpack(result) end
-            if WallbangController.Desync.currentTarget ~= targetPlayer then
-                WallbangController.Desync:Start(targetPlayer)
-                task.wait(0.05)
-            end
-            if self.desyncCleanup then task.cancel(self.desyncCleanup); self.desyncCleanup = nil end
-            local aimPart = resolve_aim_part(targetPlayer)
-            local targetChar = targetPlayer.Character
-            local targetPart
-            if aimPart == "Head" then
-                targetPart = targetChar:FindFirstChild("Head") or targetChar:FindFirstChild("HumanoidRootPart")
-            else
-                targetPart = targetChar:FindFirstChild("HumanoidRootPart") or targetChar:FindFirstChild("Head")
-            end
-            if not targetPart then return unpack(result) end
-            local targetPos = targetPart.Position
-            local targetCFrame = targetPart.CFrame
-            local shootingPos = targetPos - Vector3.new(0, 5, 0)
-            local shootingOffset = targetCFrame:ToObjectSpace(CFrame.new(targetPos + Vector3.new(math.random(), math.random(), math.random())))
-            cameraData[utf8.char(0)] = _Utility:EncodeCFrame(CFrame.new(shootingPos, targetPos) * CFrame.Angles(CFrame.lookAt(shootingPos, targetPos):ToOrientation()))
-            cameraData[utf8.char(1)] = _Utility:EncodeCFrame(CFrame.new(targetPos) * CFrame.Angles(CFrame.lookAt(shootingPos, targetPos):ToOrientation()))
-            cameraData[utf8.char(2)] = targetPart
-            cameraData[utf8.char(3)] = _Utility:EncodeCFrame(shootingOffset)
-            self.desyncCleanup = task.delay(0.15, function() WallbangController.Desync:Stop() end)
-            return unpack(result)
-        end
-    end
-
-    function WallbangController:Stop()
-        self.active = false
-        if _GunItem and self.startShootingRef then _GunItem.StartShooting = self.startShootingRef end
-        WallbangController.Desync:Stop()
-        WallbangController.Target:Stop()
-        if self.desyncCleanup then task.cancel(self.desyncCleanup); self.desyncCleanup = nil end
-    end
-end
-
-
--- Wire Valk toggles <-> RagebotSettings
-task.spawn(function()
-    local lastOn = false
-    while true do
-        task.wait(0.15)
-        pcall(function()
-            RagebotSettings.voidHideTime = voidHideTime or RagebotSettings.voidHideTime
-            RagebotSettings.voidShootTime = voidShootTime or RagebotSettings.voidShootTime
-            RagebotSettings.voidSpam = voidSpamEnabled == true
-            RagebotSettings.shootAttempts = voidAttackAttempts or 1
-            local want = ragebotOrKillAura == true
-            if want and not lastOn then
-                RagebotSettings.on = true
-                if startRagebot then startRagebot() end
-                lastOn = true
-            elseif not want and lastOn then
-                if stopRagebot then stopRagebot() end
-                RagebotSettings.on = false
-                lastOn = false
-            end
-        end)
-    end
-end)
-
--- SECTION: Hit Logs Integration (multvallk)
--- ============================================================================
-local HitLogGui = Instance.new("ScreenGui")
-HitLogGui.Name = "multvallkHitLogUI"
-HitLogGui.ResetOnSpawn = false
-pcall(function() if gethui then HitLogGui.Parent = gethui() else HitLogGui.Parent = CoreGui end end)
-if not HitLogGui.Parent then HitLogGui.Parent = PlayerGui end
-
-local HitLogFrame = Instance.new("Frame", HitLogGui)
-HitLogFrame.Size = UDim2.new(0, 280, 0, 150)
-HitLogFrame.Position = UDim2.new(0, 10, 0.5, -75)
-HitLogFrame.BackgroundTransparency = 1
-
-local HitLogLayout = Instance.new("UIListLayout", HitLogFrame)
-HitLogLayout.SortOrder = Enum.SortOrder.LayoutOrder
-HitLogLayout.Padding = UDim.new(0, 4)
-HitLogLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-
-
-local function playHitSound()
-    if not hitSoundEnabled then return end
-    local id = HIT_SOUND_IDS[hitSoundName] or HIT_SOUND_IDS.neverlose
-    pcall(function()
-        local s = Instance.new("Sound")
-        s.SoundId = id
-        s.Volume = math.clamp(hitSoundVolume or 0.7, 0, 5)
-        s.Parent = workspace
-        s:Play()
-        game:GetService("Debris"):AddItem(s, 3)
-    end)
-end
-
-local function addHitLog(targetName, damage)
-    local logLabel = Instance.new("TextLabel")
-    logLabel.Size = UDim2.new(1, 0, 0, 18)
-    logLabel.BackgroundTransparency = 1
-    logLabel.Text = string.format("(mult hit %s damage: %.1f)", targetName, damage)
-    logLabel.TextColor3 = Color3.fromRGB(0, 255, 120)
-    logLabel.TextStrokeTransparency = 0.2
-    logLabel.Font = Enum.Font.Code
-    logLabel.TextSize = 11
-    logLabel.TextXAlignment = Enum.TextXAlignment.Left
-    logLabel.Parent = HitLogFrame
-
-    task.delay(4, function()
-        pcall(function()
-            local tween = TweenService:Create(logLabel, TweenInfo.new(0.5), {TextTransparency = 1, TextStrokeTransparency = 1})
-            tween:Play()
-            tween.Completed:Connect(function() logLabel:Destroy() end)
-        end)
-    end)
-end
-
-local function setupPlayerDamageTracker(player)
-    if player == LocalPlayer then return end
-    local function trackCharacter(char)
-        if not char then return end
-        local hum = char:WaitForChild("Humanoid", 5)
-        if not hum then return end
-        local lastHealth = hum.Health
-        local conn
-        conn = hum.HealthChanged:Connect(function(newHealth)
-            if newHealth < lastHealth then
-                addHitLog(player.Name, lastHealth - newHealth)
-                if hitSoundEnabled then playHitSound() end
-            end
-            lastHealth = newHealth
-        end)
-        hum.Died:Connect(function() if conn then conn:Disconnect() end end)
-    end
-    if player.Character then trackCharacter(player.Character) end
-    player.CharacterAdded:Connect(trackCharacter)
-end
-
-for _, p in ipairs(Players:GetPlayers()) do setupPlayerDamageTracker(p) end
-Players.PlayerAdded:Connect(setupPlayerDamageTracker)
-
--- ============================================================================
--- SECTION: Ragebot UI & Rainbow Crosshair Indicator (multvallk)
--- ============================================================================
-local RageUIGui = Instance.new("ScreenGui", PlayerGui)
-RageUIGui.Name = "multvallkRageUI"
-RageUIGui.ResetOnSpawn = false
-
-local CrosshairContainer = Instance.new("Frame", RageUIGui)
-CrosshairContainer.AnchorPoint = Vector2.new(0.5, 0.5)
-CrosshairContainer.Position = UDim2.new(0.5, 0, 0.5, -35)
-CrosshairContainer.Size = UDim2.new(0, 40, 0, 40)
-CrosshairContainer.BackgroundTransparency = 1
-CrosshairContainer.Visible = false
-
-local lines = {
-    {Size = UDim2.new(0, 8, 0, 2), DefaultPos = UDim2.new(0, 0, 0.5, -1)},
-    {Size = UDim2.new(0, 8, 0, 2), DefaultPos = UDim2.new(1, -8, 0.5, -1)},
-    {Size = UDim2.new(0, 2, 0, 8), DefaultPos = UDim2.new(0.5, -1, 0, 0)},
-    {Size = UDim2.new(0, 2, 0, 8), DefaultPos = UDim2.new(0.5, -1, 1, -8)}
+--[[
+  vallkmult premium v3 | HWID+KEY LOCKED PROTECTED BUILD
+  piecewise runtime restore | 5-layer XOR | heavy garbage
+  plaintext wiped after loadstring compile
+]]
+if getgenv().__vallk_locked_buyer_v3 then return end
+getgenv().__vallk_locked_buyer_v3 = true
+
+local function __t1(n) local s=0 for i=1,(n or 3) do s=s+i*((i%13)+2) end return s%7919 end
+local function __t2(a,b) a=tonumber(a) or 1; b=tonumber(b) or 1; return ((a*a)+(b*b)+17)%9973 end
+local function __t3(x) if type(x)~="number" then return 0 end return (x*x*x+41)%8191 end
+local function __t4(...) local t={...} local s=#t for i=1,#t do s=s+(tonumber(t[i]) or i) end return s%4099 end
+local function __t5(n) local x=n or 7 for i=1,5 do x=((x*1103515245)+12345)%2147483647 end return x%65521 end
+
+local _Q822769={{488539467,658047015,350482278,879203760,366778199,598199230,387592214,862723989,498696460,448871578,637711497,118353222,389104036},{789417590,468238679,766594479,450450983,223392194,574637751,325902687,822622995,939273274,364503426,781369449,233484116,710727321},{868364703,363621478,188475893,517553723,492118755,828663956,647211384,856653217,808204552,185381222,263703043,258211647,422085303},{316985442,573141366,173800183,964455710,343592861,180744439,458574749,392486118,900324250,385275052,599631339,854446418,783609634},{111573623,880041093,689015058,462361148,903031772,575406788,116319803,968410582,176608308,772007468,500303982,223632199,766871396},{560001647,496210012,871336309,695748353,250779220,555451818,455076230,379257656,432928997,245474281,145268277,691696436,518127290},{243644512,455036155,227487842,422431308,520887902,784826027,228195738,446701085,721465454,437351211,106915523,171447271,862835054},{413507786,180750231,194362097,213348505,247498163,346997588,521572157,339515084,194584394,615931901,132156526,586014093,929835192},{692106314,190506544,981520153,238293329,823209607,555220892,866403210,830390945,788030260,706239571,707854882,436396209,139386303},{711241550,801659116,921460309,988084378,784261648,309452857,900763780,351864001,419701506,445117953,396452181,163515770,348172020},{948795355,839964953,599628849,546633185,722532697,884679484,803000013,784006574,391830590,374063162,588439676,526467018,817451855},{183204775,488429556,957684350,153557802,797810333,273176137,378667711,496288043,478086624,762874336,311109996,972358541,488532825},{586700966,832231991,723747365,872527737,509140515,459525587,650859679,904339770,177898687,584181138,101919297,651504673,897868231},{721873525,767943198,141924552,282291725,579758420,304092234,998821962,856455444,295647019,449924748,808531047,424259232,880789821},{246395803,666511380,381337270,660702472,898727528,771792526,844515032,966656213,266770683,250584226,845630410,777507129,225171341},{448081586,939587716,387628369,253615204,296428640,358265903,985528754,441432212,322412652,837535144,163317429,820861770,150771047},{974694029,937980827,511420122,662373207,611850128,798728067,981842255,379459218,894750429,877975702,552406359,726105548,443748040},{224165582,506492856,757829451,768071486,606432188,160944722,126128634,237838836,969024821,836134279,982934430,193067803,156019344},{216710956,728752296,321609950,235974878,612145506,693597278,623368292,334395356,378652261,565462798,605870231,405673435,748722525},{531024989,599115273,949166623,509677604,385079696,402458508,158431094,955705329,988603495,276759897,307138092,328106272,608386683},{897820085,613116951,348040708,239734465,447171874,703909992,871491829,864695778,288413572,238064694,661309361,923550448,692316546},{622961924,743588633,761023287,907787771,589080803,279861709,961342866,630743900,847761506,671741743,232705880,330383790,612674911},{568078215,900584053,754951810,668561541,436637690,747824833,341300016,476669740,483016719,482438269,346516239,969985154,621057720},{606890294,264788722,990154187,488624626,796369409,436405835,884565763,955293640,416604000,338166610,246331009,605452088,681765917},{205206015,184255360,550493872,893639115,373317931,208009378,814304893,277075094,660619901,893699437,323872809,131069421,251171848},{334225352,165977751,511836583,871578261,982667528,155839588,297359135,590943120,236559237,424516908,735572610,903125518,505677726},{803291334,276686728,713609646,865563994,492688694,508869749,200473765,963875556,268478934,228005744,246950620,464268484,482172143},{833576217,470209589,454484121,137079224,335145408,843382457,394712189,933284200,467681245,602513459,827721067,461606358,373489096},{819669998,428261795,298187389,738275337,228487941,707567553,581714394,446161450,702322809,436775463,224802804,453686640,944451814},{587300141,764090199,970753109,128213108,112658125,529402790,240126225,763675686,782173803,508635827,420140211,476251974,401313660},{403085027,188878047,237577790,105595779,766072191,300039326,638145055,157022639,556080646,955037282,501094105,951863290,518133829},{886435016,533869781,486786792,362906882,508821476,532198258,726062370,224781449,418531311,977750974,829379363,876247614,425838380},{399542038,940881228,724846071,115673268,605129748,176310073,219989003,500734317,306599935,189465617,354353567,275397162,111197030},{452396074,738104199,467781336,630246377,493171097,254181921,677209278,821212690,866028158,365271101,125865804,593227753,520478787},{604029542,191928874,373584486,476013858,996337982,935462676,826904259,350727891,914258154,513687757,167504909,641692197,281660024},{944230717,466029832,210609092,588964037,527882356,371080623,722510367,692243062,255326477,356940477,117052329,401293692,753810812},{469039675,672120788,307852765,644612685,727255520,239093283,814785274,373684438,112195598,225139899,849630573,884532278,675435355},{377528120,581038497,305279645,904953703,465326355,538496778,554207717,305367638,174712905,358927529,399701247,591551139,475321747}}; __t5(108);__t3(75);__t1(42);__t4(84)
+local _Q857694={{742611440,481804221,372966766,556267183,453041341,175473349,699586477,259730166,378910811,503627281,526611071,777360489,167687045},{325808455,323285368,646980825,722516479,289419327,236816409,405208524,785328440,547703001,214517684,973397581,254490710,717808689},{724071884,220689616,852828059,663217759,544124694,269245255,699456669,388384526,160265800,276965201,116064417,347552205,812004356},{607429182,592663633,744400634,735393538,626258703,155156392,596319243,871360728,450892607,372721894,224623956,147663467,138179122},{635723572,745474209,581215715,554266810,299207487,703062643,301744855,348055250,665242521,848940346,778013052,998762671,558458534},{663205468,280184536,179871668,572838390,112698867,729448916,632843126,100459609,397822399,880398847,725492194,555647315,904673480},{728088680,798719989,505682017,566945115,797299994,683597180,910389058,580769549,307697971,367380705,191383813,667756220,340114462},{808489323,920991718,683249644,990537731,234341715,621532643,675386868,967719882,326594787,356100130,141295638,898228495,277372703},{398721974,491327032,815949890,267408184,745557393,738180376,506779726,641172676,891243019,587040906,529304144,152881857,248569002},{684011882,447261096,818836461,368986146,366347866,512382269,348789274,136494111,138178358,396960261,603655545,635616938,880153796},{199385327,118581742,170760140,466259266,846736501,971770923,174247197,891759538,213925671,540815055,615316693,500328509,881257022},{886892615,577455007,380334984,100053338,255869000,476374200,764005872,719135489,602389002,304761684,385324260,152927028,746775422},{596808779,887429094,105120377,234520207,673843605,310031806,533557232,622647685,222158919,849960344,662502609,581617907,864379972},{792242350,663735762,145148493,738374024,174771348,816211368,230174679,730937961,620176819,629392421,679405168,760808493,249299538},{249068871,685870653,657387749,782689611,719323388,942293693,201646424,759980769,367813994,439289802,895893656,371069905,626766054},{565379554,976875226,994827595,384979774,573395765,687914684,715588517,300730660,388605196,607780958,576451131,496487167,446430100},{257419932,445062768,139127208,517760944,793815971,617390831,598039593,574644367,118991824,597677364,775197392,826834077,426641448},{742548997,770202267,213729098,909013768,341474096,670057858,503975152,876446091,155111000,709851641,810777509,939500171,575135127},{897465744,750118008,736620539,867013370,972383902,256934760,476028560,496324621,952133052,777992712,290390622,410548111,169060462},{428413660,961532904,218843768,136628441,169605908,590327506,222285784,300368111,497713228,119401635,960626386,554269365,832619816},{469685736,350922317,756969916,325021892,989382185,318580559,857823837,802832513,623006168,295615865,692303669,101683604,394341676},{616225975,546292752,473982375,316455150,647655829,307503314,592163972,136310735,473344810,278413996,881858830,842355745,518951306},{337432061,493822543,786990338,963114546,100168245,636831036,562726629,322124447,741618888,265608039,252703826,382812659,979004511},{343932809,929875879,517444986,302571895,461624186,550325325,167527805,990391851,983219301,575078906,676310888,121491677,813453851},{839703438,636169492,177053088,226751525,501909669,164196097,914489557,474420037,454759909,722484189,292861125,221677318,369956085},{639007434,958573672,202892446,303185542,720976263,911554763,107349893,992299243,967136401,840716231,147516217,313739922,817784812}}; __t1(97);__t3(22);__t4(103);__t5(11)
+local _Q885665={{167115946,834248710,963272944,398631066,434481407,431036147,342427189,366783421,848619260,723584337,705335874,536142743,466993978},{288356085,818028319,375984481,879704001,714130631,283336907,870371489,439279254,613491228,285356243,941120232,906768824,918511671},{412298388,115048521,572302927,490693572,778658400,394918110,470189299,211255347,605185748,502993412,102000146,688626798,843927762},{567177333,603217297,783910239,258991412,200114821,728695699,710700108,265723548,921270073,213995688,477920906,553239414,230036229},{638172654,845485842,120198932,797483672,900852129,828773898,792096192,133184532,682578914,379835637,859697056,142092525,362600902},{442076560,877099793,614814787,299595215,100558084,695193536,694825139,816899761,707849809,649433554,450652860,860781483,161850821},{359483785,228420220,845613419,347537124,357832646,644483905,542561204,775525672,873329757,867831559,696705334,244491154,486664614},{782981381,621799469,824309700,503819471,740745038,238324538,398192575,465899319,726161021,611114809,878815396,294654854,126283846},{904880789,191945400,404396563,746123628,464255927,856023759,410807452,918053703,936986867,130787239,193333930,947222216,452708220},{389456063,820335257,318743400,901796546,170894926,749593789,892914372,861937353,203353405,234761266,867732541,220454049,991228375},{744799874,507106773,715656644,993267825,950648492,921277438,934049113,507315734,546343614,296868344,288942096,465349707,522057918},{354406207,240428131,230355904,985163004,148832622,835371162,367249823,102303839,989153572,960320846,407027126,323541612,433527681},{793035534,971825199,929125828,502332306,882606275,234316714,199609701,116493962,954399887,239992985,140306931,890519710,974914311},{298174121,540643765,545237067,184027109,157476721,363813070,709997266,883730481,297404420,233627957,759287011,291861651,463048124},{953128494,714765132,407484761,566382709,767142111,170286923,173515922,369587064,210119812,485739660,823055717,816203754,923245715},{711505160,291255507,746093440,440242803,398542682,139382498,958867462,391078010,953871520,508820367,419576951,272049414,752300581},{325154917,813853969,797701615,591527997,133269488,743209416,424086500,963118132,872881543,307619662,710610477,208886578,753226749},{571264914,737921035,525770162,736891497,294912693,575674497,686724347,421786578,280084733,792343651,999941422,779232036,231607116},{553597125,776111421,254126675,505999683,759212782,790503827,424350458,943201769,156290120,424966016,145204747,938415014,914707778},{343691336,342450168,465725062,505816071,529757493,474662590,519728892,202244259,439377402,420018493,169974728,132160420,172896095},{872139340,425695940,317705385,957607867,213016761,590826772,234735056,239270074,274545325,422253658,575843843,682022862,233930133},{898955484,144547202,599200968,755004473,633375039,927628664,960245606,498492316,564221351,116652602,264746367,725482118,266748013},{216407243,237756616,694701657,130476096,457578624,155063102,854910807,480880423,179793966,211567449,779356750,133313535,893051244},{556602526,628669281,897691302,153744943,449082737,399260237,145487451,612147586,583876748,553635532,537956822,336463018,990906911},{122003118,344911425,232115869,528268737,820285058,139260297,915027339,550354702,930914135,292934098,881121741,741682970,352842453},{267701345,626060146,796499195,589233230,884683723,194129393,841228280,223781149,402671526,364602594,751599986,360210764,643486554},{805962797,409473148,845758897,403053120,765300846,657214649,184822210,465353141,671865863,411199256,554106771,406340773,642319692},{683590293,241826621,120814554,398325532,879183743,886773619,174737324,513581528,879664123,680399954,623474157,598704529,206612095},{688587774,280430130,323513050,294708561,356767812,964442473,525095335,231779965,375414884,306081162,625521336,931607208,914704978},{770157533,780675948,682872377,845203093,663473283,216080092,512544515,870171638,606090850,507022605,121420075,328371737,788881633},{481118405,553386695,173586879,131311346,413501320,310103906,613012329,318032492,694890129,845324302,791147446,142476917,893610830}}; __t3(9);__t2(69);__t4(53);__t1(62)
+local _Q775906={{278581383,265720418,274018614,461921666,998237264,262153417,933484548,523547149,518474338,307384490,349461688,200366736,359307504},{134023306,458823822,623973821,230687824,542913378,807635008,788827818,924397605,809127499,309919915,119505818,526561134,244551415},{986835330,979224600,410367881,637778025,891324984,539502512,557585706,916281465,685583979,338278207,449868456,275512394,993671846},{689177152,700180788,893501051,965980847,285753157,136831338,965060632,435318112,446905487,491582123,775684041,186151033,395715312},{543961347,887898020,363866549,234395380,509053396,990367345,181282619,294265340,687349881,291144676,376940778,617341375,517042732},{488677045,544998568,207148954,571517303,398879112,541766190,610962586,637252130,801283984,796818407,191422750,561470779,708522102},{379040163,827221451,640545224,362464257,356115473,767507458,661231913,390963403,343288248,481439828,825542144,832071542,779149342},{104758642,359051966,917161729,150342037,616966023,381815714,295984938,662247978,309417548,857077927,780860458,497945813,190783490},{643791284,201521994,818301594,553341065,196617753,413220768,598179101,891830591,525963784,377564199,254605372,101135633,772055257},{286048128,832833064,331265438,104500526,606836593,700202583,167417896,883419079,423271440,787690199,705047864,432038484,883766183},{494856551,253600561,535535522,104458217,643784289,116854643,937842837,473567998,508883464,502774042,599422583,757163957,383168340},{898257487,480660466,643474398,689743933,920143969,823309156,436612235,362017825,465297015,575856954,692605777,969054171,668653772},{314908619,359190304,281228349,405031326,872585708,962925633,172952579,321647070,584564784,129825808,810293400,177953478,889868192},{653947900,241459201,631764913,964345452,414390147,492873419,657164381,113607473,821702854,644149015,291213201,134735819,287417328},{899170295,303791219,233332046,547876172,184282451,708414667,767641557,770869820,851084384,839593204,682577999,301603174,372169172},{243813454,163053748,286711862,303652453,769344496,115241665,992510689,126331213,873663325,273263551,817972510,866438962,987971086},{661230080,351377758,215034368,446904577,679117515,479193103,115680605,296446616,778823181,804827628,581610318,934702098,121700689},{368651185,429226475,781823363,332850482,320751837,448320250,667879637,343968740,573620400,110004715,415237631,134459393,977152813},{667268874,496568898,965593100,638267482,355269575,229503275,704414247,563058831,422348562,167827460,165022658,170893197,943465622},{167368883,846391393,200715470,488502428,973935174,895199934,411785291,444548684,311170024,326887156,463182939,924489124,113885138},{776058135,398212351,875349681,883751920,710885394,675259235,637214558,641921431,104722447,645784705,961258443,748265621,577763603},{762721443,760905979,682486910,925865122,627043742,766531217,618952836,200187326,650308546,781743942,275784147,553182313,494075485},{749497168,441550094,480702026,866500335,459405152,989867399,690021037,634846634,891698298,488441858,293413664,260937578,575730883},{324981668,569083418,830092395,894673760,345479601,757933103,417147151,311528005,181101094,863002735,882207022,534804936,212691921},{544849967,929464037,947700606,506517140,769522684,135872143,645291722,499390557,407219658,489128045,175691311,929630164,631700033},{182688453,823402161,478689725,319832726,987537514,270005289,140716882,174527376,467195658,306419447,377449947,931437658,693917878},{916882727,427606044,778510689,276112321,675570418,498844679,681899586,651280012,756129659,218543138,870759032,204649210,696272282},{811926754,996463116,343153293,533848127,243783005,424947076,979423632,374232768,121878953,907370429,160828910,154982608,679293608},{874115625,794105570,189886433,585741432,975332015,907296971,198780328,673114073,626438292,304530943,519003396,855103912,589630482},{796756565,104080122,338361366,804978047,205008185,872401538,250899444,768080046,643528964,488608631,634123566,827976452,483734627},{510467230,884787897,194892497,859957220,103982045,362259041,832476183,697568107,989137423,892606657,166226271,926267461,566033425},{983010465,690109787,505178068,110167966,911967481,233009176,235971894,591724779,837234419,236612095,489664077,445422573,565908473},{451025646,413393284,737761409,393861712,185207215,424672083,797363551,973069501,385793271,601845771,947386791,207834289,738877563},{365918800,691873158,405892537,318341076,540886518,412731830,476238212,299062218,831413405,508933453,287263382,636487363,732072510},{897602661,328765400,192784231,675606677,241013416,421496418,804434861,464065520,964816256,803442296,981228044,942176314,673091716},{963216515,681554466,336735177,825188081,180074004,988496959,961602841,413791773,303238409,316093892,950237189,119073238,741723858},{496613475,124951851,704210751,267722200,695758015,963987122,810951440,387347854,722623640,402434857,725608209,351550552,352721540}}; __t2(14);__t3(79);__t4(98);__t2(1)
+local _Q177949={{287185896,781567867,255856173,325548677,918512262,704880521,730503944,739689406,156565093,604366172,955890071,894545852,760940884},{849601004,661881231,407943172,151950815,195629646,262390789,314863573,704755834,829751840,288727220,177963770,996191608,160839249},{295463432,594755110,809185607,683871928,137676927,494141123,525941902,972479873,215750714,286659478,986311789,494192105,408897515},{659074372,504731142,695401047,968902679,271903669,902644466,802300046,117194653,745301835,260745245,352861799,217101945,495310393},{829998020,284380363,627004056,394490879,701153235,252347353,190920275,496773825,975674991,528479367,606720691,380312778,497300539},{846213826,584536182,417027956,591170220,295455015,954340295,796345852,385790459,484074525,741797253,976847200,186170852,679055200},{263822099,267890038,814120896,682549930,501480125,929669886,703410177,431606919,480058623,324494791,611648176,518799649,671565514},{505474641,173522346,506368321,857650570,855298124,937435933,561335280,245058658,948561260,820475498,169844838,845398953,885410363},{892352371,375194988,780554333,130038751,423201730,745813742,663754317,184911186,250489705,563738036,392655609,295468233,203237890},{609906568,539275038,733479749,763687729,394230639,465472649,874814987,802508034,705657465,564799366,932225761,622397640,951220550},{265931688,968465455,359834618,494587580,685430722,238890143,996250873,840312590,352678243,136153393,784688751,206599059,937478227},{534933969,406497776,185837432,682874363,280418814,747340307,812679860,497517515,990840593,242895351,673339984,779240714,308110060},{684180687,638161596,374439972,806602014,861359942,236708157,644055651,502462005,905011906,238920520,217870871,905950143,842928277},{715331424,448973618,862192979,440886525,739956260,669059633,701876087,769317632,990496954,520693309,820235997,383999324,987216840},{948502041,909699265,798413638,679619826,132321772,265196606,970588007,733684792,909877311,803974254,839189123,961811313,828021209},{503622270,206937166,968218919,290584358,635562424,401103784,742274912,875179667,221688555,210423129,499009836,394729612,690440665},{930875279,570946169,534313437,618742282,337398283,145025273,252415491,604228208,171235821,665947055,428227147,729032602,912090919},{854630328,487428475,365972985,277523661,383409554,777707352,665784916,709830447,546788736,526055098,922147960,750318556,663428713},{804769209,730499403,958732600,966654351,893855314,537953898,866742743,692130705,413177084,960046274,180660253,428142225,692461062},{679042016,197651960,841008971,535000601,497273308,744845667,632554176,319274484,523935409,841156446,300237889,212256065,629989247},{837797986,809850004,723325234,921895515,775255128,213037416,256198920,262147329,690119523,800985676,687926648,452466635,130042930},{740687839,714857584,410108285,402085164,314178190,172191088,740927660,241589772,117322372,399468426,760974281,993560176,213706679},{994544305,503569286,119174594,538979615,368444953,187708433,870673350,580447981,697892991,847139653,273634865,756606656,702303140},{125189691,423988768,332385133,674480817,183697846,679032476,298588902,772657507,806304576,286940855,512326196,702017379,578361095},{751025397,836583348,701829882,355151844,627747635,137560118,248933236,662074729,124743437,385558226,189429847,388466353,341087852},{340852313,644678111,318889330,436869686,455466286,492153365,799014898,238079132,124600808,809156834,827387802,409927795,786887637},{635988417,537278378,136406655,226037138,407862023,221589609,108327576,651260587,163673274,615246109,631687963,343795925,570456800},{410391276,693465291,382722378,754603057,484658018,738314058,632133421,111825810,992045098,597854326,879958420,578446744,148118586},{294296952,983251399,850639738,935354312,559250247,736763546,301874787,951544173,312580697,525555696,246461286,812435374,397577656},{567842258,249660788,994499101,122678234,193847630,412303758,811004000,277974744,924325621,187329557,696178865,179526662,521128464},{366867715,722850968,134787217,627333763,198285550,580821463,431361429,976156195,870887052,566265942,210616015,153814735,278241107}}; __t4(103);__t1(66);__t4(66);__t1(82)
+local _Q825649={{686026920,563610343,930940951,578423165,212188561,367647427,751409588,885186231,293056554,680473500,901887465,649486408,959115651},{484413176,262859920,986133805,402971364,254445066,259003939,564456300,186021850,240443311,746961191,287868038,409337630,696068246},{103908297,291333424,802270289,318764465,229970275,570043315,585704639,654649239,514503782,476713121,266703307,238826632,743253156},{165700725,952018814,143377198,469597832,919503486,383150855,673629848,175842112,100736427,143645391,119355102,168255468,844991221},{934478795,279503843,715702946,392271195,473304681,751720148,395832772,785157864,814250095,655577885,958447102,456764883,195715639},{756737372,688511874,844703783,834583249,688976502,140816818,865577431,675939983,997108325,618605028,511324436,444009651,230086584},{252419772,726646036,884404024,792377236,386355538,920487175,252665416,681851362,145023317,410748549,809715807,373811732,996996731},{177248602,307969056,748926644,611854065,569333560,993398447,222131703,522721918,960129133,836708292,256196802,273051279,161813289},{160772682,981208395,225267612,860176298,590138940,366903132,377887581,244274908,785271191,452101345,160257747,166053567,129735171},{338617418,698698169,415185839,841904264,987391155,352958025,526729997,389668803,891286587,697105378,697395652,191815850,188898255},{709683481,600070352,730327869,758630087,260384277,845866974,843944335,974976054,838258077,687489329,160300004,274910284,887010569},{123764029,297892005,889021343,137479994,105311391,977568217,749117804,884211998,651329422,841658329,981020687,684621742,192463718},{138197476,521253690,694671714,518645392,219669611,807880769,657404056,241554502,354927151,945519300,933295982,722217411,814751511},{478341601,221753609,483538825,267870656,937234130,688954542,222070505,377367173,601772801,805024990,403192130,900413396,891335746},{812846085,986903901,965862083,978877537,406505337,583162447,773855911,323759405,175083429,625934262,125743924,891096587,838437382},{806384884,283586050,713893636,253043566,613588598,257703478,729430988,976054421,621716307,773512068,255677628,874420024,709957560},{688974376,987335281,902215162,335573823,583640469,225129879,436085297,287716962,983569970,505498675,104496130,671673179,860246100},{842292849,605041797,417577612,431950988,253376134,976110081,351939638,344815977,612835031,224781448,218804457,483111715,373903669},{232228946,848522718,816944445,625978479,526506297,156119160,571624977,125246036,607433402,598192790,628269896,633108079,912404415},{757794006,293945665,849871761,786308536,209768124,339170028,186263762,767347758,328033307,402786042,651370583,323289751,618038126},{727147373,509618197,604283444,852296190,726435664,663297616,920432114,835113242,705250805,261836553,666603764,786927427,726543718},{335043726,377714967,907537590,311923563,294592285,571522912,197500369,218843342,341331313,829051692,463316898,583659869,249892869},{134098055,471655746,452183030,164242046,518998236,720172484,898191112,368290463,531186996,693972675,146033886,723079834,398980370},{828249424,290657933,637465819,759011006,464328567,939654036,941300221,648211111,813817128,964586980,856068322,521165800,587336367},{609098693,640641262,253307219,226930557,672587421,604716042,370856505,769993953,313584807,168279398,523399943,337031655,949415149},{761003171,766170580,530321343,392020932,698014156,909836019,235355534,679154334,257102241,788119465,320111524,309644590,280015600},{590301406,705576338,116209461,716228538,611453807,653451499,681728007,944133435,488038024,117569144,177353064,167387134,260314393},{668134250,172205061,635477883,573909619,282855449,117790016,519370686,263348110,317147683,868661458,850761789,992456118,928475617}}; __t5(51);__t1(72);__t1(76);__t3(61)
+local _Q902468={{605672422,141302969,679635768,441928607,658331564,699781807,919868063,792532241,467275434,980076458,544296140,961747814,330160998},{136105520,781677394,981620240,763688194,992218850,231629803,275773936,442515124,855466753,629845184,626478619,448347081,960594637},{516555891,287861103,893623175,745051912,890783260,478972420,658904860,918824571,472504703,916128742,228549071,134750453,559838045},{537699019,976813244,339456066,688728923,599415278,440160960,234098390,946939536,788598168,947732808,152614109,912619299,561789977},{451685133,893371843,433385797,859628314,929948840,147160841,400528126,223759104,853623818,166591276,478277444,633338247,487160215},{503348164,645187941,866416668,906835061,448794092,382719892,294358929,940211072,887930968,231541691,279035078,187344361,360449382},{377334352,911745781,419437107,454206016,390566492,360302793,629937699,200857775,648441924,169745649,227431360,347412928,679782460},{194748436,192978769,722200570,447652672,665822540,182724065,368994615,865096257,900326075,308376517,439000525,547946877,923446910},{144046702,256033962,487177289,648982635,303065923,292310910,536626334,166146504,935027577,295658421,997363295,158719156,129450515},{399296776,854334150,561007035,620227523,364432652,151410612,830228155,945257856,220918691,487659790,927068624,807774123,297629873},{905777898,296542631,745047870,391539277,294003155,646152041,247204737,462799648,922520355,684779879,376278337,758831189,298725405},{484295631,605923152,652127888,404273854,676848853,113110028,673123121,391213878,743827898,716297361,687312905,409020545,137302206},{937995237,191770085,979783180,364716298,148322597,431813288,682024619,298770907,392462997,903496378,718843859,696626760,431343098},{325041912,358827377,944291424,989187961,547407883,848332187,585754914,993445548,741210854,301432689,489972838,179474825,206130639},{829464242,104624179,733586108,632590956,363872103,329368829,682354466,556178422,166972249,449163475,716051191,765738627,986823669},{473556378,905491331,655220015,353753779,904075126,353194513,494942476,555644333,619198695,283117506,664911269,476175245,126129462},{426011587,560762711,399909004,338788914,342986353,785488965,392068026,810747989,843717358,923943278,328903458,212190913,237795563},{548775091,189995324,643022631,554571882,264129504,102932002,662970946,388854131,578724349,885753223,582189765,790055897,902656417},{680235885,465330105,510755235,171597864,394060474,813615676,748764227,664775701,446616434,683613695,839235462,869463388,282182290},{312556564,245376340,205572472,531245353,946645480,225636067,213758942,295929069,672996820,236672609,594199835,955994916,916344843},{869625293,627735396,716896935,413756698,516912460,754988939,365746488,402050209,943095845,393866286,155832731,191985220,336626919},{928288154,515527975,252533560,747903466,741485095,360911530,189271431,694847672,244177102,152185659,496202260,781769746,379824461},{318503838,524504542,899411788,887774264,526098880,595308861,787575669,701780445,741823487,476321997,732136108,250175678,863813313},{347794502,407774687,856343670,281153149,384826883,737581713,791253149,733484819,327830362,343983459,853214914,361332192,861637933},{197903040,363989178,475988550,980690020,446425599,490131694,714885031,973277304,754373775,414066271,410560619,649561210,256255216},{446224999,246829248,431719773,363840259,647273580,934285805,600941062,977480783,161710308,659441300,485439211,599598219,155073669},{214575894,270918668,318652689,396173053,972112779,940272712,834790743,851740843,296535431,980775124,567803628,663360032,446509764},{560466699,701756699,567876193,311531085,106975490,207247247,124213946,489534946,549733811,306193130,149696880,907824504,209563590}}; __t4(95);__t5(46);__t1(11);__t1(26)
+local _Q476797={{610777084,975318869,643725050,526711525,614932015,621176089,825612980,747401075,146275604,808635602,361909268,587582374,503221494},{270723686,659421290,624692199,690414639,205442880,706315311,563283952,811301986,244547599,124562898,954994463,442647966,507853693},{399773491,682857746,335784122,471095141,395199800,654213945,906077192,305487348,654543050,760031615,179232965,402350964,978417872},{545442434,133066706,566366943,117310223,206815307,778634734,475301987,572254396,879673975,786372883,681520925,539769879,267152513},{331665723,603395697,688050473,791902929,146838234,889379098,247338163,725905067,405648900,390380088,678236668,513558163,597136242},{524246475,404767892,900604936,365258633,836385693,115121072,563116779,899391873,751059800,945936948,441695498,320941827,802720928},{586326325,639909980,591213503,432498065,424433788,467053560,307541774,803983951,170478292,511564097,641249526,858803907,415361121},{915197441,111292184,118391428,349975010,862607175,511975132,557227770,980703050,673820011,210838379,652246926,905612338,627199407},{291787829,860876179,630547704,385625389,160531459,360451472,771428838,170776122,798631076,692932678,943591911,680954929,208906567},{265967022,575980925,808215148,394427415,730121904,753553238,814239788,255279467,428641404,220715570,897729646,200734601,418596482},{395385080,866530198,703881839,605910324,965885390,182627703,979139675,633668883,619926066,560315184,599138274,807659059,686182257},{301930044,252377415,819144197,649117743,817679123,913578819,846842293,838619776,800353170,186955216,491746999,474806918,187339260},{891554804,985541166,281825607,473000350,632127438,790815475,224622876,677431971,312670982,186068407,108763743,809691609,941268931},{853346786,194399735,814668265,255333911,567934526,796365140,509967454,849480292,226485588,626250544,661516029,495419445,797063199},{549896841,452528318,150985339,472658448,176040088,860793949,136002991,453639138,865324461,424973000,791186359,809007142,209038610},{492279884,576861484,937074606,661615851,647890272,996856923,905793747,293021948,420972425,280572815,659890242,271634501,574714604},{564449629,401959560,912293427,631158987,840708103,131785407,955290589,823911992,695893037,263401424,867680441,911904045,783915529},{265176236,868363427,964760309,492200853,951224695,293454786,633515965,831399143,334663673,583007793,417431482,534929920,210825229},{200892718,372753231,781152688,327146596,635769047,992265384,545014348,174040991,952756540,409593864,150001190,843292866,967046327},{443564615,517527637,721971438,413842665,468915254,217640854,722578498,727969161,908984091,377638189,744380246,344298454,781817599},{177973192,594978397,645311706,854624235,851047698,307783369,690992707,595247820,666128170,441987699,826383978,634453834,376622376},{922538699,737610541,638722239,942866485,764979983,989817152,976092083,631855894,445202691,531983911,244685071,902479716,386247354},{798110759,935115381,938377736,200659481,770780746,826031362,539531439,806532792,264607996,991524258,261077697,618805071,511643757}}; __t1(81);__t5(88);__t4(14);__t1(100)
+local _Q984431={{296511403,830017648,840101741,444383330,731526450,660282981,782816015,407834386,884386876,263164124,958015495,697944050,457701613},{941703403,427696724,573170663,745077135,217276756,215307845,998517673,203719407,365337159,731942048,988367903,984710925,447266270},{638510760,977797203,443428448,639273838,798431475,685376690,203385653,795597256,928227954,724600537,464178737,426797470,687592923},{194677833,931303985,512561554,222045272,935557914,124953595,850439612,316702875,772220519,954504256,741189710,558898289,961923218},{786185041,369650463,173531546,436723686,661242523,528344715,137082634,849921028,409409678,247315510,250410312,311703037,565454935},{278178741,675426221,862584637,670564019,131186326,576910070,806552131,422114619,308081380,163335080,259360197,875785525,110547199},{104725672,828883298,588641934,898960506,660093612,884271062,563900833,869148057,671150485,437700830,207555737,290629543,854395983},{921646046,261835946,656244791,879586701,756154152,269140821,239730586,556506722,197308207,747165876,325411484,199162648,561676569},{375105063,371170399,530236310,538502071,866403135,390296854,527972128,693803364,226713719,301368694,191185292,659816879,803423556},{224496409,943126128,304736765,545571610,740781707,148485487,328886816,547155094,403340042,567829820,418563055,301916812,663969065},{790697784,681657968,771021778,926622028,441030565,296604402,102259846,872271110,572255617,650076753,184381158,110452711,277741163},{142624909,106720199,329516505,450705067,144318201,527938769,461624620,994917468,300818265,632113617,390650227,154401395,902374614},{371526522,921914794,603334500,161104409,509755328,504769114,924086777,279134428,395974124,463951776,762348006,143627725,713769714},{751740847,737478740,345877776,569834455,209712922,652042160,616177403,568239617,421331411,145737408,402369783,456126147,124140865},{945928587,929215656,964694886,569104910,641189178,566196305,775843315,894512756,139778247,697931122,604414559,745842335,822190569},{667879844,851379042,102623952,217921619,448226889,781527752,742141582,629761155,747269524,821880709,895513266,935239559,679830710},{812068148,331969997,824333515,807661468,396196899,189842981,520438207,991580941,216765593,271057438,298020953,368968011,161561289},{240404217,443552071,496424036,733357998,253648377,527021450,208426537,376250836,469037518,866389063,136855382,593255314,730123518},{863735836,901991047,984268757,404825993,969495094,451890009,301038195,899282381,686916093,719060801,775361162,178285246,516971473},{650184596,196571360,271721917,990419686,498655408,173885706,370336389,926509702,567392915,384163387,312000161,857324239,850033025},{367236392,924372277,450159221,845023910,503853861,140623326,839419288,915226110,190275240,899008807,710057293,642543178,748546216},{602675169,738583384,876134503,951355403,994710925,161697123,317110348,449957892,939982169,377486962,216574312,219530722,507498488},{879620379,532440804,953689835,582123376,662946484,815267969,172898734,179066591,584317314,602683802,813110826,266855445,336389223},{625877795,358873042,365650202,919554342,406120979,626373735,213603552,544543194,280399961,680868589,973072103,311762775,351276272},{798864396,668317901,298004129,707679054,171445933,202668203,741528472,485318907,333602649,482260600,791845924,862298676,671036826},{863461737,732608097,253978560,504078835,935612694,532790081,359825009,251744193,618686440,573412491,485540648,894133680,896747485}}; __t3(6);__t2(45);__t3(47);__t1(62)
+local _Q524048={{676238650,276960876,904764193,343388102,624089244,196229474,695452147,317536592,240734149,633096038,632443359,127106082,135196422},{894349297,340822937,169523986,666614230,482978476,106064127,549622627,511983656,361123681,581172636,676969260,755279545,223869743},{679878136,190687525,591925593,377652598,831608239,956658169,247412955,785188238,571224334,694522972,447197380,463627928,683173086},{476634090,806996322,359284991,796050644,904630405,378535395,132117170,357462945,108695737,970505463,705436835,361443745,204490835},{943395048,953980695,344177238,601975473,799954891,848987928,638017255,205409057,165021859,127139046,316554457,489343970,446342810},{440785498,425149428,871586049,996523045,244735431,851781619,339387700,883291066,192200574,896777628,712026297,823590122,997989816},{917786182,891273868,256168019,630903175,301832274,659214914,803996063,337452440,335463715,741447280,975912708,965801421,804040408},{505825265,355433409,696376674,368100578,492721717,108635887,962926889,336160682,430296364,504566723,212642367,652066303,864686359},{986184181,623871172,352919572,237500758,813133133,626456426,891716776,491810695,183838991,841144528,450494368,156361798,819473515},{460407166,527024896,220109519,943213330,810797562,608220778,520462787,294722399,432972026,526777839,237634471,463757861,438035588},{760446913,112231764,210229624,156426468,127356267,674768386,746406747,364087735,872133072,366588359,371980787,808855093,468442582},{458048324,588597502,529769331,691198627,397636762,149031188,144260363,467655219,141185662,538307584,836669458,187140513,152002882},{683232914,249499618,470808581,854908664,796453213,511137621,548759232,531263524,787809563,265857547,481801804,234019546,840308590},{798655818,107494015,575136560,108215701,240046067,413099437,119097508,705290834,665217306,425477084,617183168,396559107,385051992},{820412717,585534804,269253538,186762535,871786695,915104719,230049228,214617753,412214274,682175626,107878017,367732514,273194308},{598343359,251270559,230962692,148633659,857115470,713762258,471567061,944553165,378150565,436175795,490670794,239882738,405946718},{514345754,496267879,340715518,730466554,407327340,496954576,541784723,964342203,257973714,788879050,690005281,801596681,390339223},{152145419,515478256,639565646,668746425,772731246,291868116,380190108,996215595,968164964,795117432,347006235,215941089,464700682},{745582189,701935793,809703392,786854325,368635992,588412121,842952332,232149654,166384009,134794245,951640088,906594297,634886277},{216254312,890612122,191753409,695229771,199805110,325346589,547403776,375357524,223806357,862385256,368499783,159632093,248596026},{100697310,718460147,173120301,794808570,878959196,657202504,303973641,801309841,747362130,725726572,331852511,416681931,385375226},{400869537,584126478,545383071,129804122,694160998,834108859,884058066,265381944,915269019,883702185,210460193,266272783,912149019},{447249625,279639232,512747512,237104502,609025973,980673684,374591784,227999914,961208092,511037970,929798192,513267854,498374064},{478268226,661276109,214403406,425995461,658831465,331560031,582275683,321553084,561869099,768326003,358434007,748068360,805306797},{931066301,879234918,288511688,713793791,827440822,975813544,147164889,873644799,471482451,675147764,658982719,696112099,556304377},{275456237,802738928,992944308,375745707,931549607,562513676,329010507,464475257,558786949,530894510,860398982,890337882,231873882},{644336080,223219193,975584940,108438416,230280021,153270964,369650265,263256628,799404345,663726564,172455493,235258328,627382835},{541620504,739859285,570721230,633161111,722621579,493678387,375650114,397399369,839431101,213659033,522139164,473528084,652545426},{639413413,512296281,557584981,717387857,593494096,534505636,718663831,370026869,852230011,465931600,435830910,895384882,867611932},{581905332,510671426,851332631,837145835,560558017,939730717,868942576,550748657,591412038,142499290,984489431,134318166,733977665},{217609022,383232623,473277447,988336263,326187762,546271501,204426128,107910909,116827422,748573957,760708318,929815764,583789486},{627612562,310474252,236942449,806596793,446639702,532310443,400090596,552691431,738407531,648725272,946156167,532092635,792174603},{341453222,403738079,859873190,913978137,383362135,194203588,925423705,534717015,722534745,747701029,130883421,513874228,616449134},{321553967,203872569,212301510,137691903,936744549,871848995,689639597,629264365,778920316,543396317,255223757,937699099,357477296},{244611239,314838002,823751577,118331321,375630929,210467337,945128625,645864266,196593567,157830746,447339318,966050587,925089615},{460681298,362650528,250944809,516929293,966051065,506542053,759669279,629885912,145696246,344704590,820137113,619595874,238050199},{622365834,952731056,813798975,718946233,660675593,326099537,676346907,657675563,744456142,553780948,117270147,954680354,650020428},{872560112,774618155,459282270,188744954,174304421,806325090,567740184,734683865,631977767,881598653,974847816,582736451,483242716}}; __t1(15);__t1(12);__t2(16);__t1(28)
+local _Q290362={{566519538,400296068,881648636,490785472,707607902,543223036,450461415,805207934,198730199,624672506,562118244,520391800,130094739},{579669670,229111948,180171521,373748925,289282407,313857470,144507706,121015984,560506704,588082081,887487424,331006269,611669457},{496557078,442831339,760598094,229026803,237088400,382649133,259620719,642023683,770037760,544206629,571437275,286644424,793054943},{605553553,923280289,208813988,444727526,228218303,131505683,280204325,693253941,857288267,992000173,338346874,920959672,928124614},{675574052,385039139,346506901,208492911,399357825,300641083,101627917,133344499,722179559,476829180,680927666,731188509,261632155},{210405469,872603458,523521467,741294991,639086240,988034682,500915995,347150622,155745765,608143874,180910607,117772626,681395847},{505445157,360608831,529546463,277763273,484510625,435867768,211405858,111739799,388336044,229650435,828276898,152342804,752216312},{873354834,407564347,124625539,638142118,366234153,456551599,457660642,375227302,129685483,432533904,483819189,937167812,386804481},{670616523,244197297,558435255,504311438,786787915,308608220,356503161,140268850,178367156,914215257,662405649,294225681,904660206},{889010507,948227281,319334458,908184490,113894551,733576418,633799481,769743455,317044635,743870094,873713604,375454816,481372555},{841211005,143325525,557960163,786612641,894969174,419472565,343005336,774598182,921294062,828968879,825442435,452496951,547034509},{394148120,987677933,414220449,403116460,550445471,597207048,295998211,400298566,948289341,303636498,223498747,124099821,459058175},{355012251,395122682,840475630,440238044,390357793,161901345,259605321,998406659,656917026,940545377,760093473,266955596,673279873},{509193373,487222255,845263532,697440219,838773602,870272161,410355119,262319530,122815935,148181740,944276339,294612832,682751636},{492091827,851950125,393850866,956611067,305039736,194877392,555619581,973208868,563625566,754534999,392427673,120646715,598475887},{258488716,497306558,603919233,557841597,607521899,755756116,782915142,210970951,654895889,483694830,246471980,152057318,635967917},{880810243,825749002,135412860,538672033,208888663,182054946,844759775,790591559,337116078,863763178,349408675,799819373,983212716},{722561343,183152944,733417068,351392072,279627023,602259662,836941106,383201090,672292218,445749033,553900792,734331245,423123915},{335738667,612875652,612808709,860470942,878937541,193820347,240386883,563798011,366365537,675155310,399851863,367251069,111398429},{913701376,630419719,248007952,146909849,800948329,290427549,397475483,894681599,778621581,416217409,660541888,597552337,986840866},{277886439,970917153,470943393,714397257,502800681,207215021,483311241,225099917,971049904,730294375,602612383,995035802,106743214},{319731570,539772767,926356428,623071935,142745358,555242992,250018150,977559082,851972220,827721947,185247636,837913250,475227179},{672235156,815421597,902881378,983435233,308779592,194461558,605766725,798561124,586312689,357326509,259461014,397111152,775767050},{734415121,906810753,525686704,474044737,604816509,432464758,658023076,214675911,489442799,760639824,677877178,455714002,598420329},{606638167,279285721,324019605,856274784,367692536,704649511,372491336,414816324,574183852,809830061,249898099,126772608,542027978},{666527842,394582796,583952707,162800103,807546058,949398826,901678343,786610892,479644661,262483102,175910392,353891797,657410826},{432544821,742889089,127154047,533225222,195245591,857506291,472788549,118916752,240774610,244809730,581210279,779042047,140693319},{539873822,202103053,630220957,599738646,422362640,427899926,346947898,854282492,506073740,257309353,595382337,643724623,310599872},{975587371,765287563,387552307,322600664,499865143,807012273,361376342,658234975,281519072,920370317,488713050,894787194,627524619},{829186718,746317722,133616176,571444266,814285656,925062124,646651400,505475840,140649368,459773519,107649270,839355029,814781246},{663129784,769840415,193622892,169254134,118445751,367374256,867278662,511724983,650462738,661684484,628367642,800490441,327765244},{309309701,381553652,632042539,221817169,125113770,991170638,372647993,931346838,462241884,164009587,508572449,443401715,253253937},{994975972,838096955,851939456,160167798,959176362,217487218,941705652,733794619,940855327,244916072,588880228,560697902,807702275},{683848179,209487815,975536333,678763057,147551295,198042777,960460816,877887971,580950575,923581902,677268806,608300273,338587644},{423931652,995708979,841601703,536266142,428064201,936420430,498980109,515884459,681763882,918061965,980365301,648279260,459986391},{825084763,695773274,409667378,143517129,287085616,257011753,741439181,987762558,414193853,379330648,863997045,442837319,713033406},{581474887,345248032,409307453,591227935,421407744,800372840,382546363,464389073,796202355,988172708,475049749,597551832,668293507},{930949018,617761852,588576040,498378013,574467233,862885957,650747055,474471518,373823237,323352915,835168513,119474190,439524446}}; __t3(8);__t3(61);__t4(9);__t2(99)
+local _Q389687={{171416322,249027439,623148718,420272455,360978881,642041545,799076823,733305491,430860532,127573583,931280442,492549152,478192144},{176030964,773182017,307877912,887851316,325105981,125310245,913968866,950435973,220184846,410899014,547176453,266388513,774603760},{662726287,172596035,514447317,506875801,592276321,710210162,246456970,531560808,675057553,697960905,862896312,501573373,868178279},{106676605,722940068,304717682,138604794,643415811,310117475,246273657,203954753,264799275,396412083,402859358,303734074,218455982},{573937639,305258794,552290758,728830280,725126495,366598696,447075257,816929260,459785092,219253645,811914489,421414104,906519860},{563019940,610350895,352171787,879948216,215148844,195424852,309919981,127554136,541729031,857549073,209517782,752443246,241096169},{722334807,820429449,959225559,401523095,324972105,295175406,703340289,468198911,462696146,537124153,409465557,535277630,620423532},{590054251,270563111,335451897,864902761,632996182,807956323,834812055,374145324,192730315,117157015,875731059,972643396,361505137},{788192343,484669950,683242664,566776440,824236981,778953788,986132075,708726909,466638829,268049424,749562389,407019309,761891465},{944997385,791761584,348706321,785885483,784779271,606083961,436798380,550025887,331300671,691275160,475528520,549501633,310995135},{703455001,549387055,348627609,795075671,202985823,783109513,702949287,801862081,527734271,803060327,155243821,539358785,448921507},{649317644,799848335,923820981,257011001,370228015,510226437,451180922,243634589,413562859,482898609,495701469,521795332,489933358},{755205504,148306813,130671691,385025553,875126983,951812636,463735893,174990763,278429522,491284129,150916368,324249038,405078884},{114230152,574957115,438779347,820958904,849660139,869480223,272388015,813791748,936773209,245485003,699091589,782105149,540678181},{426627793,983943009,979871635,788395761,583479860,114702732,137077915,380374400,657422055,627420521,942541249,654577206,722657779},{633721381,397721474,684475500,181996180,532352609,996180016,201371072,809542074,241515732,498112781,959770813,537542515,226192273},{176889988,197395858,540688157,914551838,898782952,603495484,600998005,753924020,827760767,889536113,260062355,215350303,417380407},{874707615,764570396,393053586,984565895,527043859,819817044,974047378,337196270,240654067,485043787,669671996,312389758,926183392},{439730071,938210120,982723353,538715997,361275909,433693143,503019593,647167039,241501109,429637229,991576967,335773625,415711719},{650739231,602818584,711665657,654812651,244761450,134594897,787650018,218453684,945025441,205187758,548992292,509396105,548432745},{350171991,916078769,676964544,944952948,951417596,933783121,306308083,953730660,892557241,839465813,881355888,866043206,898355264},{892001393,656134466,877678170,915174032,520945033,468719708,651172340,485792394,470471999,404419775,988108542,363089037,500132338},{391379079,353395048,333729374,607670085,790283577,169309496,414762047,670795011,931806491,187218478,885428832,745686558,648819639},{466878836,416890980,894164398,153366599,224567088,754217081,924005026,175434617,522760190,237738889,649062973,924209560,288212757},{955481552,910900619,592881287,477197336,749477426,486047778,148337272,465282931,502865357,986837626,896162844,955363026,290285649},{449207864,132135759,255582348,913546714,288164416,660624886,880929027,155955729,649592387,936571078,754752803,598674973,159707693},{692122401,729968061,454073346,501937231,292836093,572366780,746881042,863537194,906859415,876889837,547664835,676365626,531025924},{543784217,777648912,596998261,152563315,484876521,934551261,373281353,107255470,951477282,167187804,227173575,338191263,262879235}}; __t1(106);__t5(17);__t1(100);__t2(77)
+local _H25997="fe488765db146482d41fc6749fdf80a0ffd91bc34f109184df1ba69ea608efdd"
+local _H85382="cb7eecb0b4382eed9cb2c8a015e2396f75ead390ac7bb21163944179d58dba3b"
+local _H70281="20bfd912a8aa3bb9274cfbffc9471ff3dec3d75d4ed3c2d7a75f3c401d1771db"
+local _H50714="8a242deb4763f57cd7337770cd48e683ab8e67b52594f66f68d37d36b155b99b"
+local _H44507="4799d7b645bdd269d94da8f42f0b10536125f6d78db857906935a5dd8de689c2"
+local _H46939="f4fdd079e87ef05d9801472ae6b0fd864c17f2779fe9e6ebf466b01b54db2078"
+local _H21634="33af5556a8412e69bac316ddba9dc8348db3d071e1019e279d7ceba7214ac54b"
+local _H77581="42fa7edbd808842e81cca35b27d2382b6f448e8a3eefe84bb1883b14fdd56951"
+local _H50076="aa80e564192758e94b3174bddc80788d88df1faa7746ca1936bef8e4fee1a452"
+local _H52517="832e879fb4fc9927e8d371980e9f0a507be91fca295aaba2277c0360020d81c2"
+local _H62151="d2c063c754dda7e0cf0776a2d3deeb9ecb4a4c652232505645378709c5d31457"
+local _H30984="b42c31a4e9ecd821436b597794d374b7029cd88b9df9293926550c8408041d6d"
+local _H16615="65375764a352eb7fa558f2f25c2ec1b1f82b78547be422479b913acd2bba10e1"
+local _H42134="92b46a887588eac69a944740185b638d3e5534e9a25c7135bc0e33e9eb2234e4"
+local _H55893="b96c2efaf0b26b75334e9de50da432421fee2a748ddc612c2a7df4ee71dc7287"
+local _H35947="19b768f6e6b4337859a6255c8552d13f2dd20832f2e2091299fab57ff9c716d7"
+local _H28305="20f257917fd1d0b82d8be0ec332fc381d40382a65c95afad7b21b7c809f3fca8"
+local _H80639="b77924d4996d9fd2f80de4850979be58d69f98184e0cb8645b66dc81da2acfdf"
+local _H91112="1dca2c275fc2afacd2ca5650b6bb6804cc8e80fd201871605987f4f34c1aafa4"
+local _H24449="7d550139771cd8b6fc1a22094386c62ea410b9fcc6757a6954053d800af848ab"
+
+local _K1={167,37,98,136,211,129,76,75,187,145,35,116,185,180,194,6,88,195,9,134,48,213,65,233,155,5,244,21,9,171,23}
+local _K2={105,108,178,74,116,85,14,220,206,208,162,138,25,188,25,95,31,47,242,70,131,134,86,17,123,142,195,67,138,62,53,90,61,56,173,240,135,83,39,219,131,223,243,254,82,99,53}
+local _K3={190,24,3,205,107,212,17,203,177,61,53,116,175,1,220,196,173,76,236,250,155,242,7,247,88,201,125,212,212}
+local _K4={23,124,81,27,18,119,250,59,184,79,206,45,202,145,194,54,109,213,198,155,144,114,17,170,141,213,210,163,85,253,181,139,205,79,6,194,160,250,198,241,165,193,34,18,179,43,158,172,72,220,50,107,243}
+local _K5={208,5,149,133,113,43,50,138,190,87,31,127,77,140,234,126,221,252,145,84,21,64,202,32,15,54,206,137,1,216,135,71,203,40,106,65,97}
+
+__t1(7); __t2(3,11); __t4(1,2,3,5,8,13); __t5(99)
+
+local _S = {
+[1]="mgU3rJJhptD/WVjltSkS6Ge0fciQrva4B5xrlT4zNQ/ua6CMMbmvDHvesoYmpItTX4y9/8fgQdVzuCsFMn7Hw9ghXJEFZxL0",
+[2]="L9/VjaRI1nED70X920MmPTtzSuGEUrhua9MwlgaW2wyazRa7+3d45H+YghDZsAClFYofR1QOuVYBdvMhnlIEnm/A7uHWG8Ls",
+[3]="fbnVeUWK6zWaudHgv9N3qA+CTVDt+J+sZ5R6lbB1lEGieazGE/fIK+kTqrDCgVY/dCjoZR2uV9t8uVlQHUCaH5gwebEmv1i4",
+[4]="qJUmiG9KqWMxl5PEBDbLGUV+xeqfmPPS500j5gyppFK5enM2Tw2NY5wo38TP7H75EsEUN6GK5YFu/2Fk44wHu6gIgBlbNT61",
+[5]="DUO0SOrSrYqaddKBgbRiM6G/Tfq66BJ7G9qSdYn0F3ws2mqdfW+NaiSb7XbAwga7BzEFZtRBPk1e3g+W3svI7OQqQW4yNrfa",
+[6]="bPXrNE3dbzPN1fTtdvoxu6C7QwHymnVlboUorZrJFz7YwnTa0EnSrt+vLxkqutKPSo+XL+ehFj0dieWCbgNoWNuXTltS+Q8W",
+[7]="qJDSz63htkClXvV55UAoLNCLU+X2gFTkf+kfCDtgW3nm7RC9WVvcvG/oAkuZM8evF3RtKt86zUzuahBW/moGGqb4AstEYvmy",
+[8]="RhSCIM3jDyw4RttuCne8RWgjxZakyk9YUJU0l8iukndA52wkocRjJQBDZ0oXWlS78LsJLweTEJ5cNeaZBm5FiBX2+Z0AIoZO",
+[9]="fkTnxbMyVLjGrDKKuuKR7wdCsfhfF+H+YO8iMNuwa+Qx+6tMlY+/TPq1J6CaU6ifmA9BLEaCCk6oyj+jrHfGIFRyY+YWwrIg",
+[10]="kBiH4EmvX/BynnoozqCCoLw1GNRxJkR37w1/6Bla5paH0zUNZ8rnesBIdu+yJ+5jiEgBFzuyG4Rl2X7vCS7uenASD4VbHiwm",
+[11]="pok1g9ACU+Lxp2kUXquUNGvHPGp2bK7IM5WDJh7HraYPZJJF+MRyhXQjYENw5MCe+ftzwHYQd0ATJJYLCBsZkSGJzSs7XBM5",
+[12]="DGgz2pOHfrpPYpWt9+xEw5Bjrnbn0JHrvfsIZy8IXPP3s1TnStUPowHlJwMqQbOdRtL4ZjU4Zjb0Iu2F4W2ezt+BYj96W+2H",
+[13]="GqrtQf+DwkxctH/nTrN/eZjYR9a3oCoht5Cj5Ua2THX1vYY+Ygk+CCSX54DgzJc37Fwm1ZQWndQJSQWbYNQUCv6RHHXukTid",
+[14]="g/SmwVdc17RghOyM7d5Cad9kXBpKNbXTgX+9WgYnsMsg71YadOr+Ed83I5/DJdsge+I1o4ANGaOAdky/Xl9WJNCeuy6Pe/b+",
+[15]="HqiAh5hHzpjiy55wk4MaHwjt3uVA1XGA50hpFbpe9z1P9glsxidkEMbxwVYvUV+uMZiwbGVlJ77BQc41cnomCHGCTIe6+Bpr",
+[16]="vOq5PTd6vxMLEHT0POZylfnmN+pTRZXyjeQimrgODrJpoVSz6Zssbr4CKmvq8ibTaUEvERwFw34rfvb4u76PNJm3bvZ9UTqX",
+[17]="tyAOd/6vqsw1HGTR84mKabMAbwZGPu0H/udmQcYIyJR+Vfk/wPf1G+vroD8p7NEb0FBqZf3Q7h4TFf+rI0Cwjjn/pKqDLD1l",
+[18]="u9ijAPNgJc7deymqQZdo61TiNvR46xjqcQtTYVpCrCwd1fP4GSYQYF5mPYFQqEav44Ujc0BV7ivpIpRRfhRVlC2Yffo1+BZS",
+[19]="7SfepffHfPU3cn3H4xrj1McsGhcCBnz8zUHkr2MPzS8UtNIvCtyOSmlEIvyU+RTZINKLy63oug5msWPA1HUSccT7CnzUJETZ",
+[20]="DN0uHwleRq6OUWy7YatbcaUPimEro58jS+I1MBnMQANbFy/TF2Cj93WVbcu5nIlQLvqZ8tPFDg0fvDuqjhSsLuEQ5jTpGrLL",
+[21]="FXXm2/pE8NpxL4rRHBXY4VcAGFjLypmmeUAzX+Nv1rBNeY4p3/9K0IC1wU+Wth0/TGqqo7IjuPdPwDAMux05tU+04FcX7Hxu",
+[22]="0/axlGHaW7rc5xn38JXtPtxNxy8DQO9e7OpqeJlEPASSRnbMgq55Xc/tubmI47Qw+fn9PHWAfZggWfsX9+GzoFYOIVhGD5k5",
+[23]="V8OJV26KAbf0eWpNjFp1mBg0ukPTy9jQ6SfECMCTAsR/2ZAZGpR03IMkz0w5s3leHEAeT2ZXmd9hkMAiXgcMooci8Zz5ln88",
+[24]="Ase6QA4sEXWR3rdg4+R3YzB+0re2yBxumFA+6BhkPI8EJxohb87/hpmdNIrWTGibTUW+0i8TvLTP8bsJxF4jA9+kLHxAISTz",
+[25]="VIyMyzEaywuWmen92/p9ToqFGs0bSwoeskSjR1UlkSaOmxQxq1EQTPqXnFLeT7f3HY2OVosfpnMSCilqQNVkwlxNwx0UIHX2",
+[26]="POJe+JB3d2kBY9xQeBDf1vYN8LvGpuaAod1i1QdLYW37Rcqpfxllw5QpuOXRN3+nkZf0OK3ktiuYkdMwhodeML0MkfSI4Pbf",
+[27]="ou5L5e6Yp30DiYdzyWgCuy/gR4EG67vDBZSnjBIO1aFhByjHyYlnYmFx+2exzrGZvoo10somaoNubhPmymNfdG5Nu5Kql0CO",
+[28]="ptBvHDGFT5Z3227eZ601n91JkdUIlaql07+dMmzo0cIU2ipcCU0yBEFVIZ4Ks/OMIwOQBVXUi+0RSUrbnJtSew0btqG/en10",
+[29]="vh/oDgziFx4OgimJ1ITuTYNqzynqihuF//6KfuVIU4gAheESIYdFU+yggSnfxOLo6VlN5DP4L8NKAhSC2TkXWna6Iy1Gy68z",
+[30]="gri/qf65UdQr35oLFVwRTmjYjfxRm+zCV/m+rHddOIIgjnhdXCrNcnFx5K+45GXwscTEieotXsSaJI0aHFpHJmKGoR/iTRNI",
+[31]="By+9J1lNXwxBrWlBvXVDKIctvGMHqr7wxggqc/YpUx6C/h+b4ODykpvl+b9vXtOAjB3z6eu3PjQqBtDy/wijZxfYJkmFYji9",
+[32]="6GqGWzjQkcaWBvR1gGOvYTLK2SkN+J1Hp0QJmUf8DJaZEJEltQiwczZ88cfelyK9Zle1EvBRR1g/PR/JqoXGmFU4PFVB8I/h",
+[33]="6Ny0waBba9KGBfUZUSLMfR48OuBc3GKSIX7dsegQ+fS9bqxITqSGNE1RygzvMYhxsPVUktNZ5+KoNSTfafa3NC0jfBma3Ed6",
+[34]="uh4erx0oyEV27UQnswv1cBrY2WHQTxTQ6ZEs8xLH1UPbJ4qBPzGwUKsBe6divhUcxnB0b1Js8/xcDNHpL0aykeR5Svo3uzOF",
+[35]="UTfo6F9rikXYMPIP387ApCXDp7wqrmv2YfQHJYRGsAr+fESYFVHjvxi/PxqXHD3G8QK+X97MBWnWD+sLlqVFQV3QiNp5x05Y",
+[36]="Mi5qd0UdxkuaE62pRyvAvGTjjsznzOnjqINUMJDDlOYp2RyANBFN7gPhz4vi+D/c/mfWPVUjM/Nz7iFrKm6GXQ/DLnodtpey",
+[37]="+ShnX0aSFyeUjCP3plSf+d/d2C8n+MQE1WFvPtmOrTWMxcdaa5Huh8bX4D3kNoW66+pRLCVdDlCdwZfiBqbmnOD3Wqq7/jSe",
+[38]="I2sGccxTdU8rnesufyV2Rgi79xqqIwtXtxYO+ENjbVGZUnkX5Tic7JKIs8irbaOk6vv+YuCzFhlgw4H0ndioRSsdcrM1gPFv",
+[39]="RW3jVlADnoXQtMk+M6ftCWe3c/SKtMbYzKQYNs1EUx4O98tJ6vMXGs69kJ0KetaRXzcPd7oxkSP0fYIrdkOO+QAyHbrn+mFi",
+[40]="CtlRS6WszKrj2rSDVu0EgNPokdQnirwgCHNgSGJsp2E4Fpkp/Dlbgj60y6hUzyiljs1tn6V9mJ7JxmFgx6tP6bPajDP0oSDP",
+[41]="KfqpL7AF48e8UKRh33pZxOYfVela37nPfhgYDNQ0Lex3VnBibCsu/nZ3xEMXTJnsKfxsuFnkC3WREiXOgTb15diuE+k+UFML",
+[42]="DZLNSlZGv0snw3lO5x6Eli0q36aQxA2LUZgLRW3PFkJecsn31BdMFAwyruVxpnbqA0Tim7FxP8dEpUMZ0bLTrt1LwX9x2yI1",
+[43]="3zbOT6XUao6f+h4DflZfE4ZK4avDIFB4Q67QcyMhb705euDpz06/tCizuSq6wi6OfOCfm8B9EiYtwegaKv6+WWzQh2PwY52d",
+[44]="hGMpeJPA7UzECVl7l7szSrHxGH78JR80ORfzIpzrfaga6OpRmI0uciVeGs8pR7BYMER5iIQo7qE9gmYiIyufeORLHS5+D7kt",
+[45]="AHQEr4FRJm7++Emj3x1bQeHkqm9RpzgaT7rDQBKt0Tlq0EB8UgMW/Ro31cr0jtdTlQIqWvbwInxBM6hR7G/4VyyH64SxJMis",
+[46]="o/WEVutwo4C+2Zk7ZEnbD3Lugs+jrWztzMu4M0+8Jvj77ZXLW8Xa4leoZkW2CtwWgWKrZtNuNNK8T0SpuXzCpA/1zhK+Z2Nw",
+[47]="QRykDwB8nrLO4QcG4+pyAUeKftTAMx1RythNvWb57bAHEuM7nB4ovP3/0llLduhCtI2XlHOyl5KLb05j0uqjPaKDoD9ewDse",
+[48]="xaRjKVJvZWSvegvrqVyX7fqqxcWRLGc/bauw71QgaiBmF4ml8qJoyeN+fnjLstCYxVOpZGG46aA4sGwZKz6yjaBFUZrNcvua",
+[49]="buRDE68tD7MfHVwLI2Oqel9hnhHcBArQrI+xbm36A0gK0SEuoc/6xlLH+jQzUwT6+jXmkwnlB00tv1jEtInf0AnutY3VUZYX",
+[50]="+Qlk4Bm9JGHfECBgZyqosl9k9b2YYaRDD7NhUp+QQwGTsFmSQtOTVQiXAtz9+OsUix3vBFdLyNYubqNE88qVvmjVYjqt9HE2",
+[51]="8Hnq+RZBYgqQ4ffAnHWeDpr6R+aiLEQmK2lgvA6XADK2ugtlMUQUx9/cLOLXrGWCAGqKLw6/DVevkIBnsoLut1BV3i0sKhyw",
+[52]="LDedIs/1DSsWCvkhmL/13AaKc30N5qa/yIHHoT92GnRDhjdXDnIp2xII86U6R+7gG9fojFr1r5nv95IE3ynFVMdwisS3d+7D",
+[53]="5FybPuJPN7ax4HQjS0IYAGD3lFnq7WcchhynXuG4B7trOH9H1foahM3hO+F0RA7iWzanYZqOTxiPH/RR7p3dKsQak4b+vaSj",
+[54]="FfNmAiK/3WDfqdUXbXcz+RlRD/CvWNpt3dcyHASNyG/mrwaUcZu11qi6+FAQvxO1vLyjMnnXMbddV0aSuajp83P2lhVTdVXq",
+[55]="OT7HjqBPGhXv80WGWDwTD8hEvKJIJoxyUkFFA4WWhn9wK/9903iJrKV6AuJB9zjlHQpJXb6WZje3WwBTA0VjBZmdkKHuEEpE",
+[56]="8GvwjfeTDlC/tRG/o1w6hBJx4HQRbzsVoEardx6Q6iy7OJvvGAfO1mwoGLtlpFqXShTAJO4boWYinZf49qNpdYC1jw9dSPsu",
+[57]="M2de71jSBRhQF1g8EWnQM4c1yZT4jc6COKNhUHHCFiA7RXfzrxz8CqAp1Jk53FHxmhgCxtKy+X8JU+xcgb8PJlJvGIAsmUvs",
+[58]="h7g9M2J+a3d8A6+A+oWdk257iExPeHwhz1ClBo/6XZ2F6Ag5E49AeR1Fkt7HOvcBeZF0u9Np+eZYIR34CAIVb2ioHyLX4Igo",
+[59]="03vAH1q3DCRVEMEo916oP1eBDPsAM1wDzZai2RAhWE5bT48GE/hnaSOWpVf36hrOJMxA7tP2WFmK1MAaWPD/LplxYdiNGzg5",
+[60]="QIfRffwSJmxSs5DIIn9Onc1ZFaCQ7inLk40FOl3bnaGaU75le083dSKKgkIwOrQiIoeBWQhgNGIMudOJZTPHyAEaCN9Ndwgt",
+[61]="manAb5DfqHb1ym2JSFwg1yJmuHLw/UZX3QN7onipaLrII35oSnl1GWZ77c8sip6iXHEpp9wsXeQyUuohvzQiougOTldcjX1o",
+[62]="cp4QLV7X8kYHWgLrlVI6O/iov9Z9rmRwQ06O9fshRr8YD0kBdGN2WKjepaUZ5tpir8qZ/E+b6mJLr9sT2vvM955wImPSyVgo",
+[63]="o1HV8fxZXC5Mohlsi69yfXjxcda4PH3/PB5VJIKAT6WKDswQrGX37njtGEd++pBw/zw+RI4fn4Vr23yv63TsSzvlFAIvnkNs",
+[64]="02KPYL0kChj1jv+okujkKnmAsTXoTnm0Rrf6Wzyp69A3KtGTgUlQpsu7Kq8+XQL7A7zu+646oi/MxejeP4+BZIhGo/lfccGL",
+[65]="sQb4W5HJAldoYRx18YbBtqK2WhyuGysuE0DqjPDfJGll4Tp5PodmFl89YzjEoon+5137Tdk79Tf0QMseyb86ZE1HK497VYX+",
+[66]="siO5MSVjmLlgmpAdo/i4gKu0GEIopSQ6e6syhCrvJhHTDrpIQbYHm0QYWj3T7HIacdJK2+fGk2ELmyX/cC7njEKO0Yr37Cqf",
+[67]="dywqEVr88O8nFVSDgz6ua6wbyvjVNmve21FkRg22i2w5tv9qHLkwMIHYzbNIgOnedo+wDGvaImmONgK3u8oGk/8iPHeWqW6g",
+[68]="PBGwpk4xMSNr75vmLEd//q+d4ZGE2zwlA16eQ0BItCsTYR17x2YngPdECParoo8Zr+bnSqbuU/bIQTLrj30rDYrmZ+dasKmq",
+[69]="yLXt2pLv+Eis05AUh251ngJwtsYJuW9FOf02qTvSjC0VJS2r0EcN61OH+RVNPDYldTonJ7Eh2F9fq8ZnYttjB0HYvw2tr+0+",
+[70]="Nb0LlnL2SmSzrrFQLBSj9gvBaXSmecy+PBlvxdOt7CpUoHhTJQoH1bGQDpaTolVOTvtOjN7q/E7OJyV+32u6LCvJ5uTJCTaQ",
+[71]="2WBBVuhApD3dCjNkvv4lX6N+HBl3QgDwfnm9u9Ta6mBabsgpugdRCs/3IK6TXVeq7Kj+VfpEjjDZDx2ACUqQLFwmT6mmaE3d",
+[72]="9P8N3H4eMJ4tOyZ4JOOD5aCB+BLf06s7BcyR9ljBUx5nSWVgXkx254ZZkkolKE00VJtpNUuaI8HI4E7AXlz6XEYZ3S2PZjmF",
+[73]="Uuq7sMd7TtsXYPuLW+RhgnzmSmkLHtHRYIyFN7ClYG1RnmU9aGOeb6OjPNMLXoH6tz1+U7RD64R1Ql/VAUVRr1BPFQGf0Qun",
+[74]="aHpdeZj+CSQN71zfncVN+XrAZw/TlqUNnGyNMkKp7gOAcwCXVnZMQ7X5tJe4DlYshCpBiykllWwoIqNXWhYEgX7NqNfTv1Xb",
+[75]="KiwTyHRKs0+UkfXsaUmAmSyafGifEJrvnj+J/BcoGFZnzUnHk3+kM1eRWMJykxDMi4f1XPlT0wJaLvBGDFMNZIq3p+szxlQR",
+[76]="IDY42L5wcjZeQCyc/I3rN509GMjg2KpPZeeMN7L8KUUPkiwYleHEYJkCLkgtBbvhzsoDefAbDLFWfvq99piSiDt9NSbz8Jqb",
+[77]="mnBcAXMlmAi1nyglsg2zBavK2+uVs4MdmA5SkMybDRtrOZis5g38COysVWxhR+/0ijzarNrlcvuS1iYqTl7AneXBhqVnxb5N",
+[78]="w5Wl/lljE0yXt/goBBo9jeghTCFJb0Gfhyu2yNW4/podXl4kYJdEtcmzUY8V6wYzPRrWGDK4G7MCX7UotOrJLhQNODgd6jd6",
+[79]="+fhH6Hyg8McwNY1O6WUltxAFkIsspudQpoiEw1Og+RFQoi9xNG8wrKmHyUBTsnauPPsnYqkofHRFT8XR1IC2xjri+ykJL6Ll",
+[80]="fdm4zjm/13ss7lEMBRyScQryKG6J1/Ojl+vU3YNNkFbUrvSIvs2WVShLDLJiKwMRj1RSnD2DV3bXKUgWnUkkFI13awm8cHTx",
+[81]="nERrVouPymhdhDzlij4z5cjGA9hDP1s+UX4k+wGe3tnCQylldicDqLozBSc8DbX/BX2DdcbBk/CA3dzCq2cX4RVu9hFEZf5Z",
+[82]="UsXEWr++uWdXYRheIDYq3Dr2JIYU0+2Jur2ktGQfVGSgYkjHC3mikfbeDK56ivQnsfb1e/Fm9e1z5aR3oZosUYRknNWlHNE2",
+[83]="oiRSgk5UF37eoXh00rJXmFTuXINUwYQxDYcSdYStr2olFHfyCaERKPxtRv3wSJA+jVq6Op0Vsp54MHSgCtTpmk3cBikEJuDM",
+[84]="0KBb0mI4iKvdm6yJwbRb/lP5pRgw5Dcm0olPljT3z/gV7IesNscUJ2khOIZQ2iFuLyq+/OBMW5rT+A7Vba7kNWstv4TlSYB2",
+[85]="PmRKPLeSL7EpMr9Y+PBVvz5G9bAb7VBXHNe5fgth7pH/tdkfQVGwfg4m0Q1wFWSHAXz1aiSt8RpM5wLGzHsTZxnni82BE0KQ",
+[86]="hWStO8SG9cVdXZ+yQorqZ8x5xFPvCkWMQVHS7vMutYs7BM+zsYUTpd9k5fFWFowNPcX4l+by8Ku1dZVpBRACx2CD/iM7GNcG",
+[87]="jhXSPeEqhdt0nvG3au+ewg8WbllDL2h0sgCQ9X/sOVaF0oYy63v+gqTN3wAdnTvmHNK3WDljDfDX9qfojRw8+BfnaLTubXXX",
+[88]="ooSsXN3lDr3v/21zswgO5ek+ZAZ2n+5+3Smqaj/ucr0fNVUiubP9M/b/dQWtWrgr+A4sx02nEmjoOeOhvHcOR+HkgNyA1R/t",
+[89]="k3wSNaQLXEokPPACDW1nOfAWD0EQrfMgswNt+WBnOqhZQeuLJiH9Zws9XW5loaRp4vUY8Fdcn6s0wnz5/syaRydcuUpXiYWv",
+[90]="Qjo0FBaCWzDid3BfOc+a7p/L9xOWcQM8z+iDkocENYLUFJXqi+dY2/pvn6nF4tavmFajtC0QPcRnzcx3tN4hjoauc5CMYpgY",
+[91]="fywhLlxFTgMpAiTHND9r0ViuFGW3++7nN4oslCwWkWEjWgkyyM02pmY/Ijp2PBj5hQEqGRuTFu8wHihAXC20xsaLJi8ZuZqY",
+[92]="Q/cAekTi6MEEPqd8vP+n5Z8+GyDDD3x80j0mZjXZyqQac2fjlCGyaNKE5pViNS2hHCaILZWR3yXGiDiRFjiUKxhABpiqBnZc",
+[93]="/pzZdZhFIKZtbCnxL8nrc84wXX46l1kYM4IIfqgYrZN83KOTBKZESBN25BQPMJCJro2F90EX16JZix/haXk3V/Pr7N/JhhGt",
+[94]="XcQqNuh/3tk/57RwjdEZOCi9c+lyUWVuOwXKde8vfVs4NKDhfdRDGrR0QcJEDsU7nuD+hBLu5FyDLIHc/JM3DDQfPQXcjJhw",
+[95]="zRCnd/Um/lxYFS/NaEk968UKEx02fdj6WXxufW3aKSwqVFpduIxbgjyEUDKQmxFbPO9C27gPNgsrTnXSwx/Ravs17J+qNHvd",
+[96]="jyKuYCdsx9ecHyl1D8SWhDlD+bfmb/RMHV+p9VGwZfbI9OpFDsgXEaBfhzcfkmquOv6ZIfGCYD7PtFF3hYS6ptfssjSs0Dfg",
+[97]="3iXr+VdSpu7xCYmYcuKGzsGEPwRCmCh6cFvAmWnOQmhylQhjkr81PrENvp54FWIRRgzDpHnyKT6h+rE1uaBM3zCCGtv7s91G",
+[98]="90fK44DSNs1Hvn7oZkERENmD7eq9JKAVCjymmzsSDf+VpRKyt+dfkKwNZBRWE846Tv49aTebpjoVOdsGax50eE3sWbjeUmVN",
+[99]="YIt1UZAlojI89ZXGVASVX6586ARC5SJfwD3/DlofNRtvQJyLmLqNM+7CxzknLZ96KgJrmn0iwg0gc+FMQ7+kUnORWP+aL/G8",
+[100]="+4SZ+ILtVItkz+dJCqKojRtdsuOVZtj/XoD9vdXyjfs73AyNXrduQNyEI0Ih2mbwNOzyi3+5ql13E0bovTq89gAXOlWdD9HP",
+[101]="WsBPDtZwCdYlNBmiNCqptJy69nJwqzQrjAd79y1goRIqSWCjL03ZLlA37swxggNjiWSj9vuRvp7Wlsn5Bg9iUw9PKmKSkAD9",
+[102]="+mbRl07SoE73iErP8RNTlhU1PaD3YYQ603Iw6wXGNwYAmjyjycBmKl+RwzL6W42DRoUy/WA7Kp3jwtQwvVfIHb7Lt0+AQyqv",
+[103]="jRyft/Bu9PG8apBVlUMd3h1p81N4dYe0JpwUGNJrdzUvBE56zcgitBLdZ13Cly+BYP9bs5zGAtLj3nuPuGeeiSRe2li2oKQI",
+[104]="nTApKw95fFPmWvx3gxXZwjKiJkh6rqcEaFGhz/4xPuv6jXUsUbLIGjVvH7qcLYEgsTRDUFSbekoWichf05u9YLA2y/x6zW6v",
+[105]="OKF+7d8Xy/uExoUMH96Q+1y6TudJl8ZzcejPCLSlIQjIoV9v81kYubTAdrRmjjxWyweQJw+008HJfcQ0mYCyFPvooXCpKmXL",
+[106]="BQVm99P2d8MvhAlW3wvw9LE0IVpOagZ1otMYzlkecrEKIpgCBmcI4dOU75d8XITo5t/XNZrdC1xfkv3T+PQkyOog0jD4HrpB",
+[107]="Fm2aVJA8/zYjou0dUPNfAsgwQm1r5+hR2N+i0eIMxow5/BBAhPpiVGFEvUR/HhmyiKmfUXpmpeKeONvIP7YxGbAFFKSNpZZo",
+[108]="WauAtCqUbB0rBVtVNl13/4ntYps1Hj/rbtbuVY9D4mKANbKMPme7lBXy6zxsRcYJ+pGfO6jC/pHWVKmTSOsbevtlwyAqJ0Pz",
+[109]="j55z/2wa7lQeWPfhFAYYUmR8EfdlG1rP2RIrqk1anX5tUjJ6SwM7teieoP+xfsKRwgnIFIwoiSrMk6yVh0xAls18ZYOoT5MQ",
+[110]="XvcBOLSY3F7noAppj16qrftd9iCZ1Y6ogbW55gf6HqZANdMKMH1YFPNtOSfI3ZXIZhPugk4Jm+0cz31hwzOiyB69jG+uFTm0",
+[111]="4NtQn3YG66JXysI9EAGUf9L2mzPHR+KSD0JlgHrviSbDnSQpZmHpqP1DMdz8Dq+WxksSXE76PJtMl1HCxNgxBMKqqJMqXsWO",
+[112]="YCbxANo5hYn8bbHuqbwza3mD8k4RxZy2pjq+6y3BP3ZbTSawsdIJwLR3Cr0SId9QA5rEwnil0gHOf6wWjR+lHmnEBM4VFvRq",
+[113]="D4Yn8MoHbItNODKepewHeiuyvFERF54vYjGxQ/PiRnoCFBVlDz1pJnG9TJ1NImlokxxERyiCMXkmc2bZ3GClCWMIL/Lmv9Jx",
+[114]="3R6mDV57E7JS0wXjA8TnAnHKTYTZZ5zSGuY3o/byoTk3c7zqxbYx25H6luCMAXb/KQbnj8n9TILUMICtlKtbYtL71rxMNh2r",
+[115]="DlcjlXdoCzK6Pjm6XXshs7I3ovZXZCm/+U11tmRM09ZpC/rQQy89gbDbVJMzqnL4cYk+l36syz92Q8IruR0JD2gaP4H1/B08",
+[116]="/8CT99ADhvzWmSv2jdTrCTWwsQKWzBlOQDeWJiITZkJymR9Oh3fbkf7NOr0Gfhlk7s4Q3JR9fRdOr+yFKrXNkyMwSlHFEV1E",
+[117]="U9oOsx3+7bluP1r5bsvaV0WgMIr3QyMaZA9iE/eDPdSWVaeW7PB5EOyyFrdeKbRat9qgmubJrD9UKoKMZ3UF3fcNoyTFhKdf",
+[118]="m5Mc2HpDGKXk4fvuVsXLF2T79O18KZXViswLk4aEDdilRAx28tB+vEN0VlyP++BgiXawhC729coGLWiNC5HAgb3SbDRwGaqi",
+[119]="FdF4aWOsaHMWzSVCuu4Zi+ib+z6SiZGdJcrQd5X0von04Pykgudxn4oAWK8zq25NHUZYAkEIgLXePocJvJcTW0eBs2wQHSYZ",
+[120]="RimqLlJZU+VU14FKNTkXjBk/i4vjH1iWMKkpTSsJs5ITWRL0r3T8/juvdd+oXBHcIuCepuyi7a1KP5pdLN8PeaNhJDo2mtdn",
+[121]="RpTIWlRfLByJ7/N4P55Q8rAh31BGS82sl7x+pLqIscZJTn/lWZSMJIwI4DPGdnDEW7LuiQueXZmeh4sfap6uEdiT2JzFkOWq",
+[122]="6VJ3RwgqJfrHU2k9spoUmJqqjUVKqHH/vdJaPCtkjuSElxF4EIdJjDkqjbINHtSftMWAJnaracbpX9y1t29D5q3L9Zu4Vhx/",
+[123]="FJ18jAT6KfT1e9NxwvQPdOdugMpq//aLWMKM37MLisG94gIgst5Qu1frEmvkd0I+845WJMtqbqeX5pk9fABY6hwtwtBShA1z",
+[124]="q1iATgOow1kqmlY6a8CFvZU8oGZ+sKLHyTLith0rRPys22p9NIKJ/ykDecll9JuCqcvyqx3kYaVWH2nXNCAG6D7U6WVQVJfd",
+[125]="k4HaDpGSAqYpnuEJS5t7rOJgEJHoefklVXtKItSTzRfNPkRl5XV037Ddpk20irVBQxi1LQuKurgqUBprNCTuhowdhjCz8bQT",
+[126]="LqPGhV3KSTBGR9rDh2iC4fvDRtqJfGIHq5PeZnoh5K23Ww7bU9wFPfp4ngAZMvH6d3lhGRuEVf+hhHp0V6AFXP7HgOoNrVn9",
+[127]="rbJp7tp97yvoHE/eG6BE31utkzvGGBsnpzkpbd6vWLUfsYP5OF3SINYNoHGov/grnMbrht1eWeQMDfIr4vOQ23HowPOOOoAI",
+[128]="9nOB7ywlIXam2zukmVmWJq5Omj1Oc24miswTxSruPz8d171/DVxCT4+uCURVf8UYlKYcU3Dm9a5qqXbtTPWUKQUwZQ9BtkqJ",
+[129]="G3MlbC6rLsGSQEpUOjebTEceCCuCRPdfL9wV/ADFh3gpUKMJFLGoVd7Y8J3pmzCZSItfP+J+elxV46wGP5p40skvdo2o4K0z",
+[130]="9B16POSiTPjnTC3BmnEj144843C5zNTQljaAFUkxDRJ+tNxXq/nlKeMbmM3aPEr622CBrQhO6yufJkhu9InFHNXrXaEdj21Z",
+[131]="/NRdbNm+JoBAc1tgHPCJe5YoATCx8oK+CUsSJ2QMGr1PeLeL0OfEFChlXP1dv4e7otNoUnMQ3W1T12uqlocvsrUP+uCfq9tz",
+[132]="PtnteG+zGne+3eA+dnpSKyFdKnXfHuw/hwmr5MLTWUXGiTef4Nh71JepC37Y3w6VAxkV/vqgwcecvhxBLdFq6rN1mWJ1WLTB",
+[133]="A4RbgYgq38bIyCGnfQz9kcDGUGx1nhOP6xKtMpGSuNMNRieiNZ56U6RkClPz9DoTuUPujj6pjRQYyA5k0CLmtUwkFBWtVtJ8",
+[134]="vzmZCGg93ZZ7B+p2GDXN/UMuOjaPgZxRULhIANGl8V9wdflhe7+ExH0Xkoa3eORCAry5LCTTVyz+IPWSkpOjExfIWhb10Bwc",
+[135]="VfQ0j1fjHvSVOXca7rNhT3IWhaAHxXJT+b84oh19pP0pWXo++7cQeVFmUrc0NhWRZKijaWPSvAjXYHH4gSRJCLxW0WZ7pPj7",
+[136]="rAkAeyV2xEvS0DNYk3M9APrQtSbwfNrkDHU0aoyamdSaXtgk7LZlugbfdjOUCdLFliUfFuFi6VGCSH4XxKDAYUmPwbyhQjn7",
+[137]="NT4ivkFpimvfXQxXz9FhTTFi620/pPD/Tj1BGwRAF/GPL1a15hhKtUOZCdtZQuQaSeR7xlXKk71SOqo3H9EU8r8rPZcdnWGX",
+[138]="vBKQUZC2SsX+XSLOVKmOMhjL/tAKe9p3laJ+lu3CmJ0VTf/eEuVua7ckphjc+WQs2iTtk3Nr96C8FiBzXTFip+rZM+vh5ykE",
+[139]="X0cJMvTn8sOK8TorHxYW8cR1JwKncUf5WVWOn5we/AxMgkNYV9h1ZCG8iBd4UDPY46KrYjUGycKtCsH39HonNB3wgoVwPa82",
+[140]="aUIPUFE5A17miVG7qoKKcAqtWZaTwDcwrJ4FZ4hoRZtz5I5r1Vn6yrcXMOATglBgzhIcJMnCquApM0iNnipnxuDfFF8NJv6o",
+[141]="/An+BVU4pAqhaJEjr/BpUKCjLVT7GN+24Knx9L2a64trCCFgYbmlV06ttYCwYiojCqyuv+tUXYZ55tI7ruWptlOS/BnG9+pZ",
+[142]="D1c/nHuV0yRksISfq5lkBpRNRH6n6i/Y20eSwTvGapJ+mrLIr6nCVv0xNIGz+YSiZaEBKfVljMF81d2mZ5VpquxBiiuUGYWW",
+[143]="TU9CCklcf55pzLFtkjONM27Ewxv5o/V0R1BGm8wNi72tzR3JaGlEuX8ek4+b9yCxnq2ysQNTOua6UOAnXqSRyuPbC7h/U6Ri",
+[144]="fJ/UGPPPO4jjA/FEcu+YL2HQntySkYMoToFcI46v4cHI4KZQsskwO0pEvQvpIdZBWcDBVVKUG1gfPRVMwsR7VmeHxkuO5etm",
+[145]="XeTcillPVNlEWtYj+LRMRPhovcSPYsE8hvYd8olpeFEke8ymICw/3JhUKxQC4yuwJIxoZUk8jBqy/wJDpMWC1lbeunr614pb",
+[146]="jzCdIuS2C4h15lXUBJ+wW7YTGR2ZSpQ34DG0BgRpjd1BIajLVOSWdo/UIKB869cQdfIzFrReOvTFuFMvBm76ZluW2MghDyFp",
+[147]="zf+WNJZf6y9Sjupb0JQI7Je4ic7ldfm0qEk9O8q19YK985I0ExCSPdYjmRZ8RvJQ+lJ2WljZXosjAsm7pqMK5qURzre7iecm",
+[148]="/7007GHzgfolwx+GoiDfgQgzhn0dBcfy1UVt/5s2pmoo8WAuzr9cf0AQOGwEz4CYflKZWq14ICtTYatoyzx65u00hQYhSsSI",
+[149]="hICEVRSNjzcVYWkudFTrtSnh9ZPdDzT7uurQoyOxFLZQSC4eM3d6BInD674JGcAYmFFIOasWZheEu3B88MuMCrRoLqAu7zKj",
+[150]="mENdc2XMabtCSkLs+SSrzTSWpLhKCmMYRU8ZA3kviYhLjKNUzoNqrnb5lDhN9hFO1Dy0OOq1QBYVQf+RTen9aI2ILXJ0YDaA",
+[151]="y7Li9qPJa5cAZgUrrMXWnoYS8REPEDonrFNBl1UJ3tGX9If3nAxmywMIwrIUsS2SzDG7rXpY8AfxwXNt2iVVPkZCLWlkVTIM",
+[152]="ejx0xOZabFtRBeTdf1YnsIWI1V2h2R0XFWWRxJm/t3Ah41Sp9hp032qkJa5MP2/1UZTHa2mHIKt9YSp9bc91H49tWOoWZE29",
+[153]="rF4NqaoP32OlmIrQxRnhwStVcEWElRaGsTeuuhBJrU0qMa0Xu7K1vSLObfZ4w+nbGTaic4mB7bLZsi5WCVwxDuhGtmolxH0J",
+[154]="zT23f1WI2PNYmu+Kyi6miL0d5ZScVqI3HAYimPc3FthAq3K+8jLcCF9cBw9aLl06C/FaXna7wGBEOfv1QBfQoIArPSEcV40f",
+[155]="JUMdTH6WuAigYiFb8QdJtZM7mTx0rrDAJ4D1vhIRvj+fneYjUtpsD2C9C9B4Yv5wHAs6fRijLv7GjHMYLGXoYfbJqDtp3pIx",
+[156]="wB6WyXVSCsuglnSKWb5AuhcNmUNOHtd0L+RUhf0dI7tVma//CMk9qOOKJ5DdlxZW1i7gEHGDxLZ/TVmUsZkhE0200TrOzKlF",
+[157]="g43KOto8agdZdIc8ifJ/KFjDhR7TyHTI/HkwsVl1gp8ppB0So//fRQTocVSIV98ttfiU3VM37NTT6+HjLk1Vc0umn/ZP6eKN",
+[158]="sRW7+V4RVew0sbOlOgG/g54F6SotgRlM14eKi+hUAUs0IZbSe2mlYevvF3bNeS/iqlJSbJi2NX6l1C9x3StKkIWDbEW3/KX3",
+[159]="gOL868pBPtIx1T8M31HXf9m640ja5xh5og0hhH8P8MzrWk5xVrnmzqyHyreBQSo1Gi7OOkvYcl674S0hTvWOvHBzPfCr3cvq",
+[160]="nJ7Rq/U7Mc3UqJS38C2RDYL5gxBrmDAOLRLpK2OChtFA6FpYCcHaILthSn3ScdyId1/zptOj8zHFAZdqjqD1xJHo96ao05iL",
+[161]="a7tZG37pbpriChY7oyk8K5aGB2kYQ36FZtpt1IzmhqSjAh1IpIU6bMWp7AJrkoTeH2TSqczJ0jXHBBVynykBUZJWkOUmB5hp",
+[162]="9dZkTnrq75w/ERP8zxpcqsBvp+S1of60TqF6r9yZ10eWUzHmVaCXaohk2iv9Bl0mzrhOnuN1B8quxLT2Mqip5eNV8niwNJ2V",
+[163]="TIfB3MKXpcXICKHBFpZC/S6zmlHfegBlHKN5mKMrQ/OMMC6pmoKklTXSJmyJCwQQ01ySx51RLfdxqzgp/owFcDAxmsY4+8UP",
+[164]="o9AjAfh7ZC9vJTMZSm4LOgmiS6jPFKcW2T016u8uyXhnkNzGg8/mH3WgpJDbmTqKWKuPSP53rzma/y7HMeFL/w/YRRLyz6wf",
+[165]="fuwruvWG7j9YsqSqbFRvxhJf9KIJae7rtLumuDwvYq81AasYaX9isbvV7WoG/Fd41yQ5zX8WTGJGyVv5pOA5J1oMT5wiju3e",
+[166]="aCLSjSVlcgvcFm9sJ90k+la82hrtSGNAo5ZuvteYX4H+sLjxTC2alSSDMsxVcD5rdAuUW1MsFriONPaLWopvxS8hvuc85dhO",
+[167]="SmLNMFis9ttJexfomHdePgIituV10J0L6EDPcH8vqy0FL7hcQTqw439L6po/ycRRXN5vC7ffTaeqqzjfOc0fUk08DwVJoU2G",
+[168]="sGnWNoqy4j5CuwPGthMZ8P8DVkba8mG8vpuzP/sGWvA+G9PqtINX56yKMi2IyGIrLBTwg4ylV1oQt0fDZCD1edOizWpDSOPx",
+[169]="emf5qmi/rzC+Cu7xXb3khCnmHb0NzRzxmfbioBRWQZPm5fAFJYeGOXskvg05jDTMueWuKn6qX7u3nQdv33ZtneuL66dVW5Gm",
+[170]="wkXxUCS7QDRCnP6xkBXLEnTFBrQfNNOzKdYM84/h18A/McKKNyzJOMhTFHoZ8HAZl2JGC9tcqORfEKbnz4yy7y9wfMr6F75/",
+[171]="4VIscUvSDaokhc7wqt5QjqvlJ761P/kaSGniJwISIZF/TZ6E/RM5dZzIRx3piDh6tyDZhhF0wjKfZsAIbpgQHm+euTzkVuWV",
+[172]="TUz9no+tGYIgkRcYF9R3QgLlBxnZ5oTRPtxglfY94xeoNgNmZr46LyS+TPHtGPnbpCaPQ+qc/ByZYkcxjuOOqQFyLs0uI4Y6",
+[173]="Iylbn0c9S7ydT3TZJPtN7l668yj58JU8TXGjWGFlcbNfG9c9SCFUkZFnZuyex9e2yfc8hC5ysWUgI1vUsUSM5+gXsVP0w4p9",
+[174]="94bmKlKAFTPhtPdO9LRJTn/cViTZQXd5Eo7TwQBQOwgbccCUudsPJ2j3QbR8+JEmr5GQ8JdCeWYlu2wcOzhDwRWHpXKxoW55",
+[175]="keyAU8MirJMZjW/vEkoRsuttzYXSHUeZm3mp+YhUY6qH2WaSA3Ve+avjOhfDsrI2UneRLsMkI209hI0syLClDwrgoYQUWawj",
+[176]="7x+VcVlbzNmdQeyDQlwxIN2EzNplOzrh9kwjPdcGU9JVwh3Z3zJokeNn5heeCcpb+NQFPUHm44wVPkKPtwy+1EhTgbFQ0Jl5",
+[177]="t0XpphDzYaiG5C61GeGL42CK9wFxD8VBn2flmtJlp6sZL7OqSAm9UQazq2mZEF4xFQ8pjnI8HCMb41V6McCbxeaBEjTJMJpm",
+[178]="cIGmxKiX831+udRMRsqxUCLnOTxnVtRdE8HO4uh6tkClSvM3+iSbh7+vsfWzasFxT5bxxMEgSc2gP+mtXCGMI9BTHk5n83dV",
+[179]="r8PD8lqrI23GppMy3VG87kZxXBkefB+fMNLvgGswFfnQLk7dYMuuTNZgQRPu3HSh4LRmyroFFxaGlp44KJXLnLfI5mykBXpH",
+[180]="ynJ8UYNSmol6ctNpnV5BZQwP+jUENoPQWToCsG5ifBnL6slX5OXb2U7E8I2kU03wF68A8b8x4VNOigpVWDOJ+co1sTkm8MLB",
+[181]="wCrRNqLaUhcYueKh2Z6TIiGNRfAsJ1x35ZSVQ7oW0Q/Non/AREXYTYVNepOoF/FYNgeF8wVA4BQXioQUmIb/MQkQaUOmR61x",
+[182]="Q34z5/uGmsulkUW8LcUsrQJx17r9zNkyq32/PCv+jYp8wZyXgqzT56/Fc7JCpqF7/GymoNoIhNf3K/tFvBS2d+teGr74U3NR",
+[183]="JC5OFFNqrjnxVQ9KFzx3Ay/BOc6xAks1l1Kk71BtNM9sfZMtKInUHzWlJzK7W/Y6hRMEEEJUw2jzmHlKrMCdHpbXwuDnReuu",
+[184]="m3+2uaHTBgandJIBOagLQadbLhXTXtXaQtD92xTx40xj3OkvxpVDEDCLgIgJjP1RLJBcj12CvXMJZJN93heaHmhqvuVOZ2FA",
+[185]="fpQndpEtcCB1MqjvAoXBXLBu68JWTI4vJBrfo2Y2L3JRyXqfTSNawUENKp2I0mbDPvf+qRIr+LHQMRMFey3iPJGxPQvRpTVf",
+[186]="ixQ1VzZJrgbvh7rNHKtA+sctDuDGGzd7/MaTapTl+cT5zy3B6wUzdSLPyuPd5LfMiTP+jrA4ue3N0fdjTl3+Thf0ZuPGoPcA",
+[187]="gvOoVXvCmXkfqIXIA17nt6+0AwcUiej9clZNP1CBlt73iTiecBNFtpktFESxAJrCXVF0yQjIlyeXO4SW0fYSsTo98zMqxBsZ",
+[188]="3FvddscVUJ5L4nBveNEKRWF96PH2kVOjlxKGElDj2v77qyQhJlqPEQUC12lj6UFUBnkf5MRegLGxcCLSRZmSci8e1ntgw8A/",
+[189]="H/Fa1nF5PErSFaKdtSVHvCmdGA9dVnI9dwvr7fACT4XYir12ia8gLLEyys1u8rT76T9BJHo6kQj6AA02N2GEzlZNhhVyf81Q",
+[190]="QvZjJGQobBNpA/yGMEvz8+LaloNnxYeliAo6wwkT6zyEXUje3DnJ/qI+yp1lZ4LYgaWm0ka3B6evOj+j4fDgVJzHOsCnrolK",
+[191]="LQSeQV35g6EdMOocm7RGmLAG+YG+xIMwp9J+kzI7ETXmn1zzTs5Zskw4aGDJMMXI/1n9pjVWG3YSH2r2zoiLy2vI9mZuhoBq",
+[192]="kasSBqGBiGxan8c1i6Adhh88ZLxbFy7sC2N7JLbQqEGW7npiInJWv2023Tzfe7D7p4bxTT8SXkIhF1rxbavNHudyRnPLBs8b",
+[193]="w3nMQHk2fSUVVsiMZgpp/NG7AL3TT+DX62JS9L70nXORmMwzquC3x103vrdKz08xXQw8eOfrD5W5Le0dBvUXs3oUNz7ighAj",
+[194]="0j9UgsmKZDeW8KYA18c8lXemEgsZTFxCxB/VfRE8YuSJq/SZM5QuA03n4X7LYW8TsLbtsaS309BR/51CpKwQJkNZsQjW6ftM",
+[195]="73H3ngDRlWAflax3cJYJdQ5XasUnDhKu0EhyA93qXLtpd05IwNYKPmz8r+FOOlf+KMgR2ZbHSo2MqFHNGWmAa61YYj1B4grS",
+[196]="F6uCL3QQFkOdQWSkmFydgAWy7WfWKwRhBDEtbus/Sk3o3CutPQLhrXCsltwUJhXbt94tMgTQkyjgPOR6FbdX/EojVs9oy6GU",
+[197]="bGLLvpuC4KqK3Z/cynoAeiCDU1U2wm69Uv51NE9GITf0Uq1hoQNcEh2ivbZCHLjcchH/A/u4HIWM3+lnjZpUU2ZRUsiXF3xw",
+[198]="vt9curA54Cj26h1gpomw9bJa404Gr1tGQ+4WUdqeKVdK9Ulh9ur3/20lakSiXg8Ok1lEUikmtlsSIZmLMEMZUD2xs7fBTHda",
+[199]="2szvvBMcuNBEWXw0Lej67F5UiFWDS1LG2941KZ+lk2QxFz8t+mIg+OWXmaqvdO9dY0Y0f/07vjzONJ9LxQsr64rv7ye2eNlb",
+[200]="KL647ZP7mY3UgtMwVTCMPzrYwmU+47wbLoAgZ3gSvSUCRbn80M23HWQxQsV8rCm3L4O+0gjUY9mqnlazxHl6ZBRjocTlveJf",
+[201]="V5HgYGN5g6Az7CRDARh2yyLm3T2TIvfQ1NaRLa+PUUer1/jtfEouzKDj+EIsHfwRCKuYBkz/PvGKUmhpJI3YcbkcBe91WQU6",
+[202]="RwJ6xa4YAhBAszQAbmtW99qTJTgbXPml2zmJm/vLgHifZt3l2Mtlwm1j7PAas2cU5G4XxEnBz3tkSNPCaRnH61c9Ujm1GzkK",
+[203]="O0zEqs8BoqLjCLbRMk+p5GEm2bCkvrvmhqmUdSLCsJHyFkDdOVbdIPu/aaoaE2q9mT0/M48IDJZIsnq0etNWsXYGzAz+nYIK",
+[204]="ab4blIccl1IvZdS8wuHEeNriaMuCIUKqYhm7IPO3C2pXrZXRdhNI/TDfjRtgbAHjMoXEdAsJVixdKVj8njzpQVBMcDze7FAe",
+[205]="q71YM0Uc2xiKnoRBcjGWL0zYjkKTFDtE0+NX5n661UasUvUVXgoU0jLKzWdG6hDqsI/XDfQ966AljEjxNsY/HHk4kHNjWhKQ",
+[206]="Lao0VblNGPuNGqiQ07isiceoDRQ41zx7HHrukoRTucCgLPtv4LcK0BOvePKuac70n/3z5yH2oB0d8bl+JKFc9E0TnTWKrqNB",
+[207]="SMQqM8/QvqzxCzdzXGzOxfXNWn0DB3kbwnpcqsBxtp/THUznfpXcfNun1qXkL6mjOVpy44N8L47K78rEvKU0JQEplgR+a+KS",
+[208]="unLsCabIYlw2lbGxOlXddR+SLFa0rZqStIpPc3ogSe4aws8wtVdsYlFS8D4MrqzvgjFpMMLRQ+l2PlylNvA6SO0aBDuYbCF8",
+[209]="0rpY3+OZZFAN3fXleWkYwUmh0XZN15Y+IrnJYggRhhYHnUZxPQnRrr/3FB/c0NNGWAepnsUTR87AQIkJeCIkkjnJON5AV+Cg",
+[210]="eHc6Z3Kt6BdGaWunJr1cyxDGjS36moW2v8yubjw+7C3K1h1U65Dy0sR+FErqwRq3bTw/zfe/tis/oaQ/LeF3TMLEqnwjW4eh",
+[211]="vOLPwDjr6Q7DyPFupUk0WvOTrS2I2ri8AB64rhL8Q5M+vypBwui5LFe5/fxWZUB5274NNX/Jcuquoe+pzXyh4BvUQ+jIcSi1",
+[212]="iVVj5cREXNnlFztPy4OdCrODrmLB2/7en6U5rnfp9HLvTLhnFNRGx6+ihIeRUqThrt5qO/1IWLDKGtd0VyoyelIEXtO2jOU+",
+[213]="KY/x7Tq5Q6YX+4Y4nZYtvkFUrryLtZlNzhJ6xts9GJ3uu0Weh6zYbvnrOUe5QxgVLFNNGQG19mAwoog9QGCP2DZP9MKKxCyE",
+[214]="Kpu+j5JgaKmObwXk/t7RHcvBUYaMtUtBjLku0ReogSrPH57f0Rrzj6K07yLmYTyxR4j+uIk2LpGvwKKyyQmpe7bt2Y8JEKTZ",
+[215]="+K9+fz7d+kxAVfdSZVbn6VPgoU0IrrRByeOTDuug0UEywbQYEplRXio6nEWlSMud/ZCtZgCN19e3FtA9+25AYFwn/nRgVFTq",
+[216]="PX10jxizmURn5lVxEXBd0mLfaHqhNuFdwpNtUlFH8smp7Zg9DlI4hl+dPCr6FumUU8qM1pVsGYHKv08//6/8fq0DAf/GpFk+",
+[217]="GObfKsEV6b6+zfiWhAJz9weDUk0nJ6rtyRm3RlHugk3fDJDxhoEsZ9si1zV/RN646+SF1vPfXSf8jiFfqXTloJ+ECVAy5LVc",
+[218]="e1fmochsudvl91h+yKvVFxi+AeAXf+QwG2dmemdtlErAEoCWAlh/GxfevRT+8417PBX/UUJKvCs+bNYuXAs9xGEEvfpT+w8K",
+[219]="6J9x0OebaSw0u5Fl9KvZWZLR4/NFMAoQ+yuR/D13HRI9QliWIZ1FyVTHFpnTMO7sf5MZC4iQ7Y4L/HFzVWhzAluvgW1NhPGS",
+[220]="YlZbsKVgPBKqM2qR/rd7PEMO69rD3HOCoXb32XuS0v/Qn26VWaAgH4Fa8oQE7iVvwjeOjZPn0J7yqTcfyuZ3I5UcOGN3jFGY",
+[221]="pXmEXUS1PocZYyZ2riu/ogS8VPmPJ5EF2WWq4jVxljE4/CwJnNCH05lT3yLMY0Vd724rQ9HZDB/LCNUWS9HZTm71bKXtS4SO",
+[222]="8e4+CPQuXxZRajYjNDyfSZV7v/qZ97fa7wxOJiH9HnrBNlTEcOEMHdeBQt1jIOolUtHd6TIlFDqGKc81VvfDSulc9D6IQXSZ",
+[223]="EJKJw8CQdekE8s/Q37zZm4PYwR0So+Of858IT9XsqpUjntP/ch3ECtQeGhoHV3L/AQRd0n4eshznCAM2rdUX7P6Lr622rRa4",
+[224]="ZdZeLSXH5GLruS6M34spEJAzDmK6RQsfSq04f4FfRwxTmFMUS3YFYZ6hJHfoiwIuPNc0/ifqwPkIMxSeMiWxdt+QveIV279V",
+[225]="aRRFx+LH72R0UX/tRcLvkfQ+5PQfnmaHQBclLnDS8uapeEYOKEMawGZnANnFZlGcuyiYAw9/eSv1Q86zAL7phc70Pq22EHcm",
+[226]="OFuhCR+pmkLkTx0womn4YDC/MhjqiLC8oMt/CpfMxQNdWii3x0y7IX5caTEv0tnS5M2gLRxK26ShGiuSXqfpRSRzTNIgrCyG",
+[227]="q/nxnsd4tXy2KRTatAQmTMb/kutQnBKmhGvC8ek30IBqcyRy9vkPt7mfWk0eay9uZMqMlMPhrr1Pc+WFnogQEaH1iHPTh+l8",
+[228]="go221+N0FMFV4TFGKa4zD0RKISm5Pz0DHqSBNPUFEbn2/EaQOz940sqcnRnheKZ5kHbRImYKeEYoF1HpGPpQgGQJWjkS/sj8",
+[229]="1NWbtAE7FxFCm1huI4uuOq1XQdZbG5qs4k/zCG514x4AWak0tCqrxkQI/y/rCwQlcNC4MV4uBuNZeSKVbw686m7B8qvjDiXX",
+[230]="pwioKCmRpzAYRy163Z1ciT2lIDONVvnO1+zF79k9Vbr9vOKm+9wGPpnXDPgXX4D4ZtksFGuoWGCw+NtrbqF7NeRnkUUYIzqx",
+[231]="4lgFdXu2Nt39HMtIfr0y1yjXOJUqJBt67edINK5WU+naX01L2wDStnsn6r+A8BQFLQN8uWbrYJq6DIDob823G9UB9o4xM0CL",
+[232]="dVS+PEldSRtOxbv75SMxE0Ya4NGzHjozw9z+1ZeDaABME6K01HSimcsW4cB85SbXJLRVz2U0ARKXvpLfKg1kPRS3cq5xtXI0",
+[233]="3qHVm9RlwgK5TLi8NDG4LPTqyQtLuSVlbONP/2K2YQJR7OBnJEOkcACFlGsXN0wtvmNGQvAAxqTPXi0obXT/uKXf59RBNOQB",
+[234]="Luu6pKgRwxdG7lJAYs1HdvDJowmY2BMyH4iu54Nq6VxoNGkzWwSRfYwA+3QQ15BNDSwXiPNQG3kz/DmAYABu03eLyEe7uj4v",
+[235]="yzZjBz8Vum5hyFngbO15oXLEAKJc0aX1G2jqKTDY+SuOWNYcNndh3ApwZQssNDYygZGJJS0Ijbgq5S+SJLCmrh5295awIu27",
+[236]="7eOrDEjZXQAZLwlwLTaX4NrXeBlL/JunMeaCLxl7MSNdVXqe6GtPXs2m76E5IDJCyGG70P2GhG7oknNUB3UDEzxpPCTFysbX",
+[237]="eqOmIuwQzdm954ebrB+nhy6cwPhRLnRl6gMj49G+LZgTYlVDvCMP7IP9BX+a0A+fzNuOi2ZyfsZgjepCreaPlcZyuVzAeHoX",
+[238]="5gOxCTk84WSmkQdBAJW2gQLCkEN1efwZtYJb9ayHfAJmGQ2I3QGLfTM/Z9FA/emy/yw8PIO0wq1K79+M65sI7jINtV+IlwgG",
+[239]="92kkvmf6gplebdBBTud3abo1BqI3+oByEMCl/rsCPxEB4peNqUaz3NnjMuq4Jm/vxgx8Q3y8z2H+TT3EoupE0bftSyHisQok",
+[240]="okLR5iqx1A43cijNQSIjW9eYXi11bYtn7EXFNzDT3SA64gtyyeGdundu8ZmgOhEFtYvu+rbZTBtwJKLO0miDD5v0TJhVfYAd",
+[241]="CixABw76lEeVR/MLYSMTLDYDfva+ntkTiGnqMktsI9oFFlk9cb+isYLPxPIKX0r89KWxfjfXqrM5wjtM0624kY1cGOalRmle",
+[242]="P/7qhEkeskJnQwdvAx8q6Kj8zRVB0H50n4HaFnCJV5E1vZe7VUSOTmjFlNKe1g3+3zvF/5xl5MrwnJRA36yXAxtQEaNLYeMT",
+[243]="ZREPtXz5S+Aba9xk/bd6N87rDE37/hawybfWWJ9jvwp5s6yxvcqD6CbFNo76lFoHhe+n/UK/AsxNw1hEevl7DbpmM2218qse",
+[244]="90ocjIiGlRDlo/nhLsVuAEV7knJJUO7x/2+kQcBiUWoucsHYDkCZ1plQl1tJHhOV6B8sH5u6ZEzNckeMt+rS7wdY+pRXCLkg",
+[245]="lyPB7w7mwJNOoQV/k8VMEaVG/H7Ao6bPtjBYQEFHE3OFhq2bysUE0MXOczeK9afMBZIcdFBUy0vkvbn8xyw7xD8aEf8t1Dib",
+[246]="FJup/YNbO26d+jJkz/kAPQOWvuzKnMy5GMRWzjxRrpCRw6Mr9sf8s/sZrnWPA8tEhj6j8Yz+R2BOFMQ8WwEFmd0I46kwe/8D",
+[247]="nFy33Rj74Gc/L8KnGNpuTkpq87+jJi5IVt5NFYHFUMDws7UPStj+7uc1eVEPczLwroSyUfXDMmboEnxuKxXVIENMTl+nj0EV",
+[248]="ej8yTEm0Cpy9N599abEruJgsUuWm17K/eiScpWGuy5y90I6BPvPlzuD8aLU6oqDF1T+oA9zVfa8ZLvx9LtF7XTYLCPTkeHHy",
+[249]="Bayo1CdrOSik/ffaZEN/efg9ET69hDozWWBjgu+QWHXOcR6Ywr3+L38Zlc2w/G5H4jyIFmBqw8aQ2HBSQ8SYPNSCENIX/rpm",
+[250]="Au/Raf59h9amJaxY6BWqvQH3MktTV98x2sun+h7xcGvCfJSnsRHd5e6zeQllROFg7hQvsl+taXK5Kd1xhrel/ZOmHc4xmsEO",
+[251]="YDzdbJl+Anx8Fb8Yor295PbhNz7Fg3ArOSGc259o20Ief4SAkMNKmIOVQ9RdJD5O8Ugtsl7ubKuwtUehoFMItEBGFQ4Dpmqq",
+[252]="+afg51T5CA83/yZd9mcLdeW8HUzHGisdeu3AyHFNoMwIZUt5GIW9osvtaZW+hem/xeQTCJgCFctemTLR3qMYVRf3Z5HbvW5C",
+[253]="1TefRb/d7RXfulst0aIkmxP2bEBE4tLVPoKnx0R/1XCYYoc4AdAYDBtp7jfK4WeqQS/aCaORgX95PEtHpQYQNCC8Pnc3BNe5",
+[254]="bUXBWT4j/qQXJSvzbMaHnszj0vUkDh3gr65bAGD5ujlt2pNvTd/p5reoA0iF9ir2fwXzsCZRGFe9OARO1zaqLgdqXpMGekRC",
+[255]="ZOD6AQ13swZffL6SyOjIwKo7kKy3zXxrx3v3vm9hrOBiNQ6kWZd6y0yu2qDTsDgW94ov/sxO5yAcVWWF6ZLL49eqz+ocuy/l",
+[256]="hTN4ymDysIYCsLjwUGVB3bNjaoH5bd7WHNyhhS5KGoRDs4EhXxAzx1B7ZfLwc6bBt4mOQBE7zJCTn9u/vVjj2RAkTcnl7HdN",
+[257]="DXu0UPvXz7FxaulZwl9ViCWDiJptFzDRizm+yAOlxgZ8k9v0FaR6MsaLVoZD2DIY+JgQ5uQMHsSzLrq1wTzvKvdXrVnfkoIg",
+[258]="FhaQ3ZFOTLF+TgU1Gcs6rCXaklYRJEJl72SiuWBFCuROXkLLt2T8LIgCF0luD43ux1uifSFh6AiJRFjUgPGloAjPiGnbp7We",
+[259]="cL+Ad0c6gZFgwrCgTxtV2PRZOM65eZkAu7S12VbJYADsgoVLMPVC4SvcJeUXdAJgTamoByqTnYCrMLstA9ArwFfF5ip7CQz5",
+[260]="h7EwIUm43sSm/lfE/edVykW829jYT76jUKhNCKM25A7smOXiFxQOjkRxjOzJb82skKrT4CFXULj/ktEs2QpAvJgg77ZjuRJV",
+[261]="ynDLdnhlxYr7oVmXd73haqlT3MqZCTfLWdr5qe8z6YkorWc05oFfnhxVrsUVZelr/YYHOZUK4KeyLPtS6eE8+ks7THc6PygN",
+[262]="2leErylYn1LIrS3YKp1uudF1Ern9xlVgGXAJp9NSSAGTJkWQZbmO5fHTnU9Rz1Ppit6fM1eJP0pa6se5R/Q4NOu2XUH+biCi",
+[263]="Xm/VuWMKYle1yURm4K+sM79WX8buvzScHa+Wy+P+SyzUvs3YCuB40cfXETTea3DIBnEm5OPF0Tl2pJ+B1frGimzUmt1KixiO",
+[264]="UtGltDMzwtQBvIUAAJSmSwW3NG4MmWhkXt+laE6Eu/+CQoMh6p0JA+0vrHtiUINlhQO0DAqitqPs5/U9ZcSe9S/fpBvh3IHT",
+[265]="6burWgdb4OqPqIcYUwanj8yE8qTpuM/DuYokCDrMEs+KmJLDUy7DfaflWMIjLd6/npg1ofsUWn61iZ8fXGhbaRUoYNrgyuhU",
+[266]="/WS4Ar4oGUQUxpk5/RFkXhs0YZeMbD+ZChMYiPpM2y3E+lsflZ1pFQz4hhCjqlWkVcsJJG950uF2XTwKoVsV3MGm9Wdg6L3c",
+[267]="Z3htsAoaHcsCtFZwS9oiEh4Ak4A4MLCyhrf5mCcFteskqYqDT9WyFjE6I4M68BX20ORzcDfNch3VjaKoH/PKoC4oBOBrrpKl",
+[268]="Nr0lNswDZ4iWSfjQoJ25YNbAR3B3TjbnpNax4C5E+gkv45JcqKG9M3OFxdaaMx9zIA35/WijW3Nwc5OvIB1WirU5NiL3Vxbk",
+[269]="XesM8kBey8I2fYeNa/zEm8/KccbDBxifV1E7oSBH5Q06brtxbyE7duuIJYaagerwsppPwUjWixkpYK0mRzriS/kvVMLRoTJb",
+[270]="H0bKqLLVUTyDZyJoFxxc6xAOXAaJluOSashQBUU0EZxqrvL44kSJ8QAX+0y5dnMME7RQzEadoiSewJOs0VvkjpivpJVZdpD0",
+[271]="/30b6kVL5N75IBFKCyyGJ4jAW2FtXWElru6GRLqlcTLHARWVGqoEu1ENsTCy+6fa4bniBDdk72+u90ypgFmHhUhCZD9m4/dP",
+[272]="dAU3/uTM3mwJXr2oDkcWovTi0DfsUTacvsWIGZYOntH650Erf9Ns24wNVD4+BmpucrnWuTKY6xW/oeAP/XbGHlsUtCLYDIlH",
+[273]="Fa6N1EbzlZL0g/HBgm9ZtqXMbu2ZAcl96UI7SfNPaP7zZ0hq08NNGzh+EuO6X8lAhpo+/haEfc/F9SZE2youIdUaYnQzA6hH",
+[274]="3skU8R9htwk8WxTBksypoujVu0SPVlPdQsOsmvnz6RrXbvU6TFzKYMFcIoPguWuauvYZRoip1yssFVnLyhtm5WCU/HjGM4Z/",
+[275]="3QlBEF+gJbLeB1F0wC+g7x2qg58XJ58x4ssPC9IzH7QAMu5gaRrszyylFTse2PvrNFwyAWAHhS2YYYK3A0WElu8gyyr2aQmI",
+[276]="NZ4wB1aiWHiA3i6tSEsTkq4ZY6ww1T61sGPYzhj5BQovkoAxxCfvlt+VUfa8LSd+a/VTZjQazHzwsTXKCQL37Zn7KGS2bCmM",
+[277]="XkSHeYeiJmYOOY/QG3gVfk4gyXVeIzOqwUJKSgBuaBSWNYWrfefpBDiLBXWKUmlgRztqDMr+a8i0FA5dohnSmx2giwDZa6Nu",
+[278]="l7ieU9fe+qz4Ht9EpTaGUtG3E05PZ19JTj3YfDmM6K2fHPLZiA8E8DVMPfgHI6rIV8RILKR79Lod6GJznIebx45mXlSqY2EJ",
+[279]="sil5hwdBGVR98WzZWYv2W9x9f21IlE78232Sw6PL9r9VDEZCIEGZQ3i5iXmQCzNM9uG6ej5Zi5ZdcBpgLtyhp7GLAQB/W30N",
+[280]="QWm0xsVxLLhldI8bxRJKtxf0r/Q8VExzGc91u3wKeAscw+c0ZO7KwLoiwFClwZagRdUrz02VSJTem6ShTN17PHCFAXaWt+n1",
+[281]="03ERqlKpnAOg9Zsit3uXd0iRxtoHGUSbeo5gsetS6uqsilJw4ACd9y+vUN44+DGVBz/5E2gTHG596FTAj6HPKLWJ8KoBYFHS",
+[282]="ucmjHqTMwDgmmaCh8dmc4uI9ZhVIGyphTYAtQ5MIJz/0DVijG2TU0XqueUbg+qXYfoO9pTCO2bKbaeOAaHYrTQYc9jnnStOn",
+[283]="Fx1Tcuk0jQ6zCq+9666dpANPuW2Cif0boqLEjXMIrULYAEdQAT3FULL1dzbpWMv3Y/nXlrGWCFnPerZZpLbGb+NFkqrt44px",
+[284]="3GYQmmKaCGBOCv9dUmTYtemX+zJSSzJrcQANuWCRy/VFVGzRSDMhksL4B+UJCUzt7d5xVXZ6A+a1TSgPWLWQHOCmmIJtStOA",
+[285]="WM/CPSEbyj5iRA6BaFY2VDDzi0c5AZwq95uDNJlVFjy0BgeKpzmCoH/CpTaVlUyVf15ISrWQ4K05ewTHBU9uP5yxLaS5NRx4",
+[286]="jV8ibZvUl6YWjXZCQIrwqV+1Mixu6maE1Z5KjpS6lVx5qFpY8c5bPYHEWIDyyhWp6eE/e4JYX5LlwgQHjMMKzovYGSLfcqCC",
+[287]="gk+WouClgqm7rvI+UJ4HUNM1rzVu1tYpNGVqfj6E05kHrK+ob7mS/Y3+qlKoaNG4jxW8P2spgT2zqaTkuRQ7/h+N68ORNSVy",
+[288]="6uEN0KtvsOqB4/ZCLVINDqiaOjdfkCEDVgN5D/yIAVBQrIxL9lUj4tx7Mcy3x0KjdoLQKdEj0nJzr9oby0bv6eFYfbORvRu2",
+[289]="+F3ZpeqCIr+L62j6i832GDRQY+VVn5kFUQY3f4Mw/YJlpwFtYgN5gl0bZrTAvGpL+wBgEvV6slJrhTZuCfmq2Yhsi/Pg0CzA",
+[290]="a/+ogvExNtgUcVVSdEu47BbX7B0zNaNsZbvcfDW5K/EDWL5/ZsbROXHuqn39zzWtTX1xH9si3R8QQ/qIpQk5qV3jtAmBUN8k",
+[291]="IbMNgEI2+RXlFGJi0vDZsKY0wJOXUYrJ4LwNjqzWuZjG1WPUvwymdAr9+YEAxjACGJc8Zk8OXGNNwFq807kg11PiB9Qvf7tg",
+[292]="eXNkr3xjTXmHt76eY/9pAA6BbKF608Emn/wwbGb69XPEORyPdDGzho3WVtKneQY3FOMYFq64wdMv9S/rMhoRbwihNRB4HBsk",
+[293]="viY4i3qWRuslfpa7ClySXwEbMu6BhC1f6cU2DIU/6AuycsQ8ZSlLQ0wVt9/wpGpW5bZD5RX3B6it+wO7ZOTD5tr/aWWIzdl1",
+[294]="2CP3m78+Rvhxjz8to8ggXS5D+y3tqKlCeij19CE+C1iBsH7roGXSQGPpNVJdrXzK25124p4mtbjBh1eOvx6Q3ope3kzrQyAq",
+[295]="vs/8XUCQ/TLXQo2Zuhs/nNglyz10RTcwbVPU1J82nGoR8gWdStL4/SU1aaY/4KbKgIbAqBLqDxNyj2dVjemOWShQW9OCZ0yJ",
+[296]="6nuHU/TAa4AilRnuKVnF48dB4xAUBh3Dd0tsN/y3N8DfKeHKa/yGyTBK4U6iPSwKcE8gwO8/FbpQyjl/cV+cWJsMOFlmopXx",
+[297]="pdcFYN2Zzuk4nM7jq6p1AgmkQRa1VN1/sD6e5KTra3iEvWB8yCaKTkzuz8GCSpyMr0bmPKn6PHvXRWhndmG5i1Uc85v2lmtY",
+[298]="tOR5ZCSEIXFQKei/9I5S7InDxzEd4G07MXQKnIuMLtLa/MossN5iaruDCF/9rgvjod6LasJUgjiJ8KGVDhCbufLSzFjKkI82",
+[299]="uVz2f3Ic4GwJDUWV69VT+S5Wpk36eVo47Opl8pUJtXEOJedb600EY8noF0BWaCkQkFUeo8mKdCLBX5wpk86V3o4Kb4wOkGNM",
+[300]="vvdrTHjpzuooqbt9pfIP72jJKUT1W1Up5RkXeR1VEOBu3Aco1N8a3ZB8ACGa+a0yL/LxYygitsb284faE93DlbDdyYh5YJH9",
+[301]="iyAJk443xKlAKAWmWFe0ZL45l1KCnVlTpyvVx4qSkhsenN2fCJxG5h9W6wOSfaCJU0S9ROSl2Rx3SbabLaT/SjrVsV0cQm23",
+[302]="CD/j4Q45582nUMPNW9YlW7ofVgmVMamQXmhvMTUpCZwr/P/m4AY7a3bx/gdAy87btf5LvAnxAUCGxVesXlpGT3Qj//ZSMq5x",
+[303]="8FFspspFCa6J+6RDiwpTQRuKpnMJw+Er2UrQDDgOEHUfQE0yBjIhGJRvLFYYO3emFj2DNwArFY9RJgxoO74LEh9RWSNTcG0Q",
+[304]="lRYBCr0WKdqzkmaoz38MzocE9U+roWF/5PSut0BrLbhDnpIkVuTC/eeQAPIJ5Cb6xZzgzZOt1UQfllrhqZ1f+gFfNdCo4iik",
+[305]="wi8QuEVEancn1+3rEe4KzQH1UFGEG7+QeshOQncItLuS8SoZPQK44kbUTvuzeEf+gtMRr0kPWBjZDqPo6mH42pVFIHFzucKj",
+[306]="V7LG1iu7st2MLi4ZroVcxtPQsDDY36rtBrAuVb7cdknAo43g89C3WdBhDFIguq09rtKnrfoSJMVmeCntu0NI0IIifdLO0Li3",
+[307]="W4WAFnN3aEWSoBbs5Gza6/LxBIflSOLTugz+YkzWaVw3fWWeIpYfA62C1FNaa9qyPv0Mz6dbuSZrGcJCYcksJ/cjgMtB2rdd",
+[308]="QhmNignzSBg2Rys1RXRxsl+QzNSK3c3AYo+nQkfaocXOK0H2LTIWzBCRjXP8ULSoe+upOAJPs6h9kyZGS4hc49GF9yOptbS1",
+[309]="xuX+uueSj2m0xrwQaonW4i4+9oLgOqYSL9BKmLzsE7ueCf57UjokKqw+G2OlP6+SRcA3S/gsHRw/3nMJK5E4ib23kVA3Cd2S",
+[310]="9O2bno/0ZWrZQiV9SExg3Fr46ponxxLLRHmXAIsXuqyVC1ufqAzwvuCNzDs3CIA2q86Glr1+1PESSK3aLhXvjaNmR3v3bJNA",
+[311]="4sfST5CwJu/BmSzJya5EAjAga1EcTBgLzu/xSMavTfXBsWmpXiTrPbhe/M11K54SZBVp3Wjcyc7c9M3h8auBLGdm7p9ZmsyS",
+[312]="4V+Z/shTz3F0hqUAYw0RVIvbyQyvPAYzGc8FUfdy5HEoWT+KrXSvJAJXnScJatc8pyeiuOjgE1n9KZjUO9pLJC4EQZS/fu0T",
+[313]="0cXh4Mv2qRmPUFUnU1mXUsDLEGXHY+qOXH0YC9TcxzooqUqOLNWkr3zsa85+uY6I3kcmOVBGRMDAQrhJxoJCHb8P9LgcYL/E",
+[314]="B2ugbv5aY/7mhjnc+qfBJbxvIbEExSaCcO5ElefRQSVEgdjjhKxlPhEv9WCtgHAoAdb9n7hmX77XTJEIfL0FCXlFdF8vf/s/",
+[315]="LyXjBkoVQOU/UGMcO9cU2ynPfqjOvzFWbrDwiBU3BXaO9UdPtQ9sTawGX74Dk/LuctUntCjlhLTb3rPubq9+B/IyB6IWGO74",
+[316]="nity/HM23+k8Tg5BuxhsvRyu3lPkqukqHlRE8M6XPGFcy4uAF2Ad6B6lrueW0RW60+c1k9LhSnepFB+DgkxSpQt4lOI5dVMI",
+[317]="QFbRKInN4O6GoaBWPOa/ev+thXvipg4VeT9s+2C+JVpwxRllk+2Psyh1+Im+lXDVXIIJRo04HofhAcuhh69Y/tV/1Tm89b1X",
+[318]="ZWR0udIJeSi5kEjSloQPuIyWbD1nSjBGrUObltx5OKGWOdP1TYY3ZSVbb8fXK2kZTU86KHwit6KhZ00OAogaMHA6aTHMSkZ5",
+[319]="7rJZ2npzKIKO5fY/JntslIyW7aE0UkF1RpTDuVNfzcpq+zeJSGOfEsAyjMLBK8t6g5UJsZE3QcWD6kcPA4IWxMaUBiLQLSLm",
+[320]="IfNg/ppwKHxRTRR9EZjVAAkLBy+jPTCNGWa1e7kujYJuHWY22RNHUGaFLqB+mYXdbrNqjGnYJSJkfXp631WvMqXQMiVfuW8d",
+[321]="Fa/xuEEkIWlqJh1q2WRgeBeL/WumyHQ5s4bqUq/lRXCouhwhDzBTTPb5Da70uXQK0+IEwkxE7kKbt6Ovd0ks2yT6xe+abKp1",
+[322]="lyO+5FIHmz8Ins9PiuH+kecVykUMDkKA0Ala15pPzoJVAGm8IUDRhzIaubSLfxG5I2P8YwZGFPdhDIi7cHCgaPIQ6nB8vfk/",
+[323]="6FnDS4nHAt3HNU0nOO5BXaDMk4UPGwXCefRtGGmckWwLNbF/lmgMXUDIiAGb1DB13EBeXQliFf9mRMGSO/IxwgO4RP9PXswW",
+[324]="qC/WV2L9JnaZP9Ng49Obyjilt7RrZ07KO15hbFsn/e5iNrS7U9WS8JDKVGndHz3A48jJepM/3eyZY/FXFeMd3Dq2z82FU7vZ",
+[325]="75COBnP8cUDwF8TS4F61hxNAp3+7aPr+WhwWP1TCgXFiHfwLWg1shwpoLWdhT5NPrW7mxfgkeAtHIHE7CN0njMs4ULydVXWk",
+[326]="arN9lccwNnAWMjjTuAZBGWgVRH/7X98rWtqX8Y1yz4rFBmpjZXs7FDUAoUD7uai8Ev9uj0sJL3jvslhIMALESZrEBVX/xEiT",
+[327]="9oFwG8fqcOHXzb0vuz8r8ErXwnsGdd6xpP0tnDSRwtkleKh2AjJbuh214rKWM++1HrC39Ji/0+p92G5xATtJo8NpsPsJWUEW",
+[328]="Ojdln4Xf61EnHXAPnxpmcIZxp7d+UqqRRz/WvG8ugRn4tqxvl+S+jKY/5w2OhLZ292X9WU12pIw5Ia6YOE0jyIr8NVPLM+/i",
+[329]="zwOvbeUh0hn1mMNaUbM11375XFGxKnXrgM2eFOdep7HsKmWBZFtRWE+al2kJXjpBINVsSY1/iIqDRR/dMOMAl+bxg5AeMkw8",
+[330]="C3YLtwqH5OcwKT5R8GDqJqfAOLlbWYhaEbrGeqhvvwY+Cp3b+DWBKdRxGeQ3wcFKM7bCAWAdLyjCH5kHktCAUaK0DjRAQ9pD",
+[331]="Do83RtgbnRYmOdkj5cz31HYjdGRCzkSl3sR440Fb13Qn9plJq2SjFKBX/Vfv7PIqBO1BMTRtNYlZtCFt9qS3f5CHzbTQxg//",
+[332]="tYKATCc3j2n5qb7enkD3cf0LoNRXI9UJ8eh9kuj9BQ9HIImkf10z3ePzgf+Z3NAK/sBqMhjNwMIkkTizb82kTXmPWe8mkrqc",
+[333]="P3a4L/mCFZ1qLVzKC6e58rwgdVmHxYZR+VkpbMzktWEeUJHYj/svrkIMyldg+TYG64HVkWujSnkT2ocNYUS+jAzHZQXrQDyK",
+[334]="3aM0GonKwDMWvbELg0CRop0Vlscw+FUNqYxNZEHTXK0pvyj4Ssp2eoH78vOIFY9qXykdTTnwf0kDr0Fbmom5G/Fq4iTsyZmd",
+[335]="6O4xJTZyzT0s6bPSg6Hp7bfKt+hSerOi8rJpX1Jo6+WE651mDWVlizVJbom6FWv5oDLyYEGpF5glJzgtRAHgs0wP6+Y2A/2J",
+[336]="P530acWF5Hl6EY1zJ2G182fNL9L40w/dqSF0G79i1R+YmBdJmhrxymHrnQjuFwRe45muUS48Uo31FY1Y7o0g1P2t/EvdAdnY",
+[337]="lLNKwCqRYIYuS64Njexb0962Vd79De+/6v50hANzl71uh+ftTyFohb3BvFP2GOwnTSCqUY7uy1WbEC91pBBRo9xdJETMHUPj",
+[338]="IbrA2FijO1rSSYznegyWw254Hlyer11vPkVenwyPrspyHJrVGDT94bJ4UqxVjrplH1wt+oNCodW1+ylagT46QtiJAT5ezQdQ",
+[339]="Be8FgtPvsC4VRcKBzIk2QuLNx84SGZbFaLl95zB5tqWnhqre9C5wy8k3rcPtEMjJDxK7tNX0tdaxuSwBEimAbSJxZYfoMLNa",
+[340]="12Axt4Jr7Qu/bhFh8muX4+uRpsfhM9DOAzLG80bdHT3Z941LU577x7jfGalhZVeFsI0zbO9o7IzYV0padNfgt+/fYu+cxKcT",
+[341]="3GitfFA9opteSSv8TuP/jTXd6u1ndCmEhdz1+dAc1fomFetmrEGwXFHMaEcBoKNTBQ0Vmj1IpDuOpoUBkknu06VV1lwKowfn",
+[342]="RsUJ5hVPQL3c5OLbBzL+B2PgNk1gPmSWSZbhct6sWSQOB0fwM+rGN5RidN+zhmU9Z/CxXuBaGk9w2gQ7FWyq6gV+0E8aP1sc",
+[343]="p3En6o1PU6sHmaFg+SSQhzKvZu3qaxkD1jmAyDcfG9YI2Fzyzw1nDv83HMzCj4nSEOeVRHepoucVl3Y8HcFqLxFbz1Z2cgkE",
+[344]="AmGGEsU+FM1de/pH91XP83/Dn3XZX5pZKkclpZDbdD2YSCetBKlg79ArvI0Z59nSPuwSj1D7mDAOBF/1wkYzeydWhSZYyCsU",
+[345]="5XQqd8ZIshgUsxd0JOPYu88f8JE7oQJM4qMQMWasenrKc4fC6RHHBMLN93FZRbqT59XjCQJP8CJisgt8lvs8oprTH6YEu4XB",
+[346]="KJ6PQ45tbJQndoXlv/xFG1PgJVw5jbXCqRhrQuRn7PGhVyszf3t27qXxrOgUDqIXxuxas/++jf92F1fEpyWLOPbvyy6YnUqQ",
+[347]="MgHGy72QZGswrmx/ffqMdSiRXYNpg2R5CUI5NNOv7HK23qyyokWD3cJOlrve1DhyxPWyAtOZsWh7qjmVAZsR9OxDlI2UseVc",
+[348]="AzQKEbY2+Z53jcMuHtIHzc6sFbtVuVvnPgHqzNcLxSa5i/ljARbzun0XCuI9ZNS1Hd8MZCRE7gDeJI5bedJAhZbjntNu+AIV",
+[349]="QsW0R/OZdq9e26c6OgSjcN1LC+WOcJTcZtlTwDp7yYxkFFViV/Lc2Q2ZDdy2Viy21jWpNLZgyZEHTT2C+PVkjzc8Kos00J+Z",
+[350]="WTG9cN6wXx3qhKWVjKcqt4Gq6ARUyrEPmTz+YqkYdwbFXkIJfQanPp2Yz8BEJCN9ELGAGfn20ZHfq08d76JETY7AdenNO0lx",
+[351]="KglLZ8DX/icR/LissXRaA/G4r/zXUajhZz8eXzv5yIZFLigMMdfV7tCrH7jlKX4cuW+4Q5PUzd2xL464VLvvnFf1nb15btEh",
+[352]="+UmD6TWhEDKymfQihr1c4x/dVIogPPj8iQwvuhv1h3ABGazcYmmgZxCBx4Xbr+IOFMfjZEzrYcJ1Wq8ScSmSLVFoI/TJIqP/",
+[353]="GhBlcauigjl7ypVgjpniqhTWiPZ3d/FrnbsECErNXa2AaWC+RDwUUTKy37fmH4lm0GJQ2XVKB25zu3FP/BW3Rr42PeBZfd0k",
+[354]="hPzKeqxDXzmPgXOnerI0RfsV9DEXiUolf74hsq+EuRJE+bGykcuwZZqS6om8ZWxotN4SvHtg+MXh3tkMt7qlhYawd/8QS+R7",
+[355]="zhxFRT+Tp5f+RZQUL5D2+0icX9Uy3TgUeZYGUBiggZOf7LVOu1L4HpsPR3m+amr0SZVxFR4h3wJPOns/6JUOK3D8FZG/BhMy",
+[356]="weoDPciXt/9zqdnVSVtgMriADmorcpRix4/kMxPDTkDsAwvLU0nTz0tp3GObT8dA55OEJseMGDOP19bzXE0OCzt6C3SvVlZj",
+[357]="MiDUOz4njFmrFqkLV2FZMsH20Q74IAnu3LtHbgMAv4n0DFHQ7CNEdRlrNGw6p1pVOlWn7CnYV+/YI6v3UFrs0aXJUOz46KcB",
+[358]="WmX2cMa8aPgmxYfeEk91mh++/nmzR9ivcIw1v35u7Ci3OA5vs+tlZdSZWndCzj9+EoLXaMwB57lTo2GnKsDfXcy4eCJKd5bn",
+[359]="cJiWUlcWDrOXZftqUfueKOpX72W103T0K12+oqBAlDDbRfjizcTg2PUR2SpwTYLnwDKg6IEWFgrIF0KqBjbuyPzE5oZy0Wa4",
+[360]="Vi/We3NPd934DvCIisE3M4+f1EDDaNpj+zGmnwCf/e+acxi2ptEbTK+EMKJn1mz0UDnipITKf0Jn6Ec7aTRyh/KJf31HstnW",
+[361]="Xp7SJRItTX2tOqecMaQ3b00NKL/xCrDfwKLX2sw0b0XiRmm9WENVAGVpKN9404BX7EiwD/Mzc5Yr5FGEv3UxaJHlG5hXSryw",
+[362]="+QLRNZ9jBXpvLDtRclsasewM+kiS398Cnf+ht4s9OuOa3HfP/6FB6qCWcAFCO8AFvpsT+76ta81pQdRXanWIB+58nrsfJt8j",
+[363]="LBvAdl3SkmljtUexRAL15enUo2N5mgCP5hijwGiKMIuJksD23HXKXCtEkTxvKRBYg2kqR7IOvKr5107qdogJFlwM2ffT5Vsd",
+[364]="g4FM/i47wp46ixmovNWQof8EdPevuYupc84fiAsjZkmiblrDWqFN9Tudh9ts1kMmX7u8i1FqKZPrjWuYUf8twYswVfuYtzZw",
+[365]="lKtX1jPCmlAJujJoEGD0qnj8xXEKZ3mtnEBPS4ZY4q0Q9DD2eJV+FUesnwgZFAOTYyTxoM9nd0hC4QU1DAtJOuDP/UkUAxQa",
+[366]="ZDzqwehaYWzR9I1ngY+Ewr61XqLAHAGzPRs+f/TWI4S0Pyc1mqNaiyQq12k+VU+pU+tplpzmZQMto3xyX+bb7nwZhpKyn2yv",
+[367]="d7meSY10u1BbGtRfh7flJmySBseGLqY7hvY68MtwbO3n1mF6Wu+ITYNmdWdnDK+VQIMXNOE56ikCUx7NL9iPUGy7w1CNDXB+",
+[368]="LUAVO0w63ACArxiaVvq2HQUASGZKw/bZY5I/P+Dw2bHbP6eCy7ikxsDP29TZV1JpJu3yzRk5K9eeVoIatJvZJjxLFNgA4h44",
+[369]="iswRORyKJSRC58ht4rVUzoW3SbqZjN43IdiEmlxsYT9wzZsSe034fD8yZCPAVuGfo3V3HVMW4pqfdKzLHFNzmFty+tllkv3v",
+[370]="FSIUg9X8p3pi6Uc9rDupMhkjwtPT0eNX0TI2AUkWAqRpJVRVkOg6euZCx2MeOVRahWZy63n87T5T7dviwi172fG8C2OHThd3",
+[371]="BzuTsGWrfoQ9q6B1SKNUH9IkoDVZJVt8lu8+SdeOgFpjVo7eCApUaAOw2xZ/GmKTk4iXaDGPM1WCzcE3+tsvivJswKbxl+3/",
+[372]="cThu8q9fkRQk0zXg2ZxDrWIsiyE9MnOMup2muuN8+htWuI2GKbWvK5O3/hAlXzjQGS6yIJ+gFvkqOyhuZQN4aYVx/G2Jfkdd",
+[373]="66UxCxoXsk1gqmXAHMp/Qj6RMWnGi0+xs99qjzDk4Q0d2LUBVokdBXmmdhM1XsJc3br7jnYV/RuNORj8e5v/0e8/AEQbJiZF",
+[374]="iG6t786pdzNZb7o655wswO5vncB2d2RusLt7Pw8Woyu61+GCbo9+gwzu6l0nHXO1c8wtL94vmpTeBmDXGgUPe39HuzA7zpzK",
+[375]="YG4Foo4FG7x3ioQuUu7Ou7Z6vAHWTVKg7hUSTDAPbL7KQjqyQGv5xyOJHjXi1BKNIbxaixzsYiV0y5QUd4Cz6FFYOpuNd34p",
+[376]="WgS+vBJzHzypWGfA59kQtI40t03vJXIHWZmcfDvi38ircN/TtzkL0GuR+cnUOY2lMWS1kTEuJUP5XN5saFJEZqF1ttOjzsnq",
+[377]="QV3VZgxImvKF8hrf1R+sLnvn8cGtrXic0BxD8DKrCWO1x8939yUrYSuNdHvqh/bGuc8OM1qj3fidyVHZcVK286+JzbtodMgw",
+[378]="S8UbzdbEB8PZ6OZw7lTBFtANmCZLRSMaiyeg6egF5HhLgZs2EIkhtWR4wivj8DXopaZW3CBjLibrcVZP8h+x1QB6bmw9/3dd",
+[379]="/hii/c+ffvb7osJs+FCk0ixV6YBn5vh6uZet39wNedDjZ9btF1XNM5iepb5ErjJQ43sbqmqOMvdP/EpzWGIPIWKIOniMZNIC",
+[380]="SqImG3ujXh7BUfDd17TFd2duUH+75ciyQFjdyYxeuJsxe1u1ghAKBZEk/9bjZZZZ9CwjHr3zsJL2qFdM9pE3aLUC3XAXso2q",
+[381]="RK7K/uzz6t/Wn1Fec+7HeD0ka8WZA+32RGE+3TYR4ZaEaa3TR8ecMPibfkVDqvSanSCgBXS+N9HlmRxb5Cy6P49nzIvduBNr",
+[382]="BnoTrEq9Kgy6jvK54dEi5o+tiHAYV7E0vYwz68dZrJ8RGjdyeCOZbTNJoWZdT7rPwJ4+6Qp7kFgErTBqv282tTnBZ2jAPTtt",
+[383]="7/cuHe8mZQ2lW7fqbcZzSojKTvtXkp24l1/pEgSRZbjDTGscAtcD3E+btjBG2pqSbY+QyazfAWlbafpDGVADsObWujmjNLrp",
+[384]="Y8f+3n0eBn2ZqX/Ar5A2LgwY+SpaNh5U2rg6sRe+AAvpOVgArgZ5uZW8yZ4xXpGPYZPWAL5P81ipkGEgMiGzLeurIyApaDqg",
+[385]="iNFCdm+PEPVttMS3raCYFtQCsFydkMl7AFVJT1z0krdadbWluJX+I/K6oh1nYova1V7yLVB5AAOTWMu9Jb4nIEPAYu1SV24S",
+[386]="TJurqDhBgw2zgZMY5ixUMmOYaS5uoumCdSnl4OrOS7p38jMNlZDKfU+C+Wj9/UsKM8PBFu5XNDPczRWueEXNO6UuG7ArRP/o",
+[387]="tMhpa1B45z3z9k0bCCgerLXS7FqVsESlkXnt/XU7RYXpwnckru1SjJzsMDh693QyFQ4x8UStKw12PTC8EdWph/5FNf+bWisO",
+[388]="fP5BmylXVKmsZjyEoUboFeiaOtPKvDEMLjQXt0kJ+mXvgWWCOduDlTruxns6WaFQdgLMSenHL/YaYJAM3HzGHS4ptiCIWQGm",
+[389]="EFoie4IyOIuR1U+yLwyJIB8bLeptQGF7uSKCFRA/Jwsv9+76M75wrq5xUeVMFTZfzEnRQYL9GCsSxEsBB4nDuFL4q2Bvmcr6",
+[390]="pjrRA453YIP1+BEBNYWh0CmTZS3Xae1w1VCOXcjhvD6XpNaQRxDt0glql+6Uj9dt0hJmqrKRnBViTsX60dBPzKNFTovdxNC9",
+[391]="HgwZYARMBF7YU52kumBOtDguq1bS2yo2BQTgKe8SgjYULnjN4icD3SnEFJMZGyDG6rW80OgsH+KAk6jrA300wvgFJHagZGTB",
+[392]="TNU1xnYp/VNOrwNNsgHk1YwnR2QqQuGPb3uA9z0IyrA9RhnM8o3EPfygB9F88IUxUb67UVyeG+O8u2my+VwluLDqIDwJ7OKj",
+[393]="z+C5enBKCi14fU3YbkMzqehhjiD3chLqSTG2iw7D57DUuUS6X8WXb3PmI1evX2pJp7NBjYTQV6OxLdRX79MM1A1qWRci31hg",
+[394]="EotcDAOWAvF8S6V9rNm3QOXlE6CXwDQXVCToRVcxdj9FE+PIFJpGSTUziwxcZ7+B2llCQV9JOGo7c6E8X9beBfCDcVrykJf5",
+[395]="peQZpRcRJRkSy+aR2yfFSOV3ibqiSLGYfxGIoKhwGnD9LMKSb7jXP9hCHXyoOOihcrvc5qnzxfdXwtgSpArczEVqppN/Fd28",
+[396]="hWdBS4gzHhmyaIPudPJ48EI6+kamP9Xsou45KIwASQVrz7Z0fa60vjmKX0TZs11bmFIadom5eNY8WyQfT+/Dd7Qy6XU2BSgT",
+[397]="yG+YDVs6LwiZOCLaupA6gtkzKBLwUQpAXIYIPO4h4DI2URiqx03tgxwZskXO9+/qYmNXCAK1Fs6M+sY5B1n6L28UDVhtkCZI",
+[398]="xCy11KvPfdhJ9bOXDPij3CRm8P/tNJi8LQEj1kGn2J3He9M+Dm8NSlERkwj7ZrS5oY+u3gjKtfgngRX9QmaHKbuHYnZ4wcTc",
+[399]="rySClKBIqDpFrdtG9ZHtrdwrDaNE+qUzhJPjVGunPW1H3WGEwcS1E0jI57QLz8zxjKGEqh49OpPp4pflAAIYSdteE+5ag9JW",
+[400]="08UYmSbqaY+CmQeyDTVcH7797bNKwRzvw7BGbGsHBQ35Mvr7YkHk+SZPyBmqVa9dxRVQqkE6npgk3j22fqWr05/KVs5SvFMN",
+[401]="mlp4Da3rQxHpFaqEunvJ1H5+8xh5i7LlIV2lcAJHHk+VS33FCAOg0tYwrZ/zcuvOYimwYM1PoPpF6U4Mm3ySr1Q1dhmZOLXz",
+[402]="uTPwdQa9nwZOyu4/C4BS/xwoGSwMCppVZ2G6JwJeAWpdJtkEv+0dEJFE5gtwiM7rPs6tJAqMYrtzjf8Qp3TMlMCc9LHx7O4l",
+[403]="hCTLHqIegxzLAqSetOWdOsQyLtlIjweVDBmB1P476EFxj/3sUl/hXk1CCFH45plhftCJ3MvljqUmm7PBbi0JLf/gnYZpRNOq",
+[404]="Ij4nqxFzXRGNKCC40/7J0hZh0ReiUe0yVG1ZWbfwAMyIj57sLmu8QzrV2rPSLTjLi5vNzFKQvxbhplV91R4PHG9xe5tTctrp",
+[405]="GUd0Mx2z5wcm3NW4S7fnne5YPv95FtViWqZ5APmenwBteyAr4h//lFNELbyYFN6JHvw2woK28KfUzD6SO1RpN3Gp2VpfMoGR",
+[406]="vZGDMkY42YiLu//vZfbp37UZujra+FDZuojO5FyKjthDFmF8uzvRXvsFzsMAIrr4OWXHH+553rFuVKecTWsUq7lnc3YgClo7",
+[407]="7ezyUEXvykBihqLhPD3OlH/vqenZ8FSZTdNZZ/ura1jhOmITLILDC8NnzW9pw9wd4m9VLkG7UmFpsp4kZCri/zTcU4MmrPpU",
+[408]="rWz6ntbYqzZa6+v/b0io2lkwV2jLF2Rnn1f/mfHjTAf7Gxg0tIjMea0p54MpWXHuz/4qEYxQaIoLXMi9ecQX1HGOHSPQUAAi",
+[409]="j0VUg1XI3FwYFg+Jjm8UFFIHdrpi/1y4irG0QCzYMjU8DTA05OMxTM+ssfr0dZOQsAXGt6Vm5UZi4STt3K7u2jBMxK5ryPYc",
+[410]="J+4sOGe7AmPO0MXhOXg272wx/Y757/+C0+S7BULGawqCmw3Q28lD3PIVDP/UvfXFPomi28nbesyT8gwDiJZQ2lynOLngSIjZ",
+[411]="7KO15UuojJrewPFyca9dWIh7+WeYGcKu2jFKoMawslRnF5aY8K19mFreTg76QIrC6QIAopsd3SekeEayum978DMxbrpcRKOE",
+[412]="qMAE4sX5Z+wOTx+tOFI6QOvtCenptAqqIVEAeGaxEPsV69py/6rGTm3lYD/L5S2Fg8psnXr++dPpEY7NvZvMREqgMvjq+3/T",
+[413]="sBMUzVn4oBMO2KDGgx+8qYvV7CySE4dGRC8b/AinKv5JRJL1xpnef62mQ1ao8e2wK2inNTUsQgDB5GXortmS4R8FOCEZ4Lld",
+[414]="ab+Vs6YZs5kf0mZz+EMgeMgy0G00dfjO7eJmRVmUJXX+I5E4Q/9lCOLa8UpSJhh01KHRVhWheaLWRYQbPLGOU7waCkez+IFI",
+[415]="pHvEdiOuVS5OFExB5xo1zMACug50KO2XtEmr0ImfDAMvY/ALnpg3brvBbcX8Cim1+n1nfSixD0VY474iGjRrN2vvfbTJfEai",
+[416]="A3MB5MhBFUPlra2E4HC27hMrV4kuGP+u/fgBGN4zNzn7X0yL+eHI5sDb3NXMhqQ6tTj8m4p9BPdpZ3A4VEmHtLp9IN8lPt9X",
+[417]="rlrzMKG7D25xIvnG3s55dMCi5RFIpFUybDGI2wn0aEWC7y7PCY+3lyxOA4XawDMXrBsbobWdD49YD0FB12KU12lsATg7dBGf",
+[418]="CRX1cljVWwvy3yKrysAjvXX/OJ2aiUwW24jCc/IO0HkkYCufzMKv6AbLt3O8i/DvTRVV3g/8g+5Li836IYHtOB/mFn1a7rhC",
+[419]="O0APLOaTiDGvjDxeJFFZjKNMcCKzXC/CY3ckk3uA75m48IbSZYUuc4F6dw01CbVFs4QlkMd40sw+49Xp7qbssp8DOfw1Xx8q",
+[420]="YMwK9b/bbvdcvvzF6lQ98XjwGr9emxYR7/P6nwvgKcQRMWX/VmmtRVkHi4K9C+ZJ/vwv1mgzaytpJrWsqkcFfMjUS9fwN1BB",
+[421]="6YMpQLKq82UM1iONuUu0ghhUoRoVE8oHQk0QqanVvqeyj3I6xPPyI7O7zqsLqikqd3rLSybTjXwv3CDpL9ASezU9XVr6K43s",
+[422]="dHIp1gityRh0oYjj6rFi+9IYBYzpXHdhR2x43eYRE7S94xfl5dxreLUbjN7L0e2SqV0pyaK46afAV1kWmz48MiSWW6DSUY8L",
+[423]="rjNqZgA7wAqUyLDCS4sCMmSd6+T4HRelYZIfysIfK+JV6i664qgwywegzCUsUBuPnYLcJ9ikYVp20NwY0+9LT5bQgDIZ3chH",
+[424]="t2FY+tMlJOecaXlmCgLyoQmYE6NvauOf7C7DRW17SPEz89fdwXzxSJ3GmzZkYFR/TciDk07xyKGZcun+MiVr30rnOK2PJ4Fn",
+[425]="cFykNbHRyzl6AU37zmIu5tXCWuF2VjqsjBqFp2BZJMiyfFVABbDFumsjwrjkqs5tBcFOPAq0zcnrjXre5ptjV5fw/axKwQKY",
+[426]="vZ/IoR7KQ0gBWiHtc+AH6GXpb/L0tPGYi5RVFItmvmPxn1xMIH7T0A/ZoiK0Qh79sab8DehtK9O8+Ok+AEmPva5TOAqlpWfr",
+[427]="EScMNIcAKc3+sQHvjo+kmZhSoJt9zzmo+C+ldnOGKdvL2MzbXdrSTbLLzofaXFiA4DMBXIH3GJPvpyskMlfzIRpHgi46sohl",
+[428]="1PAIJFf+WG92VMkHNdx2Zdu3OhY8GdI2jFPMSt+g8D1GVb6sI2wHItn718VmN4l9mZB5YJ7C+q8c+nLLz+qnPjjwQ+XXdLNN",
+[429]="wIPmRzrLOyvk8oOEKzwyanRyaYNE2hZbtSWfGGJmknjJojvRyN/ulndBZJvFco8Jk3Eqp7p1EOBmNFlmBQXbaUpvugcPeSXB",
+[430]="bVuBB9HqLcM9GlCT++5MQTBVkLBcWCDlaRQkMzqxHhhQQBibpT3trR1km0AbtDlg4PANXT8EdLGlPp9q48+AWFEhaCBnNJTb",
+[431]="EyHa1FQfuBhTThOofsC92S4fPi5SkwYQ4vwY6ePk/wDhS/nnErEjC2ljPcuZ0z6NYFU8ny+E2JxwudQkVjtK62G4O4gwcL6i",
+[432]="IadnXPFh44D7UX/RgsoCVPM/4Mx9ttH9JUraifQs7fwwbsIx1QHz9k0np+mAl8x+phqy9y3kLVC086ZA+oxS1G++u/mZBqsF",
+[433]="bylsgBSYYK9jz9WKpGUCy3VshQC7B1BbJNZl87GGliKk1YghgVLezFQpq5rnWIIv0IuUmzya2pHpNyuAVsDDoLmwyJd2uEeV",
+[434]="54KiVkZb8d7gDfWuqSnjSjfSeFeE/OLDSHCpKg+Uf4ptgoB+VgVUBtrByw7R4C2rtdYGWHIEuyaPQoxg7qh0Sdj5Ei1z71nR",
+[435]="k1v0VxdzU+B063G8DWNVL62pjQDuPbNp2bu0e2dF81qUygqLTc4oOVyrhRxabT7ofaPuZATliH9ABUkAPxDtnntK7+K70p8v",
+[436]="7Cj//Q3bS5Ds5dCIOwuwOz4aGZ9L8Z+ZU+uuiknSXNrtiuDwgp2JHr+msw6l5d0jFGlZoJVjL4bRz2+Q9R+UnA2JiysRFHFp",
+[437]="5gO1bbXPY1DQ2nG483PgC7a40z6yG65oS7JIlu+9aFAEN+X3TSHvQYpFLXspnXqP8RWDBq1xG0uLgp/9dkCni56wsiF5+Ude",
+[438]="Xb0rEoeq8plGneKqdlraEg4D2F3rIpeTr2mtprqCAVUfPa5aS9xvRUehaN5qKPccTU3+3VBBVBIdRb1aI31VX1xYktvvm7Mz",
+[439]="tHsB6ilsKg2XDCdTbYEWwRDQBdRCc41+fKChlblo2fxy+4o9QZ0CfAgTB60e4mPSzUMSrlV6/mMGMM1rFPnQsqh2db5E9QTA",
+[440]="yAGbHG6tdEyNMn5jYUWAxa6Au7VUp0SxZJEP5x1w2oNDMJxU02kGaYwDNNEdwOyzW6diTZ4qVeQVXsJzyGzAhhrtqfIQGOwe",
+[441]="i8GimvZGWTlH6IbIfThodsj6FZhJP4AuJXDp8EVvJ2odLXX0oOFFcLGaqU9UcneWPVp0jcjlZbCejhoyIMAnez05MFFe6tBF",
+[442]="4PwjfMRJZKhhmxXswLYmTe6PwxoXQsjO9eIDh5aPlLXp9DqTQ0cY9s9cRDQ0ZLBbsw6ZzicFuzYOs/6oKRz1sY2ivVpAXMLD",
+[443]="p7x/mpYvlEJANSVqwSfdVQO+ozRwiMl4MjeLjF/bpPYdYrSTEHNny5LeKA4Nu/IhRnzoelb8AGsUqU/dRBR1xw7f/tq+aA/w",
+[444]="niwQ3kL46sILZqOzyAQwv+zl9rSI0HL7lKU3t/Gd4ehzdFKSTDkiOWBZJuQC7SnKK63ClLp8AqzWOpNw8xjt4raj003TtDYn",
+[445]="Rq5Bx2wINQaUcEExXLC7DJKBQ3wGrnzre0xsgeacKq9c6x+9jBzWZf5Mmx5FTGb9uKUrMHSbCK5JCR65leFLccy6ZoO+dddz",
+[446]="nt8tn2VhLprkdTWr2F28jY8Y0FJ/kj6mLj1CCZW6i8mz1qnKNsocKHsTSjaJaD2bdwZprcZXWQ+NiYUUvq+Q/BkMJScLelKS",
+[447]="BiedkQRiakOcrUtKQa+utsqHKDWDeYoOFW93OYpQdf6nowmWs8FBQSnLzvVkmgU0sg+lQpHBASKK8dAXcv7/J8YYvItD2Vlu",
+[448]="riAmAs622rBcDPPtv4f7+aIpDqZ9eEuODOYrX4f0r7J8JNlWmSyQ2LFhQi33DFxCRXgtEinFPPa+UiHa+XX8Ma8nLut9vIHT",
+[449]="1UVCp58uuQs5vObfmToWaJ4Zhm00+C+hzib3hIwlg5PJR916Ag2f2CZdRpEvJWxjuE+kwj1abm3/WdxGC67BaOn0/0nb85kM",
+[450]="6plhSqLRy5cElPdK1SS0xyrO4gy9ueM4DnLJ3Lbfym69JlbJd2jHEeTrsrm21soqLnMAsd3W786Ntg1GNuFNRO6HjwvxcXrR",
+[451]="pjoCyY0l5Goteo59Aicedwi5DXrqtq5mzqvqQ4F1RuwvJ7JswCxlmr/5rdFEafM8Bnx5/z/GIbwuZAwLG17zsvGXzoPvubmg",
+[452]="6THhJWbIt4DFN9Xdi93yOfCzxr8qZBWWBvgm/4fSM1HK6eWShpJ1D6zNmgloz6qRfD2qiZyQ+oTwVuPT+coZTAD2r7g5oENJ",
+[453]="jA2uOSNtik1DrKOOBbrSVN0vqiMQ7bmzWmaqfAtHUZ4kcfxERwljUgFnIR5FW40GrvHVG2Js7r1ANO1YixXfpS+CQrIG9VtA",
+[454]="byektYjv/BtkFijyaqZplDC1SAEoLHCD53tGlr6Vs/mQDV16A0vQ2Y3SQTwFGYbWWq1T9BtFs192FJOXv5wkRMT+DHtbtivC",
+[455]="O2gOzvCUpY4BdvI/DJ3y+WQ0VXJpYbmiqUOxwo1nFkSfh/m0Z8x4fN3DGfGptU5XTUjA+dLYrwlM7RX8uQMBuyeE3ue1bfO1",
+[456]="4Kc6ll+g/2fzAcf7QTIbpclXBoqhCzeI0Gexxla+QrWCQjBmY8qnrMHnz0t2SoE5bLLN903a0EusDObIA8bxZGO7KLKOxfCV",
+[457]="NR2lVKLWEtIB8C3HYOWi6Zv1vsDyo42b94Z9AbmiaIpIOgopN4NObHiSI6qH1xucd2095+GVZCsIW4KtY4jFCQCNBT442njA",
+[458]="j2bTd34HgLwjBzjTDPBHMHwMmOVEYLyi1fEq3Sj5jIdKOc2RmnbTlbhTUDDF08/zpmJyrVkvk7QIwQj88QHRe+ssbMV1MPBY",
+[459]="4ZJSKu6mG9mamlz198o+AYA9Cpe/7ZrexAL1l+gKZ8+SybzDugcU95wxJR1jdoRUuUCzuV57lstM+kqkviHm/UoM2nj8fdyE",
+[460]="6Y9xD3xq5ttdZCjIws/hVViFFR6IGE4eBfvsx0E73OiCBosre0/d4N6v4fm3YIfz+LXZeGMh66uvKH6Jr+y4LvK7YJdu5dWK",
+[461]="iNzZ/WB+sVz6CpTafTObTGTDnE3r0uerT3hp5ltd75K4wMNybhYuhJ4Iq+57tHJKNtsQXC65q6hpLfaPNzkzYJ8Mv41uyIi3",
+[462]="KVUI7VTuon+9rL8hyGc8hYZLMOjB+gDXsLRNs3Tw7GZ2dEggWdzEjQMSQ7wnaO995JqwA6FnILa+CtlIIaOW4/nNx7Tv03Ld",
+[463]="6AdjYDFPU8r1VS7tVTOLIJN6Od3RR44yn/jK0QSNrWY4TmRlT0Fx1scvU18lmbknIzgqe6J8rID/XgggMKlnspCzWWxFSAql",
+[464]="6oaxkg49RTEnUXvzkyW2Jxokk5Rhk1WAUmL1u/eFfWjWXWTEXpMv6Qvd2b4xnL9DHqYe6Azf2hRir5rBS+WdJxJYbBaQmgYk",
+[465]="hAzqSueSLmSkt0/DHEnVaYbrEYd8s5zp5Gf3tVKwATgFOyNiW3wytPvqjw7kfe20IDyfqYqaDgg0RZ32fVW+cK1wJydKPxHA",
+[466]="JlTHCH9quOAMcBemTZtTZ2a9+I12Ut5d65nd69n+XvSGq0lOhZ0wgyE6Adg+0upmF40lhC7baLoE+wHmaHX/fGMWOekUTg1h",
+[467]="5wORQ3LTr8UqDCFnX6p+BRHPNcKgDisspkUNcE4QSMhuD0Odf4KqhEgs+4UJpw+1fqFnTVqyNY4+uMmvHvkMG1GmUzeaI2JN",
+[468]="ApZ9rp12y4UDEBxYXOWjDeTQgPwIBc0vabWeOw1uOg8Rak8GwEA2JZZH+y481KrBbK28WLqqPHaCW+7di7Hglo8W902eJqTc",
+[469]="9s+3MCIBi+PeQZ+A96gV0TukKLHNSIRwewWZwFk0y9p5m+hbsA8m1T6MEHv219A0J4StYewbpjA+v0e2cRuypg1MCl+pSWD3",
+[470]="PdAz05P2fDmwxCMRvBgK961NF1DIDu6THvhoxIaEnVjxwOF84Vpn6OCopoea6Lwvk61bvER4BmB/N0IGmpEmd09L0jlfZwEN",
+[471]="62yMXpG9KrDvIMiZSjz3VMrFbI6pACO8JywOMplVraJW+opZWKbvyrxlTmG5Lt5Edulrqj0opHDDQzq7NJgyle/gDbMg5ZjW",
+[472]="DsnvcCZhDF64sQY5fnFIEPszY9qJJjfOhTnvzESg2RrugM3HGeq+sT4vVkAS5mjlWHenLrURTUHIaNYpnrNCAXB6zSaMRzbn",
+[473]="5WhFSQlBru7ENYP4i0kJ9Nn2XsAX5PeAYMSuDmZt3tlKKgS7gNqPvf3zzy/NO+8o/srNnUQ7KRz3MsndXmUiHz3uNusbTKUS",
+[474]="/onGvLm30UN2F7ymngfbWpmHMGkZ34Tqfuf97mbqI31lFZbzWLpCGsCrtk7e5wW7WxoWHXKrQfImrjR0Z1KL8m9oRs/jJBIw",
+[475]="Bp593uZe8BfOQBnnrCErmanFGEaEMc+bulKeX8GLLxpiynku8z6yCVjgmNTtGjnSFJ1A75RbNuyjEqJ+ZSfcUjc1O7Os5fBV",
+[476]="d3LC9aHi7ktBlI2zGyY3frbyhW25okKv1TthFo2vIqNBLYz7o+DDF/UVDYApdIWx9dvYmTWEYAzmfN4g1ydAslBOM4/oDhrl",
+[477]="lClGT/RtBIGnrdtbHWtu3UCluZ0UwPW9hPXtx6ijIVt2OdLgmCb7/2aVQj8teQku/dSE7wa3UR4wzBgRBBVQ7yjZb186LFBe",
+[478]="gM93IBF3Rvif4cTf4uhuEuDgwu7hOXfqEXr4ZRvqNKBTzdW4tNC3cI7rbRSCxJU79XCw5q0xHIKI67TOQPELz2VIKxbpQGM5",
+[479]="2/e37R/cm/6aDA5nGGz01d6OpaQaSCAsolyXtNOKkOQ3bwgrbBKJJx1LRYBJ9GKLZbifAp9aXaANCddAJo+MtmwQZuxxHEcD",
+[480]="6juU/p/s+ZJzUdS2pIGc1dSbfi/sn3dJqcKK8i2VYqN7Ga3WHcchP+5sLuTmml+lKWywg3wLxpNRV1OpcvZfyCEJAjGCdTnp",
+[481]="rpo+K1HzafSXPffQgjvL2er20p82T+VWYatyO+ZayvyAeLeIwP+nUy1NWOpfcQlN3r1cfbsZX+e52n4FjyJ+kGzB8yYycp/J",
+[482]="B/A7SlA/U4ARS999//HxlA5HSx3j6hZwH/9bAj2B9wZNp9rB9RnpjZV62g6zXk+qq9/MeSoqdm485zClqJahSenTDAZh86n9",
+[483]="YvhIM6P8ysSd5Jvn6XpxgHfAFoI5CoKlsk5yiEQnhYl/yoc45jWfhZqYQzdTLqQS2yNdTDMSJHDJOF0DX9AY8EbB+Zb8AnDD",
+[484]="tbIS4cX6FlMrvJiSlD2AFnr5HB30NDP8r3jHn58WL5AZIf6/ifzU0uSuXa4Fk1EIgdiw//CBcnptJ9y+9foH9EYAkStP1ibH",
+[485]="OKYVhUvUWfN3GMyn0s+CzguUJCtSxoraI4mwz4mGFBWB9VQ/JzeYIniHvBMscPskpJSH8SWyBU2OrqU87gIUF0ulGjwbJ6Bg",
+[486]="r/xZyK2gg7vyF33Uofk1FCjzH/Jq94b9piVjTvBdVyYoQotw3hTlWR/PV2fvpO4+XWpESvIKJ/CylnlUvQyxxh3UrUKYpDE/",
+[487]="LojERdsQ56Dn7VVXYmxt8YGpbgMDhCzwxMMzxNhal/8/NtmiLUpsOMhUR8W17o02AspkgT3kti+TPedN9ysf1EhWecNjmamf",
+[488]="LZSTaPGfqeNSfW+Tdm9duTLnOCjoGsxhV2cTXdgGdAvN9xXmRAuF/HHtCjx78jlyokp/J2bFdBVkqNZRZ/B4m8FQgp8uU0Dp",
+[489]="gO5EXfEQ+Ti94w/9D7AUl0j2p5d9tVFY2lGuqBMr6gxAiauc63tStkfqQg9q4+9LObSS+muQq4NdeXLYMvAQIuXmvt0Cdpcu",
+[490]="smd0WlKwZ/sadieaJE4yA6UUfduRcRAebdXOAMCxaa+hIms4b1tYThTO7EFuqn2J52nT/e7uaAYOhsnRTMDZOx7gCqYSZWJo",
+[491]="TAuYb8iAiqumudHVVfS71Yh/NWokj7A30Kyz/6YvN/0tL8Cw3tV3GlqwJshzP+Lt3yp6lmDLW5uXWJh12d746ymHwTZ/+AC1",
+[492]="gMnC3YILhLYG/U2lNW0/P+1Q2K7SKwy3sJ3KI6zrtD1zY7/JK03W8ve8h5XoN03cHY3mX3os6nOn5mjeOBLqmvUGnQY4/kRl",
+[493]="bmafEe0EgGgkm+YgS1CoDmchQAmjLgsRvSi6Exndyz47LE8bx+JPM8AFVNs3Yk2fU+DS59GtsW8/aUIn3b7BYfSho9W8i7Y+",
+[494]="FULplTLGTWj6MxuWebDmAoliKEnm/w/Pk7JEznRUefhIEI7b6YMOa3+4CHhIjZGfpzzYzEDZ589iTRToorTgjIgcrnScEv//",
+[495]="B7mpJ3hOGT1QAa8raEdtU/46mNdC5tx2gRccDm9pVrjWcEh6ny3KWyhIkpR951XM3Cq27rd/3G8cEZZ/TbIugGmBrOb4I3Ns",
+[496]="4kpjecPuqatkL8EoWDHNxhruTwV2yXCnTxM0L2TTB1RzEa47GmmdG7J7EVEV7K6ifK69MrBWUSboGYDA7z1uPbecPeaCPwn8",
+[497]="jANsONwauB1gkOTmM7wk1oUXFm4wvXtGgcZWqIzj8SUT9jX1HcDx+z9WDVQrs2Smv3Z1VMHPOfNHxjqIr8NDXTnIpX2f0ivR",
+[498]="HxcN6xSs4ejvSJ+fL6I1/I8osl0KdSCtqCPShsaS+GGgsO2m4wh/6xKHrrHfvAp0A0TcQoIckVk8OD4+CLskKQT3D1JjSQV5",
+[499]="09Jx3xS9RPli6HxlXFm1dnumGOBHjqvfY8ZdiJxlI9Ncnzmpe3xTOc0DXM7JEK20kEvXPAixORb/6t9bediwZK0jO/T1U5wP",
+[500]="aSLerou/MoYzsGWXdgLOYcRDl9WKlvyc1t6b2BiJk8zS2pQ3WxjjJqRW+09hwcLfPGfrHTDyrn23t8Sd/6xD2qFpG4Mxvq47",
+[501]="A84PkPz2rmuohDMST2JgzWI5hS0X3KVyiN6wOJAzMf6G0N/CeD6T5856wdPPHnnRECshroAnrlvwzp/u3V6YflQs87QEMqPD",
+[502]="nlSNbJYxGuDGUEK4YcCxVQRSb6/AJaSEGtIAbll92Tmr1hBJdoLMkPqAfChsjlNhD2cG/gfnUvkHn3wrAEsp0S63+NWO4MAI",
+[503]="ciofLrrl2YNuOlIn4SlFmUM4X6hA+6hwP+irRCyzZCoyfCSg9jFPoZW4iIMfTuJU8U0udo1E0aIHRoGzJ5UjYF38D14gRXLi",
+[504]="eLqkBmBlQgTiYlXqAHSbF205XTXhNsi76VoNL63nukZXOrMMaL0Hx9Q5WW3wYPaDBixWt8Ry/b5oUkbDzhXOC6LeJxedUYAJ",
+[505]="hOMnGsAslVE32xc3Qk5NBYahGfLaXqCd8BYDQZrsqriYMeFc9bmQRny/HBFMSkuofFW8i3ZSGb9Ps0Lmkj3fm3IS5SBErn3y",
+[506]="fxf2JNgF1Ege6m2N/s29EXtDtZfDZMzdHEu+k8mz7QaptMxhPr3njAn+qS8HsSuSNM7n5MXARKUb150DvrUlzf67hF4M1akZ",
+[507]="Dit5nLeFnmi1vtGhVdHcg/+0DEblgfihRObhwGpylQl+3syqkRNERJ5wIkg0iCBxytyKXmRCcN2umMM4KVMty3096a+l5y0S",
+[508]="/kgpeT0D4uY0lP7/zzlkXA2oS7RwZ0a/5ch00Vnoe9nHXqTF+pIfAuG+A1TrxWLGsdBwyeEcht1uADISQ8hx0MybZDWGiP16",
+[509]="/yuckmDuRUNA8QfQbsE/oNWDaGmb+t1jgf0XHvS6yscQaMfy36bM5LBPvRqnI78tD9Az5tDi6nC9pdjL654SOinYq4HMFkbm",
+[510]="KgvmrUBtVwVm7a0qBdbLtUrC7u7trjKpMXdQ5ChNcsxrHVll8SHdk+UXqRZJzX5bPPMX/pKgp6j4BeOJmHyeIy7GuAyi84XD",
+[511]="kbvBVn2DNUdUwr2IHi1PWK1Uy+TpTZ65QTza6vguVdokprDskmUZI/xfQeJ2R9WgqWVkrX1KfmGl27CqIXzRt5MnGHuDPSUU",
+[512]="Zk+6zs+2FyYEygbNM7q8cllOqPIUCrQhcbjBk/pobO+zCwD+Fg34hHSilDpGZtpTVRZsIY99zpUs1j87mArPYdD6l7wZOYy4",
+[513]="n2IZ351KJdMBNhp1hJnGv0JX81lyg4jYjw4jpexvR0bWUFeDTIfXQozAJEaFaVgxu2BoHwktTan+trwH/aCF1Q2pXAkxxCt/",
+[514]="frOQmysU9N0lL8JgiOxuj5ZVMXY8w43nC7A+QowEHbV7Yp9Uwvv3SSjvbB6feeqT2KTNoEwT1/pU5/i7yFpCmpt/4wenYAyW",
+[515]="eOKdX/QuSP0uNECBVK/QMdKMwJVqdu11DoKtSqwMa8BwDHmMNWFNXzeyY2vOTz4/fs4FwXSgzNFuJIu3nN3p7R37IvL9RpWK",
+[516]="OPyyB1gM+YiUUWlYR9jfj27ikbJ+BrraKz3TUxxvvlLjDsm3RXh9ou64xtFcMfT5nAl0Lbkaqny3uerfBpaIM7a8QOjLEve+",
+[517]="vync6dAfrDQaR3BxUF6B7YWlOQ99otOvbzB0MjsYasRaSsglXqw3jTF7MVfyrlKoD1PmcrdIhBPm2JdAi2FKN179NA8iaSyJ",
+[518]="3bd9+c2rtsSdUImQFm9otnhuAq6qiO/q2z0LZMub3KOUZn6sfDwGJwpEwh+y4mcH9yuoK6+HYmQBZ1CCshZwPGykZlkCaSng",
+[519]="Dz7tEvRsejqvxjQcalZROgrcHs3vJWEzHYFiNg6dSid0zwOwTjU1rCr+Gc7eEgZowbq8h5klB7nLt9Gc00OShSJyoy7bne3d",
+[520]="A4NUNk1hG8dqvnKznQbe1gV+Pejv/ojCVFQgvZHM73/imq9h256qiQdDyOc57tLcNqHSj46hpiLeSY8DZedSjFH9IyW+VjVB",
+[521]="JwBQBJLyLRP5ha9VmnLolw5DgxmbjjE5LT3gC0MP1cVEL0XgQtlbgXRKAUbTWfO0S7zF3PnajQuK630RAA8g9uw/+mhYXJfi",
+[522]="a34KBhLASEe55CNfrRfvG3FytxjhcJP3xphssqAKs7U9feF22yqiIiOY+LW81fj/JQfEUvov4nwZbo57eGQTXPFPHOB47kUP",
+[523]="0N2BArRV9arFI9YNR4h/GLw/9ZINMtB8FyIj2+eVN2L2Zl/F6jAvrsQg8gVhdFBjsv7ht0Im8leKRdx/qztWbQ3RUxJ4edgh",
+[524]="Ng13ZQDwWgIVZGWVQUb7BL+MZ9B7GlJ/taYZq0urql6+fgiTNHY5Eeq3H2z84h54YUEk388WpNjLJN9tAm4mhaKKqCuXvxCH",
+[525]="ez1WrjwlWSnzCCOycTlSzu3YDyH1s3gEKI0+7QMxz2LTOkLlZBfTTeIXiSUPDTX3qZ7/uovg78jZnfsAmPPEiz05vS+5kDEl",
+[526]="TRbuHMrXgvBNi1sfxKQqlCfRJDJCrg/CGH2AwKypMKDpdgVr6cvaYOBIy3d4abVwyINlZGXs0uHz39tXd+mmzOcMfUoCjd9O",
+[527]="y5EAI4LmlFSh6vMdm6eV8fisZDhbIdNtPog7aJxClgv6rOUZAqvCQewWf6MBcIYUUiJTEodW78BCXvyeewQYGLaPNrEeZFKD",
+[528]="/zyapy8dKFSKCe2IOhYJ1nWZFV26PzcGRaP8QHCehgRTAGpqNveuwuJR9qkywqL1y6dqYCrHG37c4eVFj6yhHLifunUDq3/u",
+[529]="du1sVzJOl7FOH83+clbodvOpQ1jV18+F9YjjWsYQak2FhuKsi9IEqmLxwqmF1x0B7zGbHCbGSuP6GrxEkU0haKkOQh8TnxhW",
+[530]="pUbLqvozVQxTHI8Vk7S/oeSszP+vKXfevqiPtZ4Es2a5bFcYLStsR6rXmRgLw+XAUocby0sxljcLEogMtvB7U5hIdTo6yBWD",
+[531]="my6RT5FhvsXh1g42yitYJw+Xp+KsBvpOjAIzBT6SsqGqnQQDu8p9TOEpquHInUiiqceswRdSbuCLCJ92d4hJm0djZZxqyVD0",
+[532]="kL1YTVe8y/3GptqgYfkYWy/wawGo5hYxqCr4ppSKZhMHaHSBGyTZP6T60WRAoTOmNCp2ZdMoUhSQU4OYlsGK3jxf5ql55di9",
+[533]="LhF5zLXMrSgg3uU+5EVe6N3Jlxrz5bmdTvrySY32CUNipU57hC4/Ww2dYzKnY3lSZIJ8Hdw4u93cagWbZ+qtvg7jy7XsZNKg",
+[534]="VUX+jEIEAtDquPJgT4aaCFutMeKPAVo0OMw4cpYoFvZ9W+RFLqrLmDSKbQEgrRm8cTCi4c0yZs+O1Oo1/CwWgrY2CFWxIABg",
+[535]="XxykXvP8TR/0qQZQYRk1b583TM+dQgeeLXhrgpUKUHCGVvb1cGOseuT5r2gByx9JMEmioB+kwMnnIyPgCwJ+nysl0dJQ3kfM",
+[536]="LDvNrfO3BcqA3+WBdXo6xUnCgr7sxFRO6GSyyZsUz2z4Ht4kUnNJEY8hGrtbqqr75fPWcOQizqnuste+rrxKPEogLZhDRp5I",
+[537]="yoL43EmX3Z1z8AJ4FTO2wV6DkFQ6Vf38MjGQn9tW9sW2xushQG0FF106pqMKJvXNHWz5Fa9SSHmSoItPAqSIljJg5diLKwX6",
+[538]="V/VJLsY0MnPQGavpLJAYthGrHlBTp6yYXvoT7QylLB5M57UXQSpaqNoauN1rJqQfX7F0tHN36mWKD6g/PiVtfNEHG9PCvRY8",
+[539]="56p+ApL6cppTPJ+f00s0okJCfM1rRFEbBlosSP4rKwKylj8VZoISpLnv/ct5/yeWc4toK3Ug5IDBcomEWWCgFOFGag4EkDUe",
+[540]="WbMWs6AW9TnlhQv8Hz90dgaZtZr7MprPG8NXYL/kTXfB0paLSJQnjLaf+yW7iNQoqx/wIRwr+lGxSKhl5AdK8g69kXgOt2Ta",
+[541]="BUPpNKx+ULSuAdKpjW6uVRzGUxtP/zoP63U9r3dfUML5PRaVttPmpvlEGXHs7bHITrWxqp5WR1+qHcXPlNWRMQhZ2uxjQU2l",
+[542]="XRKsnE0v1ID2uTGZjS6IupNjo0RZNnF8/pkQXxdW3OxdsXBSGq1m0gugWm3naPOP9x7O0omDqDLqQHwNM5VbNz+aUN1JGHBf",
+[543]="lK0D4Gnj1nqBooTduiklE4t1z7FJGXLHdCSHPc1EdLtK9a01dTJ/BPjTQZPWa3pTBnHpeTS/3F468QurrP1n9Nli8V6ZAzgz",
+[544]="9q2R7A4RRL2LWEh6o9vJ0BqEI9/2UFeCxc1ZsfX2DKlDe2LYG1EL86kyzK3BBvTxouXQ7IeQPWj4ynA60Rx3bIjQTm+fOMin",
+[545]="AQgAfJ7ChrPyJVRQrcgejvXqJDeFwuM1iRfl8I9T1tvtcHJaCxH4NAQ4Hb/kXdri2jR50tFKQQvOH7W4TBOfsZMEXt+2LQXt",
+[546]="0DdC+/cMyqhkGdb+Pm8tKfy/QKcln5cLxzCHQQOmtPZZti9pF8ml3p8HJgexb7whld0a5q1jRIa7GsBgDulKX4VTqgmxTho+",
+[547]="FG5R0ankXbPqWZIOUiVVo4hrZTIQIGjJZbPMBQXdWaslsxtZgQE0lAhlU97WsCKvKY1Wln5v35rRtts1LFjHEQ1vLXN8/Cj3",
+[548]="Zpz6t9CpMnfElSJCOzHU/jUbDxqlatzjOJr7gg5LbAhCuGijxmmp85Bx22o1Uje9kBYAkmRNerJpGqpWZgn0uYXMQsZ2emd9",
+[549]="YLm5U3kV7c9M2ac2qnTni4U9+hN4KslAs/PuzpPfNSUP0y5Hl9NMNFgIeiiah1PxiwxRti8uJexDeKzeGemPj6LYDvAUinua",
+[550]="mRuu3d9WokiU6dRAjNzgCniOOjDrvGsluSQ5aAqN6Vw5xX3t1EU0tCIw8TyhGRlSkbPPKxIjT9XHilbB8HwOkCVP90SbzeR2",
+[551]="w/XVoVk8x/+nD0FFcvetRWAQTj9StzrLcWmWvLNCxKYtnYZXBOW0ywpGua1yikUt8qEqvg456w6IkPY6xR1/PyRaoCO1qj+S",
+[552]="mxfLYRi+mJhbqDkm8w6q2wlmoNwwvN/skjZqOPP95wwKhkNMlJFv3Sv3gDiFbYfGoUrnGHwQp2fdYJXYXGdzFFffykjj5GR+",
+[553]="Pt4o8eawqjTs4dVVKyKwQxfRcQdEYjzMuwCP67tIexl+fsQYp23hZNt6pUxFfePPDB0+rAsQ/yC5BOtuKDPu6FDlMqMWht2F",
+[554]="cV9hLwAaowj1glW003Q13Vzh+AH0YRyttlqh6MsfrRVEp3eAXPNqxDT1m7jKf+Bob8rChehNMMtDSgFTwuOHw8HyxJveeHvA",
+[555]="BaDgxe+/3zmIoDw9L+wLiEq535FTdCqAkjBlJUi78g5DwSu/BnWKSbXfyxawsPSGAJHh+Hg9V8IDlE+1NVQFQDnAPjJULa15",
+[556]="gayN4NSaP89ZrZUSIG6XVuM2OLeqSHsj3wbl70cNRvTX9sun6gGZ3R2VNsaXmIjYDv7dAsErbEs23HTdz1PAaRIUe8JW3OuR",
+[557]="k7gd1eNrBc5xr8mLGtQsCzC6grSpY4LWVaJV1Fl0XRfLyihMxZJteylrheGVxM8Pad6UoH5gUjLlsrRMzGpBDU4lXc4htHyP",
+[558]="vHKK3meyQRlOPLWaTJy5mL1VwQexrz1jI9TR1h3UZTiLUYMFXRNURUM7Yu7AHf6TnbMbnYDdZu/ritajvwpeSf6ZY1Obmv6q",
+[559]="wqH6tn+oGq4P6yZb1EjilOhRmrYw9fst8UNeNWqYiKFD/msMRoCgtaSa5gaCiGxMOfDNIfRsTCaKyeSpGalx5TucvdJk2Gcn",
+[560]="f5BSQCIAzwsUTNw1ZKsEYkPRtjPQemPrRqFocfwRVh27jBBT5P3YisNktG7lGLLEeYElpahLqWh2z/mSFDn6Pn/rFX26+rMn",
+[561]="1rLKD/A0ptN+hjpOavsz2RGqOXXYzcGfaQFgNHxgH7cyBr9BEmYmgPDSwZNNgop85ri1qId+r3Fcw0xKeon7L4WIqLIBX3K6",
+[562]="sH3ljnucuvYPJneT04uUjcLRDo3Vyiz8NXWTlTVwla7pNc3BQbLYlwyyZK1KjCY3OiDMfHUKKfLznIY9w8L0TjEJJULQprmT",
+[563]="K4iAxI04vqW2LGqPbGOVWgQX3XoDyZUaKE3Vbq6XYagRQ7VYQYKlheVrD28MYWdVzdh60MCkt4dHe228J+6VouFRVQ139eTj",
+[564]="u/u4faB4/9Zreq8ORkYACEP/3p2pJxphiVmei6J0+lyJ01EczCaSgmcsBkKXjCeLi0aKls1K8X9UrR7Yb9ctgKOs2V1l4Upb",
+[565]="jFb4JSuJM+EBOdhwpC9t0XdFN4cz36bWryHh1DlggOX/KJ6wzvWXx+qUTNtDMzQ8IOyz1YAIRy2cyv/sDP8+BwF8LvPAYXMv",
+[566]="XaGVioHs3ESUCyWijiNqx3AXs+FHVWQwnf8K77DbtxtgePaiOcgKnlBvdaODRx01zd1keMCExl7UNSATZKaGCUQ4762fDZwP",
+[567]="tGK2NG6qVsCh0NcJYfZPujJ9Fu/EON9GMMvCOfWJATzfjfgq7jSQxTJtkjWaWjQ3NxPhT3ttIIVVi0ZkDnc4SUOmwYRuIAx3",
+[568]="B2ClxYpfHaDAOuJKvTA+GVaqya9NfZV+eLGbinD4MSoAU7lkyim0SIb71J0knBaz6ES7FBH6BbqV0yIi5064wdDYWgQ6Ni4l",
+[569]="IYnD6wM5TA0klU52u3E43IZnuc3bCazG+UqYxaeKn48CEdwDARK8tzo4e8u9egRhMRsrrEpApUkWNJsTmVKbe7nHHThMngp6",
+[570]="iK3SF5jf/WaQwPQCgFrIoPqzblpgwuQI7ZyiDDdZq8ppY1ghLD732FVF3g8Mf3GqWuPG3xWKp2kIGTufD7pSyV3crP+CoyaY",
+[571]="DfBeuzyHJ2l4+E4DsJVlMcOdwMCdcdoJ85kJwlwb1OG0/izTh+n5SpfFhQCBnSjGKh1LPTEuNdY5l3Q16qdOoeh7r7W3zIHr",
+[572]="jL3Hu026/5o2cWwNP6EodW3ALk5WdWReAdTUtrG502mXIjzFnDuL9gk7ie5iRVCiFLqVylrMnLjTA3Tcljl5xuAggWt73XPi",
+[573]="3Lw4qA+g8G7FYwqP/610O9Vu+dAHTwjmjNMaNlt6Zvv5OoSPiVx7XJQAf5YScDrgxWTgEVdMK0m2hBUQKYoVVSLYQ2ZsLkIe",
+[574]="MdckEFI4fJpUhq68S/qaVfd1LFeYXlAeC/GYcc+2u0WERxicSZHgLQNIGb0zTfmM1hIlY4vxnNhIQsS722GPiKUAkFsaRMQN",
+[575]="juqPHdOTaMHp/pXITXIHW18/RPaLX1HbPbdGXxSt7FyMJ6FWz5Nu4UAF4Mx3bGWD7JSa12XYVMp2Oc/FNWxijwVNfIELDrkD",
+[576]="9f2QFy42I5E0e6hFUfENLV5nJjrzAOjl3jezVwm0KTNKgq5iAJlvnn8yOkijeVSkthgjzg80Al+9YXKondO9Wn9WKCoo1C1d",
+[577]="jJjiglbjyD83MV0EjOusUk1EsoZnK1vxgrNxsFSOY2/m6hNO0BTrq6bZeuM2TsCE7eq4dGaSBb5FY56oJgDbUkR1X7i/bR70",
+[578]="WTLNiN9BvJjisBANCY3r2G4iUa5qgfPoC5WmiziYUbxkv7ggo1WHByw1rFFfjTkXawl3d3FuUY8HrS7bFhtaHJy+dfgojs+j",
+[579]="HzX3ds9/Y0ndx7d+kbiiD0Wn26Q4y2veNetExv17YpJxzCFikO7dHB+Smmg2WWd0aBf3qJTFuwLqEmFzgeq9pFB3Ro3KanLa",
+[580]="dLcw/nmsthOAbXVyiiYRiRRl0t2m3p1JN53iHeFEfCmcVtb+lEsumunwbfvQDowD+rOb8CfGu8cXr+NIzflDOiXDr3JDouHv",
+[581]="vmHEmJzVD4FCgtAcmPyXjtpjSjWiDJypqzkp1Zr/4hKs1K5GA1B7cusyuw/YEn5Jluee7a8RBHlLLPpSUZZqnfHG04gOkRZr",
+[582]="BmRrxBlFmo8ys9hhxUNgrrtrUctacnypYO6VCKuCH0JT440M10NTATyfpuR9+Lk8vyOLO9d3/b64M24mS2KMDCBFnEbChxsJ",
+[583]="DFkoMC3qQ47vtkvaCVnRi6b88A/zQ5JLBqqCoDpy3HtOS2wL4Lzg76WujO4e9S0OIvYN8+4fjOQ3o5H72VQPi5cTYnCi1g/R",
+[584]="kFKvmShyHj47jP4mSX/jqhZ89UtQdTG3u49QnPaArIkfNMQKc/HaQopugkfFaZjS9fyaAHv9PG2Tznf3ui6k55jiKhyfPzbi",
+[585]="e3afQz1amZiCj0oX97rhFsmuZv4zuaK47ZfjXGA4txPHQF8iDThsRTJMuRfE72erzLe5M4QLqpR4G59OS3GZtmfM4DW6J6Nl",
+[586]="edqxVpfCLgTr1vlQw1dSZj+9unkOdy/BmqrbV+8cb7UMEH5eLW6RIzWsNuHPBKV/MRapOBYHumrOY9fcsfzkM3QFVTS5YnsX",
+[587]="Wo7YpY/7IgplMGls7U93g8EVgAW04gE4a3Rr0xN/IF1vvLFUynURBPqJCqAw/aTw8gsbw0/zkHADcWHP8rJ8cYxQ1suQ/tSd",
+[588]="Nd2xefThoH4Akdt2J0zWydZVnKECVfl32vQimjEg4avBK7SWUFHHHCHZxZB4yc/B7SMUwKZWlYRdvhUTFf+RDc25iYObiSW3",
+[589]="DQqW4MszZ7hdF8Hk9n8bk7rhLcE4pVX3n3U5dLrK4umwCH6nyO1KSUCvLSibKi1JHJbeTcWZvI9ezh33W3d8tZK3Ac4Bmqjv",
+[590]="Z+vRqEmZiBXysKoIGVI0bz/dU58+cp+iAudRsS37tmqRo6ePc6KTXcwJagaoZkxqsez9ha0QcLXZ08JT6h62q0dgQMMvvI82",
+[591]="UmD0jP1QU6wCjWYW8nSU9Sr4J2MBrQMOJ3ExQsZ2FxckKFw3p806TYwvtS+QGeX1TQzohbcokUFMJIdePOchWZdKfI0814ou",
+[592]="XVhjGxZOTKOIitgIVPTj0o4md0IHl/OMc88S7cQj0+gZuefgGC1L+t4zlBHq7h/3SR9GWk8hzlZ2LIQUSeH0Towg52qZUNcf",
+[593]="KbXJqhv0rdcMB4FJF4HEijsU1O79tu5zv0tiXs7/vWayDBmeyNbqSaoOgu+rzT2Xhc0DWTIrCwVXBpK9lbkFBoFqv3h+ShyF",
+[594]="SVfgvkVIrxJ3OEGcGzULzfQ5PKllpSuWbJsPmP/aVWdr1gM/EBHmE+9i6byDr3v1TQv+Hde9zMB9G/DHylNrS8+m2AdTWsDY",
+[595]="2J055qoyTe8raM++T1WiGF/MmLNoGE625GpGzcMCblJk9snqLP/4WfeSBetGnNxlmiQguvVECnS6f1z1Ms+IfqiqBqntrH3f",
+[596]="e+OfTOC0J+fqq0x4bj8zJFOOZG9J9pmaa/1I6Y/lU4IFOW9yWpPjVOA3zp3uxVCFJtqj5xYe69t/vQIYlxwQwOaEqAIYbDeE",
+[597]="eWpNMbphOCyAjFYgVh+u45MC7pJPQwBZVEdv1pCPcuIVTXqW1DjyzSszIoHu2ILe05npkpk6vY6jS35l3utXFK4x41Xhnvko",
+[598]="SzDoMRSCb5zlrrsVvMtwKbu2jgFOSO5Hf0IhegMSI7nAW6IG5mM+tzdnLjFp56/u8pg7bAabp5kU+2ToY/YnkCXhDU9bGjhZ",
+[599]="Jd6mVJJItoAfrd9/OUi1iRAE9267nhysAX/E33dXyeEda5aUAclIYAf2WcTMipcKlLOcOm8hIdEREalMY2NOlzkYc0Lq8tLV",
+[600]="JBXJfsqj7cONCQgLV9h4+5wX2LyGry2u5pMIqED1oHIwaKwgHw12xNSc4916iOpnujVV85OhiGe1hof8FZ5nHRwD8Wma5nDa",
+[601]="txj9R6J0bFW1HZAxO9yaduAM81e+bJsfiAuy7fzRmOjS6Pc+f2vUc86mNDgeaHjeiRYNQUcZx19uLDxuF4SSHVMp5odWfLpS",
+[602]="ugWlZcSZ00LXft5Vz69gH4ppXeEHyzN+YOs+vWF6Ouhf7KdlHBS2n17C+gmNSSi9R8Dq9OdXO4nbzSTk95JtlOv5lo7lq2zL",
+[603]="5jlmdPF+Ik8wwPemoGenrPCJA8uQcnFHfLZNsbtcH2B4RCHW84e6Y3Ka/MEy1Fp7NbaOPywN7STQ9ylNgH1qemsdWPFc633T",
+[604]="Xhx/y8UQ9ajEXVTBPha7blXUj0RhdFu5pqYPAkBB8Ev7eEpGdDeVHmo7h83T7Jx9V6Y0GIdCufTp5MJwMsXzivqOd8E+OFYr",
+[605]="uJsCCZT+sj1TqdZ4yBsSEiT+BnPPXlXQeSQb8tE9O0pIRPlcXZN10cJM4ypywzCP4IOaJBfUhUuSyDagYNRTEM1dOdzxYu1t",
+[606]="HjqdYkYYXCqR8bd2r63Q04J5kP1+k9USawhoe9RCFC0bfEY9lksWzUh7v6SOO0zioH8vk7M/125V34z6oWLEuTVN2WDD1rpM",
+[607]="AZLH4aYcBLkzNTGYtrE4NPJibq8owvPuvm1Bsh59HJXxM1xS+sYA9uWjW1FZ1GgjlnRbQNellh3ORfvXXCXbGWQVv2gWHgxt",
+[608]="q7Yxn6LpKsMcy06+1hQC74uvO0F7eDhCXkgYJ/0MVYfE7VKXtwdmny7txWah/9YIXNtm1wRW1C11vgZys/x/LF40BQFmDh/F",
+[609]="MU47E3ZVEqpbl9P8xLYxxS4MQO7ga/DNZsJ99CZq7SwdH9A6Q4J/49x1UTqL7YUrtenfgEoe/qA8mKNpRV4YNZ3ZDLm55MgI",
+[610]="GsD+5dZvttgvZThse7siCj3BNM3GOidz/ScX0SSxDgUJJYW2k/UG/s7G+KHOSexndwCuQA53dtFWrm1PKY9TO7PE+UM4jGR2",
+[611]="lJ9Bd4jBjufT2yzjtX50wNIJcz2t27waqkYojRnQ/UXqpc63pbx/glopxd+J8vzgv7qj5A/NGDA4f//Ndca1qjeY66lltDLf",
+[612]="ca9vkOS7u/sVdpaduUcwlcXUJyj1GUzdS1Pif6k2mQiMXSLfirngdpiofNlaYkcI8eZNlTPzwp0wFAKMR9AYZgWQgxI7hzO0",
+[613]="TuhqCEHURsCoAYoZ6dLQm4z89fB578GgFEF810h1aXIiG5t1kRazd6MMHo2ib+60iUvQyMajWqjiuTUpsBdwGYtOiwbFAxEY",
+[614]="OfKGkTjRq3jRegSarzfJtzb6lhNjPB0kDA/bE3MIK54Oc6m7kl/DfVJU0Y2YxjBfI9W2AGzv/wTLJZ35aUrxQmwQJP30FmKd",
+[615]="GutpWFg2P77yVlEc1NyiQeDkiknaUCRKDp1RXJrLSnJTKN8SRBKYZ1ji1JIfvHjlNS8htLhaNuYYfEtRiUHR3fO9n18ybw+4",
+[616]="cdGbFrH/G4u8JDYRW6C07nubj0SbOfT0n/Q2mZbnYopnDWqCSkqFXbUrelK8VOd9mgyanqBZYLwtFTGQtli4uknZpMyafCPR",
+[617]="dLhRc2qI5QOPyTVU/jK17YfqMyFE1FkwDacPzKKXbW2hW4Ypz84yYKg20e+Yzn9s7Hp2JdoLQwydWCrpa3ojDwqcsbgt025+",
+[618]="3Ya3aCSpgNLSvI+tmrf5Z9R0IMMWeLU2nkCqOnS8PEdt6uFnM98crZGEtgzqi8HkNVPqXQpBBuwpSetKf/tijahGN+oLi+Na",
+[619]="v804PxWlS8XIvwZ9UEYGiWrDdvLgyKMs/cQkmU0G3O+aeHOrrzK/1/Ry6xRgkG4tr+qsry3tVMtCayOSacPj6+rjQnaRkkuV",
+[620]="9IhEdzhkbbTfc7T0TkVpG5XgJmAPiMg/2onHf4C3MgIz3DFwZJIH55Ht0vZ8xe6BH3Mz4S7sDOoe/MKaed+KHUONAjW0i+Js",
+[621]="p3XBXm9ghJIuGRT92G+2sCeG2XJdfR9nLG/woA67Tx/uQnj0CJCAXSMwVQ5uq0Qbji99uz0VfLaOjifc5JkegCsvl4HfnP1Y",
+[622]="fLsk6Om4MmyGVGiVeJpLY+8tzNkkLOr1D4A0P4rPE831ifmSDSYHlH/XmW4Bq+dJg2+dlcXn6oqbs07grfDwttdBbP3D125E",
+[623]="N1QG7swBMmtX7czxOPPy3LItgrgoGEEc2X7kWyi58X/T37um40nyrQB8XvW0s+rf8eCOyNDYqNp0mqzce3tc86DHooAepZaz",
+[624]="BynyQANpON13OGmLD29h2/7ucxvdjzDgcD9v26fdID3+mCQxwT9trBceJe41bYigdOM9wr1HBbVe1DtC9oJGoA8ES3yLXBSM",
+[625]="ZFen9qBxWveoV1Qh/Tj98xKA+4z/ofNiOuBsmbJZ58S/txvqpf5buImnmGnPFDocw8tEFdXIVT2fAFa3Nz7ZNDTL/N+OF3a4",
+[626]="OFEr3Zl1U04KdZUdslm7ccxRe0oUdzoaS9+3A/cDF5sBaik5tgpDw9UZD83zIDGQ9XgDMZP517tlGezBcSVGgME+RYaG+e3H",
+[627]="6PAvSaU4Rd8ulLCtvnJOyZwfpS/+CbGiPRg6OlCEU8hvHplgUSnIruxTh6AQoUEVrz5KMl6GcvLc6vCE9s4KUx0ioaq15Pfk",
+[628]="y9nnr5/mTNoq2x3YkE1STPQPY6n9cFfwCWKNSOlJrIYRElCLtsd77g1VH5Kcq6bVAQqnwpBBW+BAlWTXsCuBX1r4gg2CITde",
+[629]="pcDepk0mb4MNNGX6E9pPG9YlUQrAi8bwH88finNFn31sXrX7AxfOQailF21SNQ2ZNOpbUtkuafsnQCz8e/2a9nexfr0Qf5+p",
+[630]="njxg52yHpuZJ72F14i2vBvPUmkM0vnHiI+ZQuVB3kAQpytIsTxixUuNAHdKy/w6sVFsfcb5NRS1Pmu8jia/ZXt8YmJO/5JtD",
+[631]="cbZ2CjDkdF46lo++Kabor4Z9acX9qDZoizeFWBDZG8QJqPwfTDictj2hj5XTqeWQmiKH7UpnOR7u0+4XuHFiLLDvLvcJHk17",
+[632]="cG6XNfwGUQPZLEqWNVSm7wpODyxKF2QZI6a9fdo0dJLD1XmGjj8WgDM67myj9lK9MwYRrMovMc/HujqF0VZXU8JVx6Vnvupx",
+[633]="2dJeyF74UzHhVUsbzGFVmdUQl3GWkOZqUkkyMNYo4/oyrhgaIZXG9K6dduN/czxZ/BuRK80PnVRPPbxiNIBKTrlfw9A1VGJ4",
+[634]="HJ+90NMmj2g/8BeodKPDvZjwSr8s37GfJ5ghgMARGHUIoAEn2N4UThMbmOrOUXKC8el+XOVtOCRuQ/zYFss3skUwywmcSyuQ",
+[635]="OBq/f8cppWAjZfiyuqHZ0hR5/GJJLPH0acSGmqbKRWrfQ4/EA04Z/fJOdFTWdgbWboFSRlM9Pg3pD3Y7OzxEYzv/VHJCtit7",
+[636]="zibLUVyJXxXhIQab239yfsqwd6D/bVAcEYguZK3WlE2EMpR2ZTzJQWajpYS+KzJSC1FEgRtYkXrfOlYdGK7shDvrhwYebgvB",
+[637]="vUPeCgwiPhIAEYZS7wiu0T3K0eGMq6uNoztSIcaMhi0r5/VKksd1Z76LCkYQtWbby/yOz120Zk6QLTuWUNQ/jyh7EsBfH0/N",
+[638]="kUVubXDOXu9aLq3Hc3x53Rz4trJ3WGyLHQ5q8lNXd2NZhfc4vwiiDX2Ngfh+IrrhW5KXTCw3/u8E4ny61QwX3wdgmvT4GnNS",
+[639]="aNqIbHWkKFBq+xVpyafGKKuWXu7Epu4E09hyoQ2x9eLa68++Eb9FQGEkFW/mFCSZ1kSvoBerwekgfhXRts8bxnR+5bJLNWuw",
+[640]="Mn09arqnGmVhBOGYOMrlp1y4FgIsvz4FJetffxC8t3UGVoO6YQQoKgtzhk6NHciY9Ec2NX/+4ukEeFYczI8aISeSTo2yYaa4",
+[641]="NkYPvmhQ85TOyp7jn07BqZRlxnnLMAgO/W3yArWWxaVtlkeNOWjKv1LJRU28SEZSsOhZgexqOP9gsrn6TGrT3o8sOfoQlH39",
+[642]="OWDVS/h398/eaFgCxEBAr/5+eE1i06vXCYcFVluhQCg5ywZtaiwJxlj0GzNKR9lRDqZqXvtNhTFhdnTK3cgl0IzKjjRXx6QB",
+[643]="71nfWp+Q2kVC6t1iBrpsa7iDy7uFdgX+/Zy3c7uYblz+e96MsUgfml95xRvMs51F/tNhkWNoUQt3QxRJYCU484QrMoudtmqh",
+[644]="7mh6f0sp6b7CTK/CcHb2uRVKLl9XWq0yaoCzE8ijDMvQeBornxaKzYeVTq8O+qyQwKYYNndxM7QEYwi2HaaoOpe2EkUV2xpe",
+[645]="KnMB2RQUSNy4aKabyuahJVUXh7T40prlF9N8IGs/NR28OvXanCtdbe/ixrJa/g+kS/ft5PbW9lReuo2+agTbNCGJHu+OUQdi",
+[646]="wL74Zg6shUK3rk+zfGaMIi6NOR6Nff8+e/J+pvsjL4XCTSzSZmPZ7kxN/iknwbUrWVknXpbNc9HfTbWOYSx4oj/cMAgp8F2z",
+[647]="dWwI6aNdfjmM7uZJueaJUFGgX5QauAzuqg0mD6L575reOXqM3vLkU5zQoSWc7X6SMVQylX9IOJUGeSqNY02U+BKYS8nU9MDK",
+[648]="ycz+tZChqXKkh/W3KqNgqykmxQbSENxw4ItluXv3QDaKbrE8bNstz+GLzb8x/LuvjWvkJaZ9U1SYzTHuc3ia/Lc//qlr/rBd",
+[649]="D/n3lrWRYJ2qk7uiVPYfDUSmWqrEZdHhxmIUu/IPV0e2iR8qV4ZdRhLaZP7gGD0St3TSPENKo2ZQ9eJBWcV1eG926D+s1Tlm",
+[650]="Y8di58rLfPhtdG4d2vpGNJ9G6DnzrnVzwCZirvXXuSOQiFWRSGU3sGivXWjUph55PaQJo580WNlnW7dt7oWyg5NT0uR8PAnj",
+[651]="Scdv82jhZKzwVsRMKSWRrofQIwQRjNBClrYQ2MbEB3lZnCOtCsa3IKylbXl5k8ICQujOlN39j3MxWUmNKtmwz21QeIVeRobz",
+[652]="2FqxBJqIAAjomOQvatgqJ+n6t/PVzdXhJZ9eTEaat9GST3ZWf1s6QxnfKLUysbepYfTsa2VsHszAXaN5T+ac0jmR5vPg97Nf",
+[653]="0wUE57WX3K6FGzr4VH9MkaAojYV8bRkcQr4WCwd5uhp6BX1FQzfKz1fUqJxW617N0uxZ0SBg1vE8MWg9jK2WOXGQ+7ZZAJuJ",
+[654]="JEjbk8rRa1QofOeEqbQ9BnVne2AyKl4OKv1CaBMWtPEWq/1kBvv1GUR2fShDWvS48B7nYbcRyHvqjWjHyulZeriLuYQKuJxe",
+[655]="39xValHtZ1Qk4P5+n83u1Fkzso5unLN8piz0cl8Ad45T/McqXfItUFiHdiUEPugsaQacCtIT5W6aFVSb0O55nidRkMjbDreM",
+[656]="e9RtWtIs2jPRn6V/Ob9SQzAKRayGPJgufp5HEdorWaCuJTonv0NrNv+z5DYe4RdeERwCiG9whSvq0prlKuCJqgkWg5HUrBqU",
+[657]="cCUgFWM06pBghxprI4OdIGVOqNXwbareHtcqDokw5WRmZxyrW546bcsIvIIjYTxB79RxxWfg2O97n5UJXX/N6FC0Dk36fzrY",
+[658]="lJ6K8ej4SIF4ysREjahiEIjZv1QqPmAWYc1j5/zWJqDtaYOHTL4RTO9vh8Iktu5TWIzRYpAbb4MFJRPrvZQtaWeoC5bTL9Y0",
+[659]="FoRoLSVnvdVei6qBtjVjH/6AQ8x90fWHoLA48h/lH+QmM1K3pTPkwyoiePDbqY5s30BgG0jG1Y2kxopCgu0cgfTKx2Hti0VG",
+[660]="5xfIYe4gFvW/7fJ71cTZ+tNOTEoaVmCCgXL4Mk6RMrXy+Eejt8pdRaFrBAF+PhFOYztoBGhdQNEmFpRbCeLWJ2aBCND4bOxv",
+[661]="TpRQieAkcDHMIOsOSmajYw4hkuf3RUp8w+BNZo3Mk+NDiqunBHaxpuNsdcn/Ge5VpAmIIUaR+TpQUu5jtWKJVCW5dC+ZExRj",
+[662]="WEIKuHo0h+D8qitq5XKPkjiyzeOmUB1sC3WALrLxdyqo2qqH0s/UQCEmC8P4LhfCOu7IdCEbJdy48ayRpV925D6LqBXaneQm",
+[663]="ht1TnppxZ6z92MzTZtpG8HYR0IOxahtU9Wp2/OGY9vKCjZZQEniSwhCdZcF2CrbhIQjOB9j3/JOlEXKUHioL3iLJhRBLatxy",
+[664]="v+rrr464mmIAdw2ILvy6R3dw9rqH2hSRaU/fTrg78BPRTV7HC1M3rGKGxupYbl1+aKs6ygVH/J9DiD//tx4wuYDVMAYZMDUW",
+[665]="QvmU6yWBbktl9S8eKtCDY4fJIr5wZkir+r9o8BGbw0hnokFKzz3+RbpNwVARypRTNkz2lmkSYNz+dRJA3coyH4l4neUL7hB0",
+[666]="eMH2e11gOI+XJDS43APGhT0Et4OZp0HoPXCRxC7949KzXgFWTu8NRloi/gq5yPMp2e41N4PCfFur8l5KbFxlMp6KcBl5Jp/j",
+[667]="fIOK41xx6GZhpg4UPA8UNE/NY4wsBTtGY44r2qEVKefbCD38VFTMF7ML1PMkEAhtAzpFqpEOZ3eCiZ4ZsAPEgQdWVW+jDuP4",
+[668]="3Qnbn17JTv6cC6DIDfWaM+hr79kWFgyN+l93nc1fjXL54B2LBv37F3GmzOQNxM2V5Jfn7F/MsLcpIKk7MBmj1EWWwnkEOj68",
+[669]="RRuExU6v9v6xU03zQ8yPZkmVK+ZnFJyt4HUU2zgRln8LwDYL5cA8QlaFKYonyIu8dnVLni8MAv4B4gpya4bslcw8/CgGO2kh",
+[670]="hlU7W1HHykficMT8CyT8XnrSOG0iUtWAEjVCjRS6JTR4FdXfPGudkQCMjTUJZ8sy8UL0imZfyzgbY6I1UmchQiEvIgYqyBBh",
+[671]="ZdjqXyVEyJrIPcr+qjYvUCqt3JlGaSRCt3phZWabd2RrBOqVPUtRV7gXEZV1et8vwgL4Jn8ruA1etwJrdyOEpAYyhZqOUgeB",
+[672]="rhjchEvKI8z2viV5eydLsuvro071KranD+giLN3KbGTGKqhMHm8Uh9cIew5NCcA0EcraiHCaoj7f0zGK2yPTmKMwUiE0lOKV",
+[673]="miHutWSdiW2T/cOiKrU80CM3cR9aIY/P+94cVRS8tscJ9cXEV8DtRy6bDTdadA1MJa7pgTPKvcriiY3sf+cP4dSkFi0L5MD9",
+[674]="VgQSMjh2fJMaDWYBQdfiZ4uU7h+5yCH7WbhPs5fbiMprLEPZ+LS9iWuARyWqSDSRuBk2bbKQIEYENIqjqB4sKm4K8wu2XqUm",
+[675]="wAdAHS/x80tkKctwAiIcptALNNwzUYnI6XXA8sDlxwafQnqnUZmWxpjJOADm/rnrcdZULqscdPIF3tDhJ3uRtwpJuvFkbeTt",
+[676]="Wcv9zv++Qx67p4nRdIypkLj0OJwhnjk83RuOqI0J1Rz3kJzRus+PzwaICbE81mPld4AIM/ZLJgKarwpysqMs76/LOCWXHuWn",
+[677]="fQzvvLv5o4LzA8jpFBs7C4yBSINpJIcQbgYeF6HcwMSAJmXlkPU5mAP2xDnUZgf0KCxy3IG5aD4Q4Fn2nSqkuD6LG2UI+1TU",
+[678]="XwZOFemOppMJQyITTxtIhNuMEHscOo2rDUQv4qztEQJhu8j0RX2Qtv1Ml0R4OSaPDqi3ymQrfCu9U7WVOnjVNIGeXPma/FJm",
+[679]="txj7xvZ8NOBl0YSGz8Yu44TRctpsUxTep3ZKMSmWAdMMHnYVNq6DirGLPgE0pHjaPbK+D7X1tCAKi1Ure6GtbRzGIjWpLEl1",
+[680]="UnmKfo5QZbBMf0COIGIEKa5m+UCgDZyPfonJt+IpCXu7NnG5Tt1cy1sJvAHF3ZD6tWyPqXnX5b0VVfst51B5uZ7+6K6Ox8yI",
+[681]="JEJPvzRkRauxSZwvKZg6SfIT+4x5+x2Xfq4ymN6PclD+JENc2a6aVHQSEmMG4tG0pFhHE/ns+CKl495gMvfPU9nZ4rAZGP7e",
+[682]="qtxn6BDWhz7NTqtFSEeECN0aYXJY4UCmkku2M4OQW9F3iOirTA5rl9p8zuUk3KhTSSA84db8PTcUqHmGwGOjTxGkt2vYb9Ah",
+[683]="ezrCS7IkZQbiGeW0eZjvgaVt6XDwstE/vVQYZw3d7Qtd09v8iM3RHVFZ+gV/obryI3venLdC15IuMpD8D9LCBXwAI3RxukXj",
+[684]="D6+z19vwWhDB1+E35KZyeqEIrUiaqe4v7OOZGZFgiTa8wPRqN50PygkyBQJzljKFF2cWpGJ+ULfW+GOmc7TE8+RevgiWHFoF",
+[685]="s6BX8SlcWnkW7WmO/qDFm3vKdix/JbsXCNYM29HQyQvITUf4kynIJ6Ni9YXYoCA/uy2n5rmwoJR7e+LGckv3/UB9qSuep+CW",
+[686]="V8GMqrSTFU5X+lEYv9ZxbnxY/LmRlcyqwMjq8xc4837KANAKtUW5ija198iS2hSeOT2yvd/r/Do6glNAbpL/67aCqzR+HQ4O",
+[687]="edqVQqQbpUzQiEdw310RtlL+jIPFQpH5L8oK0uyLGhMs1SHMt23SAwSS/Fy5HTD4M9LmzcpEOh4iJsboIfHWNBdjSHKwvB9U",
+[688]="awq7pPolWhoBfrP89BknDJG5OWHdKBq9/oO3n49WqHB6RY00eSr59NGqPsTDBYvgssku3bEcsbKem8NS3Th4Fx7cni4VPQQh",
+[689]="AhrScL0bM9CnMf6x/QzixEC+oWEn2s4maF/yUYBLNGE+FP9iMe3mpdLa4ZkZZgITJpPVocnhw/rkptAr/CVDtZ/j4Rn/rKYh",
+[690]="WtiPekX6FObT201Z/t5YgRSZBYxGm/wP37mkY8pCPNws3XVPPZS03OVGVMnvecDIfnHDHyOV79WX44jAoVxl7j2ZwTL7/s4r",
+[691]="nCWpHICWRCS5LHdtwSWTkpRLLdHuL4Mi1Zk8YQ4ND7XqT8XphG6PIFHsY4fujTvGGGD75hMJ85fB4LlbacoD6a2Xg7W7DEie",
+[692]="PLdPIqiZEpDWBlbAKCgqC529GLHUdto1Ip7LUbtJw8RdD6n+Q2B1ke+FMWRlcjWsahIsByQj4Qq6VggawZit/kbBS0DHNrsr",
+[693]="xBJgSq4BSOUJInZpYm8NaXUgP6Su5VLGO0Mt7N5tJ7v30DSWhhohCeL4nJyo8sLJlRKH9bIGx3FP2YkqJNe6OrTKBCb6TFdz",
+[694]="x81DZKMYX+3Dag9e3aajmj7W3i6KUKEtHoaTwdny8yfspFxpyukAW6TSAUypN1GuRXfbcfGRkNS67p7h/zEK5Y12Yij4lNxZ",
+[695]="QvB1wdjTPOo5O5C8Db3f0fOSgFnAdARwfxB/ICMqL0xnYGi7HCZApqUu74VF2r5WotM5awNdxQuKM3Ryi2XnepIjNxeqhNcs",
+[696]="vxkll+kMFl6gCg88PulIPR0ZbGfqlLhm3yFJgOJqwtE7WcLLVILXKIjiY/ISfGTt8xTl12IGab81gTmQf5BbIzeyGU2lxyM0",
+[697]="bAgJ+DGpcQ25jMRjjP8Ze7qxLOmAma75cjR5UlmsLG0/yucjAT9+akPhFn9zTPllQS3xIoJMZwpkp2ywJF6oxJ49S/7Tl5q7",
+[698]="YhgxJKY7cFRbDwLuQ+cgriOUvJYpGpJMecBS5GF6xoKsBdP3jHQ02sUTs9S2QlBJ13+8S7jfybcYL4a4LNvz9jTXLuBA4mML",
+[699]="S2DxNYB+jjiKakCbVvhwh9bCM1fsp79DqqEy2KGeVcyWg4QxvxYR2u81G+7xOdOErlMVOSed6gW6/XU+jgacDaIXSIlGY/p1",
+[700]="N+WgatNgZyEijO5IsdPrAQP51i42RxLKrvJ7gqKzQQjG2vlo400rjUQPj7w3iEyp2lXyVE5EmmpiUctwrArp47QR0P9D6Wko",
+[701]="7p51ZTw8rRPwaXqGDbltL+sZ73GSlBbHFvLaZ/HtmHdYpPJthvkIbej+mXPJjCCWrsy27pyCGpWIVfZhi2S0hKYwt0Mw2aij",
+[702]="naS6oynty18xJ7M/77n6G/ec/8CjlV4/8G0uFRCtdQONh5r4WqSPjR60UtUdnRyVHxfOCwBGNOYLoDu9NGPCVKFfLffeXyXc",
+[703]="zwb15OrbLCj7nm39sSFkRzx7wrHw8ssLUz/UuO/4lYwKBoR0kkkHQBPrQtAIuedMxOwEiYHLHXTNdM5bNs4utzWizx0L1FkS",
+[704]="eO89Q+QNcWEfRrbnH5mw7tj08AjfzyPD/EoNw/z/T/MRWD7ajD9UBFopIT8iLQRFklmoxaKIGswOeRJycJrQk+g8msFemdNt",
+[705]="oNmB2lrZ1DZtKPKel8lTDiEx/jHcz+VYqu15vFK/HoTb8VLh+Zx9O2p0ch8ePp9QpFEJJFNOWoSG8hPRkMndIrRgS+9E6XPZ",
+[706]="XzXpNd1b6dUKbl83vX58+bsfc/T+6kGMV9rSvnkQKXReyEiLJZtJYO4nvapxskgZKBz+EF/aFgsCgg6apzgfL7buw8oPqCA8",
+[707]="ZtIIRdFZdZQxwXUIzSn7FC3MSJJV6fZBXN4xNj4e7Lu3HoPsdXzWqORRG9BL7wPX35moUwhYRJ0+ypou6S9auK5lQvuJpLCk",
+[708]="SrtHaMy+OgaZph9f+KYYZvicC0NgSELkaS7rH3fezKu6Etavc1IDz4OeWdcZMLnqfUL50b93lKg7PN4CSdRQ5G9swvyCQpG5",
+[709]="LSSoSznJgFL/t77shOGm/sdj6LI3ZtXWa9DR11LRQimCpUx7hbcrnJW3Pxb6ocN2Nuh4aGzHqW9Kt9K+3Bpqne3LQEWTWjuZ",
+[710]="jSjkSpC30hY/dCw0JgBPWZW6O4Z3ycAmj5NjnaJxXbcX7j4Xctq4K9xaeeee2Y8LsgCSEGwskbklEQhAcZoCpt41VM4LO1Js",
+[711]="fi8HhmglegLbsvrfDlQupZGK3Se/vsq4D6pc5ZHgj0t9V8O9+1AU3KfqggKXt5KhNwfbqqNFXIEipF066dyMdD/1H7FRiMg+",
+[712]="7VuLsv2wZo2imuT2AW5t1Qb7EJebqq2d4mI+Vsk6XRJ0ThqTI5ym606b4B11JzLvS7pxofsveLp1bfuUMchD9AyNmu3bzeK8",
+[713]="dSeGWXrdhi5ulcXvzUlWs2Skz0XJVGcqXjdln3xSIoO8ahtWEtLr0hZv/zig0wlek/7ola4m9k8ItHClmQdaDP21e6opZdxx",
+[714]="/fjxUnfC3vhX/FMaNgUvtdvIVnY+f7ABCQkv9eaqETBGeJKJJ5Ptn2Vwhv1epSMqdZJXNCQC5vEqarqGgUReuUXyQZh4zpRA",
+[715]="m/2EDWASqZECGedIEIhMOcDE1pwDFhwXvWtKUcw9K3oeY+OQkgfFW6xrX0D85/3md+y87U9Swv1+bbWE5Rr5GT4nDQJpcBj0",
+[716]="g5kkxwNKuxztZv7niRogu57XIQVaVWOurBE+MWAaCWAABn9a8BQVB3MgvxogqL1M4GJN231LlloPmRRahCyD47uTxbCddUYy",
+[717]="1AQB89bJg45nhslgJNlyCe5CLo065x/1JxEFvaifshJmmXE7YOaSO/PlHJYsoxrh28jjQX41NxYzYVDx6+0WQbhkPIgKq7P+",
+[718]="fJXioAVW/lH0hT1mn8cU+qbR/+RaTedg02D0GKO0c9H8eCeQGOETIwiMuVWHHb9YQowZl9EDoVvbxEgsuYsTVyI5F0w9yXhx",
+[719]="Hhexekm/rqfrwG9aNZHqYqmIOLq0gB/FNsKx6tvS6sauNcS+O+KqNfai0XOZ4wdz6PL0FGzqjPlupYBlc8MBFfPxpmJ79ygp",
+[720]="Tvnqw+PubP/ix4yqv5FM9xAKT8Z8OrNBI3i6Hz7h3eUqUeJrpfmkgeNOoPPJNieNIIP5vb825bH1ZzjCoB/Z4nJkp7daAaEL",
+[721]="/CtUQWU1k7rQKYSq3faw/oUDJ0Bl1aLY09OmcWbqZbS2DkoOghHKi0Ayl2vrTMAEESZ8uG1j77vNc3ZvoEYVCLn2ulLjDlu3",
+[722]="gaKeRiy7PjHEYJaXGjwArfplw4kWGhzk/EC6n+HAlBPLsg/cbq4WnuX4t6WDPRPtH95xLCangRgT2BqI9CBu8o9WuQ1pt2CA",
+[723]="sH58WAmxOd92iFTyS/T87KHky5oHVjGjVO+hUcay7msxGg/pcB+UsxxPSaiLqZkxEgZefmyZ3HogCGMCxgOFwelhyHK5IIh2",
+[724]="lH7pHB0Wj1oGL5Eue7Yc9GYe0h+pPB4sKCUFVXsgpK9HA60yjw5p/r5ZhrOOCCmYLBfMJ0I4c1RI1HVcXxFOyiz/OMxYuAaX",
+[725]="F1Kn8aKHeP1QZTeVb9h+d7ngqaxRjP5kS3x9eTQ36d2nNUYuNJf34uYszYTZddywjDmutuimORdjedUZ7D4G0QK1P9rya4Uf",
+[726]="I7FMzop3m/A8hWoEg6kJxDIn7rRfrpUQ+vOr9UvFnOs3faHQlGgbDmc+Gm1D5TuqMZOjtLettlKPY1VSVKy+6xzr9h3CklZk",
+[727]="vZF+5fuh4QqKhHAsgCbslT1xL13zlftwj6aFTVh7sfsaC8Y9CZcuAOpoC78f1JKLqJr/59YEMQCCGQ6yDpDmyIlUtHmGmQhn",
+[728]="QX8eWrB0G4VBVzBVWUkiDtDtNEk/SHkaekwAvh23HXeY+ax76aBMkpsWRnfHFoSzhhOJDqJiM6rRnJKqZkZYFbtBzf6Y+ucs",
+[729]="8dHrqXHqIMWlq7Cjq/A+D1Z0H6tF9OZBfTjKQiHiWIvwoU5L2HJETu7eTpLc7/N90CtxC14LzdvnBdt26EL6ETgzzbecQLTr",
+[730]="/lBtHO4yQL6Crjz5ZSXv+n/8nbL0Twu9RdRM9k6HBNhvkITqNkkqr6BBp5rC2wC6jvm5G/wCLpSe9SD9zyRq3r6qD6vV1Ove",
+[731]="f6AbRzcORicuHnKi6vAxKl4ZUlRJSK9yAm9wjLYZtwzOX3KgMFeXoD1pKYeruliK0xTCfRe/SgSlSCZiig2V+gJNP+ZfUmP4",
+[732]="CcVc3pz+aaMclhpAlCH/LD2J7HIYbo7KCMNi4PfgCatf6W0e21m05HaPMnnZT1phjVTbUZaYgqG4Ve8L9w0ZAlSB4ts/kFqO",
+[733]="ZKo3tR6pwR5XcRUj8r6dW/FV4NaoDZeSuEQbBuvWj9iI1GA0HgvsuHoHS0F6Zyt3DaCQCN1AD/jL8grEHle20pay3cZndANZ",
+[734]="vLdlSVdRiscEe9prJDP618DnAMnazYLXLbw4qReJed4abui5fB/85BO17woXwT2RK6hrxlVEDK3gslVsSQYVFqX8G5r0Fwt7",
+[735]="HarP3SqyCxAn7k3QQFBxf4yetigzCsBXjxJaHq0dJpQKHbt3eoccvJ1iN0XZTR0RBmjm3DxfDzgvVZ0hPHVi4jwSnOQe8p0q",
+[736]="Ep/o91z2gqVB9F3QBNo5EnVRWWHmu2lKwYncNomb04gBqxogYgjuEd7j23SKPncOiMJm07fweMmS0n2N0Lcu2pngqE7c23gT",
+[737]="ZCohCTDB3QUpMMvCCmOhTS6wjIbJx5lriWLyo3DW4kbZXZh5FnhIkQRTqPOSHGxnJi28x3zMrRIfjIdlQOy0mzM/rorjgUWl",
+[738]="AxmHRpPoW6slhAyIZapC2+hCGBzAQkOGE3iOZNOajruoKBmmsdU2rXZM/XJr0V+8UF5Bdj17ue8LGeggdA3VqxENPJT7AEJq",
+[739]="nz//Yi/wl4mI2u+C86CZ8Usy6dP8BLtJTPZ4jdl+sCwsE3G4zprPQrf5LDzNB4LwmkEqiDmn8un6IJ0QWWdePRmu15h0xVbC",
+[740]="4szrua8Lx5FODkY+bVm9QYm4jD+XrCjkMRb9ZDHgQ9usPXVtRHOQxElu7gVD0V45APBNfosL8zz4XZ8HWbNcOFPxecwq+gKf",
+[741]="PCXqKzHY1xmm2RbFNErpsfuCig6VqD1HrfZJ1UVotHzMgGzaH/G+PumEm5FHkFHMYl+sqdXCfXAZp7Fw75v8HtQy8VCPFili",
+[742]="Pmb/uf04uvMVzzC2dyW8u5V0Omb07yUYb3/V8CRLu879Z6zD+UVUg/qSnneqCEitdjAGb397AKJwn8I7jsbt00q2twinkZbw",
+[743]="FHyFVQ1wLiF1KB4gZLYZUy4v1CumJYVh5Nl2kq4co5sjsB7I0/cVxxrLpHVBTczObnwu9GQ6gAEeyw8KQ+lLwcs7Z+Xw1eA1",
+[744]="QxbMxduuNEzJWpcSSpWtb7ki3rYYL/X6CIGNxNPC4WzMPzaf49RBP6IIoEbtBY8OPbQQPgWSsCxfSXvE0vtniiikIh9HG1cK",
+[745]="vaJ9YFgqeysin3fntgIqJm/ZmyxJLttR+PI+bJzYKEftCZ6PBioQkIj9BWH7CAJzvoFbp9J4hPwEs0oIeXegnb9vVsFBRGrQ",
+[746]="ie4edpBGUg65m+OtHb0ky1kzbXao9MXrmJO/1ASJkGkTzSmAxes0T8Ht9VaUs9YrsYBVxCrwm6OFv5LXC9WRLa9PihmwUf8m",
+[747]="wLmvDoI0CVxEBdrd/og/DTLWXW/lN6G1/ocnxd7Ocn9r8KIa5/x8BtoC/dMN5l1TsrVbjPRGrFbZsKOfhv7useJy6sWDqXiT",
+[748]="xk/pEzsvP+8YYTvMqZTYyC14z7IvMmXJjFc6blNbVu65/RQbJWXBG8ZzT7+GGKV6dqvKJP0VO7SYBl2zB2F+8/6wCmbIEwY1",
+[749]="EliQrJlpfB7Gl1LUmggZGGFX1fFD5oIeUmz9gtTBp2Sp4RHRRGO+Vh94xghYJ1ge8AY+miVS9xVSP4OwmZd6iFAv5/ukvS01",
+[750]="WUx8nM5RRsi7MwfYggCSiTthm1jIjAuekfGmtbXuZqyjYEgQIgqazK3TAX2Mb0lzf+IOB0jqoitqbxfwCXrToxSE/ZHcJ7U5",
+[751]="uKTFcU1w2/BGjnptoE/CstVhn/cJI+QZf+qgv8/jXdYzvJGwyHFEix4mu61pHeped63o607Z3KaQ/sngIj62PvmsydcfpT3u",
+[752]="yaD8iYutpvHxbgFhISu76g3+NBqd6o4WcftyR7j+7jw7AqUcSwG8iwqhXuthHVz10FVEhBkAZtuYfdJW7hOkBF6fQcKV6k2Q",
+[753]="X+5eD/+80JuWvx6DC5p6Zsn/YAkOxAMDbyIIh5soFinF9N3gNW250EPe4Ssyj4jOlibz22trqQonJ/vX4f50vR+AxzUmmKZR",
+[754]="eosCUulg50pNdikTWTEqBlAfXRQD2s27QS9oZ7ebhMsKeDDRDHk7a/MOsplaeWbDWL3fU2M9fT8ckjetlE+dWYu5637eAQiC",
+[755]="uD1ccLZJf44tTKnwTznlkpX13buR0+VwQ6gQe0pJGsafqoSDxOZjzqSA1stbcEH1DWFzDClYRz9SYvri3CtNmqSFD7/UpC4O",
+[756]="/c2T36pLsnHJHp00jWE8vUM0KhEM0tCE1p+h0PVSLJHPt+7KHCVy15XJTzJwzYlLjoMwnC6olXigiXjo8d3by+1z/LdYsR9y",
+[757]="6GeCPolNnrWxEEsbcF+rM9AObtsF5HIT36JxEhfeJ9KSnoipbJqIgt4EpeRBoertpRiXj2z7lqmDrE8Lg49AOw60JU5GUzZg",
+[758]="Z9omf8VUqJS6eSxwrQZdRSEdw9UKNXUOcEzU4VAVfutr2A2IjTWPkUNa4nrgJQR25ftUD3MP9ogQ2GpuCLPpgwESPwmTI2yD",
+[759]="iKVZ9JblumZUYYD0fbDgXPrPAFfJUjIUdrq/R6CgA1vKKEQ6g+pzNgkjG+KPuR4foMUOCsoyR1F8dfiCz9bJuv7GsAcc1cs6",
+[760]="lKYJf3f5YuyTzNrez//4U4LQ2L22BwQVOkeHCg4MEd0KCphC7Kb82vloRkD74FBFYt3GQkqiYK/yyHaQDnVAM0A5Mq2eBIBk",
+[761]="LpAXb68VHjxkXHKmW3f8CBLmZNUV3OGpswcEtojTPNtThdhqU8rMhPvalR4RQ6FkVVtlroc0V1OXsQUMbAN/w1VTC2BX+FZz",
+[762]="2Dk5/jeTynDom4LzyNE8O5w0UYvgHyhXTUPOWe48C1Il0e55/WoNj31yrMskrJ+7zuH90bvuDO7NjdmkfHVRjMV6mA00DLia",
+[763]="ez8oqMZrfyPoVHJIx/+ww3SloeXOsjIu2kBeRH1edCvQTzJwfaA0DFnKFEHB8W0e7Efi+Vl9lijjn949J3j5WY7ulpmTfshk",
+[764]="ES8CWFY/s9jY9vDECqqkgYQW9t1t4LzJdaI6dfEm+hc1gdnvIju9ei/u3AujggtTq4LAnv2mQmRap4rtn+KJwQtVkJVZaqXk",
+[765]="KmhbW0e9ryxUu5brmiIU7EmLz+KX4jqIKMaxyCvSob95uTKfsxFDF81guITwiaAqmRQDSaT0CgwXv6PAj6D/WTphHQZF6ZJh",
+[766]="5rY7S5UlXf7CwsghefyQ3VtKMO3tcEJO2rHeycUv0e8xJDB8qTjUMoE6HhGrj4GFcszvjxy/Hd6mbInCSslsxssqNScmRxEN",
+[767]="3pJwnl//i7hL5xhzmg8UoctFOJJX8P0l6+s4UMOlUVEQvpnSV58iSvmEzajFmkyWzAdiPm9CflYTGR+rLj0lKWeQKmlYnVpX",
+[768]="bgWipxY12SR/AMrrMTouFy8HvWOTf9bgai1X7CjCD8ZGsHgDHRKoR+huSakzbbggHS4o6vkktH93VMiNPSGnU7Ui3GWylZ1X",
+[769]="+Howjnryz2i5ZcXwnjvA5AAcYjtxUjo/mIdtAYw0zT2gbcqG2gYqH2eWYshUwwC/5JYdfi9hWwBFdZoIRT3KwskzIqalqtbE",
+[770]="MhC1MKaEvIi/L8+1SItlq1HCSxKzzgzcqhbp2/U3A855StBUNIVCVbkvyGuXvH9o3zChEctW6qzbo7j2IU0KD2Q0OrT+/2j1",
+[771]="uXzkwIDMaNBaILHQQIg4Vi8xNPr5l34V6g8cdB/W91fID9lEf6PhCCla6a9LjaOMNE2Nv0LiZE4acmf/5ktLGdM2/zN4Bvbu",
+[772]="U97YLTDnPpK/r+G0Yoc1NEV22xatwDQOSgDdohPvjpZuKt+3iGuGUDpG8u04YUeaEcrpBZx1MTOGdprOE1X3+0z3DZiztXqx",
+[773]="fBGx50hlnA3Zoq0qkxSbKIZAgbV3RRmPejxZdchNye8bAaGJRftHI2oUsKXPMsb4xIVdkIrhDW0peAHfSgCjq0jvRR4r/QRJ",
+[774]="Q3paucAZ/GWvbnpfkknbWPBpuXkePTXTJCJlWBAkkCvo9qpfLS0kPzDqA3E5JkaK3f3L1zJG65mYJwxGfqwknL8rL++2YCVN",
+[775]="0A/WOWNh4ZYlaNgTScIV/MToQ1zd61XVjltsmuBp46bXkkksbI+hZz4FuyP/ye2ql+lPBfGBdzKZFjgXMPl4zMI/I44ifqGL",
+[776]="jshDXOsIW/nMqM/p401msY5jlYow/Xv7qOCLkD2ac3K+qC7ilosM61TcT/NWJ0+WzvEE1jY+57F9kKdeA9Y04b9mEqR9rrwI",
+[777]="fxHRUNiyHVbP9WmSqoZsExbdfkmluzmN3X2b/EkzY/Jom6A6+v/wnD82lG/2yfTPei8gpzf/UK+rs7DQHUUtMCsVtWSnJ49j",
+[778]="6Se6zOu21Oss6+xDyk3BopjSmaginPUgVaeELQC14tuipLBY8ZUIhWOZF0I+h5L/xlL0w0Fi1SE3UHUVMsgXJmNVbv2ewkyI",
+[779]="/hvATcJgcD6sEkg+0lrP0guHUBLm/1fMNSVmcTqpofxDa7CBwNoKM7UCyRAJO1pwdSGzvhab95PNHpGW1phsc7pFjNXfCWOD",
+[780]="OyEMeBzh14F9UfWSdQAxBEjdeXAEyTWkfXqcrDp5QhT6e+nrKIxbypdx02PG8U5eX0ANgEZkEJ9+s0+eExF3t72JsxuUUsV4",
+[781]="8G+hMtyHbzFzM8B1lmGYPHeeIhzyHZ10KJuK199aKpLhsy1UsNJrHra5qt9VPAdHaX/UqBQDcQ9RIGmBynnpbxjLNo45Pai7",
+[782]="OyIn5d5PhI4wnkhOMVEHyeTtRRqOYow8jaYeHrCKV6eNpknIChRjzA1N2PelDEXdEvgC5tkW2UZrL7czIkC5LNHIZgz2gKe4",
+[783]="EP8vctQsw6NH6Oq9Cew+C5zVvmMTiO1xrksSq7ETEXWQ6A5yjD2qbknTVKw7R1LsHtEhNgKCt4q6tDJu86YAu69onuZiFMjO",
+[784]="Ss2jEAIyvq88lZs6J310nvZrobXrSWON2KoyNfa78uSRf9YIyrW/05vpbB0XtMnrjGodM5BUG7lfQ8vpMBt377Tg7fB7MHLG",
+[785]="ouCRiw4PeIYcOADjB8La++FJ7etlaVYRs/Ag5jbLOV6s0TbNkUNWYOqQzDSnfrB9e0kg36OHNRr8HwXjtxoOzFmi02/Vbi04",
+[786]="aQ+k5EjFoTctNdPL28yW+egcCx+p4pQjGtKJeIRcG/H1yB+R/LfjMAap+fQEHrdkCOjXbDXE+vLY/fUNVKnsnMVK/xJe5qTn",
+[787]="R588VTmATmmZVWgVX9KZqGVt4gIcvux5iQKh0wD+zIk/8BWLZSrazwAMksbiDB1qDW3tJPsAR75m0IK0rMBR3CzVVE9ulchF",
+[788]="VaRuj5grLD6zvg9ccWll1KTN4LUUTed8jXnHGQLKtcDQ9szeuA4bTThCe6hDEYaxl5d0643NBBW0OlG0L3UiYJmvPRHXBpLk",
+[789]="s9o+u8WfRPIAUpSTO1eMUIWf4/fRagszRKGK/mwQX/gcMFQo9eD15rjauzMZd9EDuD5H32/LSyg6qvXyoz6Uzd0xIP6CYOJL",
+[790]="n3uCfa8GtJ+7XZ1uYmQFe02q6+Zadc6ZLnZ6xgDfjpNBQS6CAJKW/k/XkGuvuQ0tfb4DRxZNXi4HmkI4giQ0Ysjk7HkVolAR",
+[791]="UJcsw+eLO99Fq+I2QFDg7Gkfy7L26dKpma+niJVx90czAMudouJlGj/Q1H6/tHN/JpVnYbwHQ/5rdD2KRhUq41WXr/4Ru+4M",
+[792]="OUdWaCz1BsxyR+QGHOTBXskFmznppsaMdw6MneP90nF65oaxySS61HivTiyKjsJG6uL4KhroCnOIEfnjdzKNoZWoYXN6Rm3u",
+[793]="qpsm0hdbjByO8amILxVL3V16JdN0lwDVjmxv4L+hKzCfaCeCReUSwK4yJYUFwXdUzgl6r+xLh85puG7AKLqPEWbGJrO8b12x",
+[794]="R9rYFS69knzaxadM/y9ATSVmVKYKqrKS4AhJnqWZ1aI9lhOibxF8f0AGZrVV32BrDF/xyuO7vGR+dg1Lg0aZa7kwlxrSsgHZ",
+[795]="ACItBRblLzaM1rFrqedf9IKc7mGLeY+6NwRJ36tJ3kDfM18WRUfdGOp99gCEADMLM6qOSfH3J9yB5kl8SpmmK273Ee9Vyf87",
+[796]="pxvJ4/dxuWlwWkCIyArk6H9obB30knDrnGX7/8RKBqQxyoV1nf8RDjD1K81t9anGPztANvbPCkd/1U2N8fsiHx+PzKeVKe4H",
+[797]="+ppJ1up+2DKLP4TFmkDYY/FiM3FyKjIz7MpFIzqhByNqWUtrw3/nXYtj2Lc09JcNxU8uu8XQ2Llm7FhCEkmtS6bvI8ecdQaB",
+[798]="UYVNjAgzS9akdThpF/N81afL+kcprLsUot49Rg/DKllH/GyWCzNeoPeqaf/T5z2If/NB918tX0PTKzgElZ7+ttzGh5nKxZke",
+[799]="lU/ysIRwzA0OIhYu24LZ8LroH6nQw3boRicyvLWrTatHKVh00TRP2D1mB80ES/FYsLWdOfdxIRZxA5F5YLUq6BBkMpdRohMs",
+[800]="fxp+PDZQjAo221rUJw8UmpMbF0xnD3iy8tKOOCoAAljrQtoCCY++i62sBLh42N6bNK69yardcaQZTDbMhlcewosx6zuCQcvI",
+[801]="1CZ6OXPiTG/L1X6S8IgIrwy92rkd4uqWwzpaVGyI13kWFxNzYY9QAQlNU1ieBX03hiFuQLFMt9bL7I88Zv9CESl01cCak3QR",
+[802]="Y/4zZfJzwc4Pkyzb6P/0QwIhq74nIJ5mKLoPCACMSYV+P74VaZvQVtTq97vKDlgiTlXEuhpoxHdN9dn3aGQCwBVWX0Cy6HZq",
+[803]="0tU5vC1hd8GSgHaz9/wqvg9xPMrXvZxv26Pw/WKigAEi9PkQW/jtL+coCns1hcRb/8h5IHP1Znoz7xtoUkdHyYww17HGKqlV",
+[804]="pcydiiJcSZWHzGDALYDaQpHXl1T28gMsHd8O1EnGAKZL1N/dGnDyhH2iMr8VDANiYEKpIlfCtB8+lurVIiEQKC8O63K8+ZLO",
+[805]="uu360URt6yEEcDT+jlgP+Yzl6N2k70gVkegIQsG4L67MuR1m/0xPizCo7b4Rx/lHtZg0rjo5OL7O01cSFOUcxzeVGh9FgbCT",
+[806]="h+XQFtL17Q/mPdXCSQnPU7Hj5WY5c2xfqW7aEZJj9u8O+gZjQNrhvP7FjsGj2DL3N1qP4H9ZpEHm8vF+mXt9HIAgLCVLoUn8",
+[807]="BmU86jeWZfojZPGfdGxo9ZLml83LX+YTEogHyGt5y+OWp9b84PE7JoiXdqXDCKFatsbZMYGJgSjQzF0s/+59549utuYwwDUi",
+[808]="t+AzdEtNKEJt+E/kcW/PvzqDh7U/bzLuLpayXptY/Rv1jqoKIrClSY93Eh2yABZuDsSh3DLm379MigKMlWHyjoKHvlmhAHsP",
+[809]="jHKNQBADg3g9awoxmecqAUA168+GMhKdLtYjfw1kZwtyqwYcan3eIPrGD9QlApteLHZa85wUZ17oKNRzYl9yUEMaTS6ljVdd",
+[810]="qKnAlb9Izs+p/TnK0QDFh6NLld1ocK2ekEh8fqOk/xdwggXR3XUlIsx9c6gAqzu75KhgaNO9Vcr8nwfK32oWYyVQTHkJWjjv",
+[811]="Q78wnpeHtnUzod9bN/pUfRgzA5IjfM9T3HDdXjMp/bbecdX4qcc3CrS71ZLMteEP8kxFbvinFGntx48sDf4YVLBGey1OrWs3",
+[812]="LKsjNy+1ngoVZ4b0yH6M+Iriz6P1XMtgWhJXunFtoQ9fdbo2WoRbNVuzM5A3cLq5hcub1FMibmnCPK6P/flrMe3g37KbfrCZ",
+[813]="zay+jPDFLp0zGDJJPvaiUDmO7cF3n4iYRuucav8rWirrxBA5U28Ib3wTKxb+wsTg6ULGgz3Ri5e2bu2i4LMhHkmZQjp2cEQB",
+[814]="nCdbrtKMOYudci9SWUEZ87PRtN8ULOCykkOG3XuqbmnVISb6+hZKZnvZdpfYTeN7D2tToK9VuYg7bM/n0dR6UOYb7NfZmZ9D",
+[815]="T5XAOmrgndJ/uolS3dk/yVHSmCVDuqu2Mvg1Un5sfTEPYkGMm4SXpuskHbgp73s0z84gq/GVXPunbMhDLnZuQyeV+OR74awe",
+[816]="UxeY8oikdzXZH1umkgQFw9HM5rS+dhJc4oY9ZKyashvx7HczV9AphcLqU2RvgRwItORqWqDCiScby9xdbqBYcLRTkbxpzJQV",
+[817]="cJKPpAiN4eAIjvaU2fk9cAP7LplTsqEg4KsuY+5fdJBGY8+hw/FZ2u2VzDAzi5D1nY75bdtaYSKzNnOp1t645gnUNOivFm7W",
+[818]="5CGwuSiCn9vONiilwMwjOrkWD8+uYGfD638vCs2XcxOm2RhJnP3yQI0kd7Ik9Rn6fEaPJcvbh19IFd29uuK+nFDGBAidstbh",
+[819]="AP+8prIV33Bkl7iyfcPy9FOM7wPhA+obvrDjC9fZb++DU8NGKcz/1ullQpqLpkzoAhytDMM7f3umEJ51qMUP0orZ871405ej",
+[820]="KIk8QvA4obCVj7csTuAgZdAIqfwypWqMTbuAmOk7p7QP1dIcVkAcDGlHyVwUx+i8ZArm3rhq1hn0DCU5cS47WFBsS2i6A6/L",
+[821]="ZyGiynCZfKhRw4vEBVdZ9iyfvCuBrVt/DKfNcBZE95BA0QXOL9gUviq8KqsA+NB9/ZM9U52hq9h4QxRn/V0k+JW76fDNr3SC",
+[822]="UynbFQozSdNMsSCx+Y2SIEH7+OSxrOc0S4QbHGJlba/Hmff9Tsvf2ltYvr1Y2qCXKqzFXlys+FilOd6Lt4eZ4Vb9AHdzvS03",
+[823]="2ssE/Oz/pzk+qN0UGAwjvstWH4bRfQQYBI0wlEB6ypP9MENXonf4b2pGklkzwCnYrRp/NITV8SjtIuGKNqTKECrqX+rm0U1O",
+[824]="31mlqKpiHtzSUvZVYDU68MWMRZcZelYVrBPvbeX7VEDSStMRAZEqcaKJL4tKq7+ZYbJbRaWraRotoflBYr6m6q3Pd2uxCM9P",
+[825]="LABus33+bYCIRq9wK2sljZmT9UOCNdXKuDKWGvelxQO5B26n7DezC1lq8DViQDlLPxJsHHdQ5EnoJQiJucBRjJb94YrD4Upf",
+[826]="QkAXIXmVLJZwTbgz7VKEW9o1pElI1EqiQ4DxOUmS5Alp49qZ+jJwSDEQ1D7S0gjA5wQ3F0fKDtzEslNT3kaJfWWISHIQ/hpD",
+[827]="vPKgO+CYS/g6tjlSzg3yH7pmCjpBwbfe2Fu4SeIS3eIlqLdSeQ8wfArlpG7+bu4S7HKlPjqbC+AGqI0WQUTEewFKQxAMnILQ",
+[828]="fpjbmK5pI9vRxXZ7QO2OV+8gv4g9PTGaOzTwZHco1nU/mKMw5v7YFhp/YvIJ3ZsZlMcwntBTlfUIHYE7NSIKEmk6t7Cst+xg",
+[829]="Vge1hVMf6nYnfMQbK0wI550IIQEQKNznnVKiRn2crfxxiWRugrJzjGv2mRnTrHzGCJY7OLiPfQ8/9ouHJiijY1hUWKxWdxcz",
+[830]="98Yz95wokgTea5KFbVAFOyh875S+5/9RfXDxjdDdpdZU3rwmKerkzHSvVvpD40peLT2TmZc1/1ODykffPTxNSLFyngTR3fq9",
+[831]="3Pvq6GY/NGI6+JB+7v7kqISSK5m81jZ0VJ7r0KQmJg2ko84vER1KVoZtq8Si3zE24ZMvZc3rwbqP2ws8mqK6Rr1mFntK6bY3",
+[832]="HaZrPX2wXp7mOW1pEuRuJZCMD1l00NHQ9iuLH8Eg4UmXAhthibPJJYVJwp5+ISsctF4KzmGGezn7XwuVhnluHXdL7gboIss2",
+[833]="M6oR9BkclWBjKO9IzxlCTNDhA9cnAq75tLb9Uz7hvwOvyssVb8N4j+qb51FqUhj4oo9Gbgd3tZhU0ybxV7abfwFHvlWEVSe7",
+[834]="BPo2QpgqNuq12cklAhGWWNEAd4d4+HjlBoBOyiRM1l5NQphm8+0jxFd9F8iPkvSpIWWvrv7TQVa12IK4FGj3Fie/kn7gHyJ2",
+[835]="C5o51OSzOF7AKJ6aYIvRzu6Kr59bH6MKg9KG/bWLXZa79Fcb+c8yCMq8+zQpba9H89C/oQALWOKBRZHF9b4IuQRItBI2vxba",
+[836]="B91qHRuqrhCfPuDSdOk7PuMTnq+Fn7n1RwpLbNYcCp/otqd4iF/W6pPGlXKwhx2+FqEJu/mdw0J/dmaVog9iLLWAVDasFpTL",
+[837]="sXHqd/vjlsnvnokWWdMkSCtu7lg1tbeJlVvgQ/PlQTSOluCODhpBX68AmQHcIUoPaYos+2SWlzPVa5n7UWlh8tE1YLcTABti",
+[838]="aN2SMwvxorddmeWZoBGFUwc4aSG21XcAtomG/MmLdv/AAv1sn9BAI6/Txs7p6QAzKwWhBgCSnvh2T29x1csPLKw+wTmVvJTZ",
+[839]="wPGqWffjcnMJsvCRuAlghtScjnAFvgLe36T7qz+uwc8TFiHp65pb4iDwVW5OquC55z8T2TLr+RxGzxp+zIXnAA3DZ5x4RhjB",
+[840]="cvlbwivNG2yH+3nh/PF7EwKzSkAMGYd0+ioj892+JMR057Q0zjeQN7NCrU+J6ng7ShzYnceCNLOVbXrYcGh/eaxLGoWHfojq",
+[841]="cDvEiRaHxFcyxURmEcIgehUiRPzz8MENK0vaIuFbW3Ey5KHiqvZEVXKq+yaFIXjVBypu8vmsF9Yv0hbJLhvwOLKfh1LCt+rd",
+[842]="hdlZh4dfIyd6xSWw3Yfvpb8kwtPDH8SEaSqLg73iZG2r+IWMMhC6GHIv159F9KKNOIZRoZ4661re/qYYK++wUtsHJXEmLiqr",
+[843]="ULkfalAl+84Le5EhL3kPnMl1QyLRstzJGAIxf6UCti3XIc9dmkCPipLXQMQgtWcRREkL6uBZhpKkF3oTX8PUxwmKVNAGc5bq",
+[844]="u3IZiPTZupU+v2glht27PL40vpjIo3eSL16P2lPas6dhrpR79iniNDnsFbnqZqwddW0LUQf9w1/pCnmjD0NZsKQz9QXB0/NW",
+[845]="l7WrbyJcqTqfN6iJrP2n96DPC196xLNES65e0I8jFode4uONKoiZrdGA5cLM96UuJ8Sif9v+Ui8e7vo+IMbkwS/mBMkgoptI",
+[846]="f4kkoiqe39Kkm5yVXDUHtJilyo7SYtQB0aX66U185Hf0zW9yYPyBXNloq1N03GuLaVr1H+uib5vqQRQxKQ+b/Uq1kRTrCq3h",
+[847]="xvSNDO70qTif9EY1ywPfkUp7w7qtcRudlvvFfo836hLf2DCVA4xOTMVUi5jNBqq/U937nMubzZrfTUnHwmZDJbh8XUuovFMx",
+[848]="IBmZsvnSTAt5ZbkhD+6Iw2WGdrV6edT2M9vCRnxXEHT12VYp4ARoBHqAsTEqv9QGMsUwsppltnLz/SkC1ungnuVprqYjjW1r",
+[849]="t0dcwuBaigdGI2j7eOXVtDZYGCRpaCqyEtVcQ9GbcliJN29FmDn3adZkTygc/oPHcOhI6oHGyGYNpFKk26ndlw+SyBq8PBjC",
+[850]="2LdjcEOrRXC4swnHtytYxNpFWmVF5tXOjCxZYBAsnKFLD2JyM7EDJNVIqMu1W1C8guPuoueRNWYkuzA2MBC8GVjBJJj24hN7",
+[851]="BPZgzm3SSE3bXpErRU6xGacXGle7rw4YEsXfmmH9+5y8Tkkx2UFXzB/2USiPs4A7JM4Jh56zxxy7m2qPB3te6VF8AgFwioTN",
+[852]="8TFKLrOo20qJeU3RaD81LQZGz9LGTzgmssI4WP/FIpsGKkb+sTvT+XnLu4/2WzF5ew4fpiFB46CtgmnDiQdqOLYz3+UWjfYh",
+[853]="0k7S6rySEm5y6aBqkVCzPmy1TDYlr4RD2lKTA47b3YeTh3D+2QYeoVLtH3ph8wNLMmVV42OXDJBXfJ/LKYhpJx5p2K7U9YXG",
+[854]="8bzXvEDq50J0xawdStl/77BHkD34uN5ZaVZco8Cw0YMk9eTQWJlAbbqMa3rFnbV44LriULxxuLpukcH2gMXsjtjh8cdq6wVa",
+[855]="PzkDRZ3OyYJadX3dOa2jMogL0Frx1P2u1NexELtjqWVmIm2N/sl9gTot6gu3oMiQCcfx8aXeMwHDlDGMquoKbNrOQizpB79T",
+[856]="TplBfsL27cluOyXlmpSbst8YWwrj4cHsj1QnG2SdU+PzO7ZR1myVZ+Jj/E6TSdmRW5Y3W3KYdR6NDp7No00eIujx4+2NOeYR",
+[857]="Oe2ghIh8C+Zxb+tYYsH8Qur+RMFFjAelmHXMwmHbhHKR0o/3ea5gHGujUc05ojK9BSVxj9y8y+7c0c4NPTWAkq1DG4dkKe+4",
+[858]="Oak+fHWrN114K+cS8z++qGLAKATijERYUR1E+1lFcHoCW8y6X2so8oD8vxcpjTZvOHKjNLPM+xJFswffhIRdcJSi80G6YvwK",
+[859]="tiTJTghBrAzg7iO7allzqG2dQ1TW1pR3ArAyq0ESC1lIuJ4LEDO0p8hlJIlXnnqZYRi7eqke2ZZqRFAMT24jPi1CQZ4jdSrO",
+[860]="8LFX+hD1rdwcSqo+DiagXGfWcrdHhDgR6jZrd8pCOpPv3M2QfHNdfaz6jAVVcrnUwzdx5+X0Dj92M1jVD4rfDo2jov0y8q6V",
+[861]="vil6p6Xx7x+NPzsPXqPsneoTfRlhWUT9Jg1tHDCee2utIimENCHzyASpfnhI5KK+1JcNmqZjw0dZ5+oEmWdx6IFG49KWKJV2",
+[862]="eTQV4Wkvsy3HK8PEWro9X9u9n85lPgDCcxyIq4qrVqUnAzvzsc3wf4dbrdsT/lgkAwnIejmNJqLIJE9Zuaivq/edJnj7j60k",
+[863]="UH7G4zKHtKS95/ut0PddZOLVA3QZXc1fYQ3hwy6afQf9hJk/49CG3YP51DfvC/djiH4/vbNhW8J2f4uPeDNjBrnWIcJfxDrt",
+[864]="lt8qt07LfAnHnG0GArOBu12h/orjzcShAN0uIfEW3JzBGXAtFEIlyxeMCPwXokf3STj8fuR7CsVl3DONQEwG4ruErhrqDn+t",
+[865]="NYU2ySnX+xxL8stB/CETiPFIvo4wGjO1efoaMGj3b49GieLHVKdCYaXUG/RACuzV2prBC9EAP3FC5rtW5oQiz63ZkdRdwme/",
+[866]="UwOMAAW5RdCpQvhpxEuKukQ6wHvP2lfbJnotO8SbmlUInoS/1WBmr4eJ/cGc2Ssq7vd4K6qtl/ewUDMie6+P8S+/0JFpD7+9",
+[867]="ZWVHsrDz7CYHbna+QCsSlBs1Ju+/4WYCG/83IrvA3gTZTlT7WHQkiHew//lkUAiti3jYZghSsKr/I0LGSk7hApcGbxSfRBpb",
+[868]="r3wm61zNiP4ryGFz9l7R0WB/FKO6ONIu/0TU0YSpqtHZIqLAncXzpIR5Zk3sMB+C/qy+r+quSbYWk8vnjUBE7PmVKZYhr36Z",
+[869]="ZxQa2j2qUG7dstuE//JMqVXHCqND1asGWZhsPHWSt/4VmvZ4twixVnq2me0E9+stLSIBc+ctv4RMZtEv0HT4hrIKAFVmkLf5",
+[870]="SoAd3vKGZykf17Vrp03XMduN+JdeTZ62qNnhXK8Ntt4MrSHp0yxMo6zXtzB2/2sJEeYuNIn36/SqJHulKQBA6RHQZkFVPRFd",
+[871]="qGnfOfGsRxdjPz2mQ5oKmZaSPeM+fpcg1/TjTNSL/9hNfT8C8gUEjwaJRXwGl1xekO8B0xFict+EtwaUXhFJBMWk1KiLQnnU",
+[872]="CZ/g1SAc6qAREf0jaJdePzRU5mpsZi82aVkDDjDnygRO2HMC8MagzC973ryDkOcMBWTIrgYEu+7wXNH9Qn8+wkZui4NdBzvr",
+[873]="+xiz6im9Fk4kCCBSzENWeld3McCTn6DSppGr8wqOCrjf3HhGCHUBKPtX/1NEGpUEZotwKqLXLySRVhjRHxU7i9y3g62R41A/",
+[874]="K8niT2FxvZO2QwLblVKMbuA9wOCbfGjnFAKWkmfzrPyRtvltoxe0YF41nU86tIlxccZGWqCf/jVtgQm4y8IfYbbAL0oZ5skr",
+[875]="PVEE/YhlPAn8qYsHwX4JmjRB8AkO2Mi2nwTe1oRF1jveO6ILuKLb7POVRNp36JGUy9LJmitiyPKi7Oy1dkpxZ3SKwPda3KKt",
+[876]="2UVOqG3QJKWwReR3OE0GummfUk1/PHu5eYPc+Wg35asaQ1IUOYWldtpiomuFeI30+4eVBae0vf4GVoGymHJTlLt42MwH2Fd9",
+[877]="aXdxlnwnS1ZH14w6C94AEfOawa5OJRLUXWHBI+cQwUQNymTw5xNvF36ZGn9B1PjgGJPPfu+nSdsMlY/zXPXt+vk9cbtyheGG",
+[878]="9G4dI5l7NuNROOHUk5tts2TmM0f0pjb88Thmm2Fj8sAHgM+EqxfNarV/BFehVNuUt0C0YT/8FU7Pf9EH9kIlC3Fd4Jt1kTT4",
+[879]="ftXHkQOSXoqQA+fXkwuJGjOKzbnuvjhKNUDATZI5OISS72VQsAZ44qCvIe5E8dm9HNlyYTRNSHeY9CLJvXGonXVWoX48NWYB",
+[880]="OnFhchi80zxoNQTXrYJTO/gmzXnCf6+qA9oFjgdSTVmtNvd3rLmJcveRMCmUYGAFvfKDGUyspcfeqRi590eUtd/GuxN5uITS",
+[881]="VNXKbDDK7J4pRuhC8Bu6xWS3hF+NwECAOWyZGbzL5LJ0fpnHAoFWIC5AImGlUQ7tBCThm0UjHzw5W+qxbnuEuNUIRfrsgHJN",
+[882]="ZG2iEKvkxtHM2ELJnIghkj468DTQuN5AMyOI5wuyPU5uV4oycHkquJyCygeV8NhC730OzNHJ4CCQMgdYiE7paBgmTLk5Ra1T",
+[883]="nJFClh6gnwd7eMo+HzkK97piHtkjzhG4Mpke5WVArQmikQgllJjkm4BaEVS+W+Pg2gPdpKqmwzh9O8anPHqxs0frSJwre8vi",
+[884]="/7d3U7rSnmektRLZ7Fr9V8uhXJ2w8cJtyIjU4ei9Xv26Qdy+Cn7HFTOPNfB7e7z//b90FUs6pTKNBSHgMfTcnHeMWV1tIR/3",
+[885]="oN9TrzldCWL2DaQ7T9GTiG/rPChlrJY0Op7i4iNlFjIkqoLTzFby8jkuHk2OY56YC3nT4+RnSTgGYgJKsuMpMgL1qzfdKcO2",
+[886]="qKYL657Ys/5Mulok5Sn0uDfiFCRHp4OewGsfYpZgOK5cAh0bruY6ILXuUsKnBs6cBdRSBri4XmyQPOuJIbCWg0oCEgNE2+Ii",
+[887]="DKkuJ08ni8elAU2TMFD0oxcuA08/h45mti0VpFjfqb8N3LPf9/2EvXGIsVezeYfDRgiRTMydGgTZb5HXhSHORWUT1pRhwUIx",
+[888]="7HAapz3sebFU/iGaVZboJSD1aG1QO6e1F5NicuGDnsxi4vBufwGFvhf25pXtSybzlDFgJ7OuUf3MLlmvQh/5RxsQJOoeuQyF",
+[889]="JCTa4tc85wmiECqzKjWotE5Y4WjMsIvsU4w+9kkVnBdEnbY1eweJYqkRkNwQ5FmGIElFrR8owRic2H45RoU7DB4mVpgSSNXl",
+[890]="WSGOMmxhQdWvzQoELgRwrxaMJpTW7wLwkFmzCMLuIV75d8rY4l8bg9pa2tOuhyC8PCLDrCes9Sq/57WsyxOnXFyYLymHtVPT",
+[891]="LpPppnYLPf+1JreH9/41qtAMj1UZcFTk0eUh25tovt4RPAKrYneNA+BISljUoKgcIE1FR6p1Z0Zrv7zUHwY5TA00gcWwDq0c",
+[892]="vlziJOkLGq58JSHVcXIZJicVcvSVuudlPxipB/n6tzTRNWpj31xSaqCcIRMgAvWkD1/5OOUt+7Y384DCo7iT9FaWuIJEmqMP",
+[893]="JrrTkb5p96iO+QcZZEQRg8RGriX/tuC5WzuRmiO9kKZO6Xitnbde6GKeGE5h9vdAPbMC8FdNm4TYPmABqBVT6lTI7Y2UhfVG",
+[894]="Bh4SusSODPCxWGpVeG40DxpWNHXsXvIiW5GDIqzJ+SnZjH+fBYYTnyCN3UriBm9YgdUzknE6F0Rtx3mEoa66W48l1jooFTgX",
+[895]="+5PkrYucQwLH2eVTB6toXKicVZX3saNIw8DaY8hrqLPXLorjoxUvukr+4wmgFCo110HLfha/Ay5YPYzc7l+mBmLgu50bNJ5l",
+[896]="a6BNcV8KhmDFXRBULWpAoPZNXeL1SnvqDN7D+Nsqg7O73yrgDwfykzoJjWy3z2w320m5EiiH0o+8qYvhjEfSDH8y6jZ5ZkeS",
+[897]="AnXAgwdR1BhmhjJmQWRZNnAOfR34980EPc9C1mZCZN6ONag6TohWFHpd4WR2rI3ZchknjpCoQvNZ3APFAfni/OeEx7Nac/HQ",
+[898]="5pUAuzN6rxKiyKniHKyQ2vIQnvtu0Pi8FBA6tq+5v6s9I4J3bvc/yOYzCla0zIjTPiuErwMnzmYyH1/6v15xxZZctHlZPQUo",
+[899]="Qnioaz0/tVLNMrD+Xba9C6B1tTecXTku8NwkCZgZC3XeGcIjB7v1wohnRUSQObXGRASW/W0Wn7tE/er7RLMyW+59zmCtmMxW",
+[900]="4EPrLOfDEGSP/Pf63NZf58Nq/LpwslqT+m3Db44rYa3loV9MySa+QqqpYHIgy0d09NKOlB9b7FGmtvkVytSf+2mxUKTalv7E",
+[901]="rkBkon4i3V/6Bcg8xHSNoAngRHAnJgAipSCxpkfoADZxY8E9XU7rXMRPcB6oQiHJVffv0O0jpI+deQY/vS8PhtjBbAH5Op9R",
+[902]="n8a9ZAWOuoynu9tuyorb1VtkQlbzVmf+MjyOPAcWZhIeWCeUj20EWdemXmA/whNR+jEwBhrPoX2F8QH0mtroXqOvPh2kt7Of",
+[903]="qYBDZVnYDsXjK9XSsK5XQGLSXfMiKT2+DkwxcAkjiM5MgPAqRDGl5EGIEYTiGyqZRSXZnYxWCGT3kaLZsvMR2fdMMMMK0NF+",
+[904]="OMA3sIzj+BED6C2jhqCnHr0yzl9prKypw5cyb3YBhFpEOUBbR/CDVBDuKAluYjChHPCx8zi2UpEbw+DRtxe0ofBVIucCiWSg",
+[905]="5s6A3tnETWLKVlACEqxbS2JEn5sfv4G3pf1xsSt7De5jIHiJo2YO1qhJ/PrSpUYOH/BXXZ+oPRJ8eHxrHSOnTB4A9G/BO2cK",
+[906]="aBIurnEEq72P1l+U5AOCU+eQuvVwLRCkAzhP51AZs/vGnbvzcFepDOVWTLV5w1ad7XjEC6xniYGSeyH+0bhrJDtsrkw9bB/y",
+[907]="coIZoIHW3vKfc1kn2cYMsLFqXp55JqPNMEWl/aGDks3zilEiDKJjo8UTYEX6OzMk2LmTpGgPy3EcRDPKL1I7DLFQrh/mkVk0",
+[908]="/l5LpzTyEmZm+r29e3VU242qzVhIgxiNE1GfJf9hsJrtNGCOEUKu10jfrSizIUexIQMtNjfqu1jrCMnL/YrKHRW/ol90xymW",
+[909]="k9UhBV7imrUojxX3ml99Y2t5j3vHcGUKG1b+/H3rqJHyd4SRFpHdx1fcS0rugsKNh69LwLkZvEt2U3DAHEveylEjYaadXcjM",
+[910]="HVgtCSvtGndrQuSvF6uDOgJidtZM+FsP3LNjwECi5YbDUhnJ32o8BQa1uvyAwRo0MIqWF8+lF4wME/PmTvJuq6atnN8URw4j",
+[911]="ccXqsP3oZPsfGReQ7Ig3b3s0IHHvmpLH3d/VxNMFPNX8/QmfYWTl5AMWDn/Vf6EVdK3mYKjzdEMdnGUiL/ZhEt+8d2eJNGp3",
+[912]="Ie60PgASFdbF28Mv2zs2NnM093aUtP9voJAaBq9plbzthUdrEF4ujHDGC2/iNrmpWCGADlSshWPEhN5OQ/lqWpFMVp9dFu/p",
+[913]="dL3tgcukWnTi4pFu1/2Ub0nyIlkRkdCednEaMlism57xGIXGYg9w/Zrgi21aBVWbm2QjhT57iiYmuqK9KiQc6zWUwe90/L2p",
+[914]="Zu4QDB41rL+DTHcmM2MeS0UgnR7AgCyTr+qVFncCBgoKzWHRl6UIyIgpVRNLgKevjz9LD+QJzNSvFY3W8U/+XN1f07PCGHri",
+[915]="jJFD2Xi430ixxK9y1NvgsvgDDNECu/CiNcH0Rx3kQDvpYqtG2ftj/jfC93+KK5sD5lFz6m9v2+QMzGaw2kJR5jCeEgKYDGoW",
+[916]="Ate9dlOV6brvWDQk5yqLlSFPWNk6LqjjjsnJehW8vF7qPw+Aem1hdg0jArF10mRybzw7GWFeZ6a5EC424Ad02WeQgehJf2L7",
+[917]="tYKJqMXI4UDG7vXPweU2vVyK03VpHHNJvmmjConFu0LEeTywn8Y0hr26CPZADnKfNQq4O/Xo7m5CjAdb/3heIPORH7GrdctM",
+[918]="PyxFc1fS6JFnToI0jZmV7wedTh33nUfWMC+s8bVJfCZ7v6JAUv3o0FfJyvWQNU4wumjWSe0UdNE+4yOWO2o3s0ab9hleosCV",
+[919]="5jMKsZdYy5bb7y1TjUqOS0ewi04sfgEwREK5KflcxwDOoOn5Tb6sPXQuri4rNnwC0wVD5DxVWs6GQRmbzQfhRxBEAphWFYD8",
+[920]="Qis4j6GHnmIEfnuVDGEDvhjC9u6qMOrR4DKNvizKQweF7BoKUEvXvL/haVBRVthRgnCBY83WuqdWW0wFumUf0n9Um9SejhJ0",
+[921]="k4uhCwqZQgKRcHuJrk+OSW+PUzO7KcXTJEEDFNx+Nothu3t5XvhiuR2YVC8gudF2nXENoXNNxhHrTLMPU1mCPKmx2wuYTi7j",
+[922]="QR0SB8ofHDlsDx+R9rTXAyXw7xIxrjdGpQwgYwXNjIcBc5yAz5BfP3QcEJTlEkpJFdKNeeUIJh31Q5pcLn7+fzZgh+s2h09T",
+[923]="sVKvpIEmfn0NIK8w9dSlJsOnhk+aevqRnvji4Ul4sx6fr5H7g4VP2C1mjrJEAv86yjrNN7gYqq687KER6QIP2dfwggXuwD7L",
+[924]="M3cZ1/WFCRNcM6ClyPRfAXUSWUZSoaGAT774l/AxgdDrk/HWqUg2fQwaiJ9jb8TCExQP6iSqJ7XDBJ7JJPolefDFkjtCn1jl",
+[925]="EB0ivJAidCwJdIh3pYCZaD9fhD5RDz4DvYb6UBq4HzXZ7QXPlsF3KSIkZKyrG4SBUjEQw/H4MzfcWoaZwRTsE5QRW8xdBUtf",
+[926]="ESDK73bWFuipCKtpLUiutV4vBjui2DLMTyT9/yn7l8GjIM93OutkveDVn4crW/wSs64uMpwcC+eEkJUuZhem581mG7X04A3I",
+[927]="3lhvQL6utCguv6XjVoxhA/zBqdLEOM1/KrylXo7keyV79Noo1sEd+uOkdM9GqzexyzZYQg/hKpXcX2PBG3B4tt20e7AOSKfh",
+[928]="AVV1KFV6SlqPUWchUr+7xhK89luwHI11ArA8rBsvsRm9puFzYBUH3DoK0qCl21+trNPA08yPQLDOCwYM7hhmdvsRynwpJ61d",
+[929]="M44jmJ2htics56BYjFGDdz04P3xfmN0MQRfR4U0qyFjwCqsOVM1PZb/F4M1/RSthCvB5AJ4dJhgvfqz3+kBcpRmMQ+DBFMJi",
+[930]="MLiiqN1mqKSMpa83ypKyV0SaBRqroUrpyzKkDSocgBD/Url4HwfQNH7v8vfPwq5mecuVMwq0vIXM+xyw9434mL5Dw6RaXiKj",
+[931]="nZHtBGbBWtEmT+QYKo8VWUrkYsVhaVh6Ez+0oFh1+n30ZJXNwA8wPjWWvRfWwz6gHH/Cj1S0kLcYauZfaESvEUEtA5Lx+4sa",
+[932]="Mw3vlpB2B3EFUURpkuWp7pADgUG/sjhOlz1o6gid697M9dofah25NxYgpwXObYl+0XldNSQ+6SspwcUh0DGRvjXZhKCTydmf",
+[933]="ntNQNmkUfEoGuKg59KD1z42AdawwQdUfUBy1bCA984hwDbYFMA3YlikZkvSuLveOv7Z9akOicK97jXJ+eINkNVZ6nQ93ays1",
+[934]="/c5Wl8s2Cdnh7GO9E35JLK2VdGBEMEFcdAb4vIHyjoiqRAxaFiu8YeK4CEaDxy5eOSsm+lA+xQgIistNMqkIZ01VDXGmPjnL",
+[935]="Tn6YlkON75I9E9WEjK2+oIIfvu31jSFuohFA1Cgu9umpkFvxti+34Y08HFB+BYedl1N1xmuXZ4t0i2P5zv86TBRy2hHMpFWD",
+[936]="qmmYOkIoWPNEaaMAM0503a/HKlN67kXYOyB8lXpSajGCWI3lT+Is05i4mW7Hp6WAtPYTwk2iydjXBiKljDvHYTjDPnFnOXMO",
+[937]="SpiVkYSLGz4ubn4BoObpVtf2SfZTrwyfxcofafpfOfTAA1r0cC1Xj/Fb2L4P/lE+EyR6rfoKVDqAl7j81AjjX+RnboocD1cE",
+[938]="YiQ13BX+vazCCJ7HQFTHOYBzxPf4DOX5NtOit17SGHLX+D1wldGPTD3OI4XH1uQrBYPKoXexDqqcI9v+mpngZwFOk4PtyFAn",
+[939]="223LNjjAxOJd56MZl3+YE1DPri6TiHCo5otMVugm6oejlrSbr45SXay5Lk2LLD0Dyb6Kt8gPjxOQcCTV+r56tZXuiLRLu9Q9",
+[940]="cLaFS7G0J1zPQ+qehaDumsK47I1hZK0vyIRdmP+ZDrITAzKN5XcK6jQhDTIeLUakMy7dyTx7YMlZbvYLersZI/pSDWRhlylO",
+[941]="ygaxNtEemmSuXoQop/TNUrDQm9o2vtqssXa+5M5STwCERwV0oqseB5W/2AmtbtZt61eTnpG6CZi4OYle6DiTcsrA98/di48+",
+[942]="MWPKcm6h5J+8cmE8S6qDaNffovgr38YehuDNMJGNgrtUq25C/wSMJ3YNPZ+O6jlLtzx7Ic7e1RfcyYLnpr6npOzk48BYsUfi",
+[943]="QnsVIiHHARE1J2+7ugQ5NupDCA5XPKdtYpzqiMxfltlopPK+N2dWGd/wfZNQgGr3JvNmE/QZMtFXnPonFpA5zwKaJV1tT7E3",
+[944]="fWMiGhQduYaOSP0epCGQF6PzYTWGFCg69N/GoHWT08kIdK/3x0Fkw2tMbbR4dWgi9UYeFMt6U7GhDEa8gi+27XL/CEMFx/WX",
+[945]="tRHLZi64hyNiGR3OjZSA8FpCv1m7Kc6Al7b7SVXFzg3roScqqvEAI0bZ0Xap/ylBbSmXi/viBlOrGLYSLTrgZw7OqhoYB9Yh",
+[946]="ceGXetVV0F1YtDKeOVBnkqSfs8Frb/Y+u9Y38BsN+e4bxhPq7aENmQh/e9UarblKO3xcjLnlhJLSKcBNS6xEJlddE7uvjyZQ",
+[947]="GqzD+hnJ4gXcsoYMuTpGdCmcrX3+xj+j++M07UfIVX95Ifs7/M0uVfPNORTSsEYd2eLV94KjK3xdJ1gP2jiz8I2/PI7oqID5",
+[948]="Szk/bixn59pxgdiYi28yYUp7LJj0VF4cYUobgpGIqEGPJSh5cJUNjqIINPbwhw6+63VKSJfGHg93VIpe65b0iwBVwtpiBoLu",
+[949]="7Lj1CDEZ6cMxREFoxnnqTOsdwZMeuEKHJG7wJ5jf8QB2Pq4+9Q/6hAw70yTc8ugprLS7O8alFY9yUyRo1RkiokEpCiW3ZrhO",
+[950]="fVVzE0RV1pykcURPyP3hqg283+XU8oBZ5FP34nIeJFMv+2Kx2CDZHJcvRF7NL51SabPY0/y2ZUmFu6Gd004u20mb+MDaJUVI",
+[951]="ri2bQSabvZZO/GvYjTAoa+sl4/mO3WCg99Bx7KFLoiDnjMI7/r1qhM+0x4RymwFEvaT2yrcWHFgw/1AabbIk7WQac56ttq5K",
+[952]="t8LZXCyschjMJoEco48XAX4+a8CZRPw/32IwbHHFH2oTsCYADb0RtWKwss7asexeBUXg32RSK5FKu6JRWmvWwT2+4SjfMt5W",
+[953]="NXTHl1srxAOx2JidxUdKKIopKWoYjAfFVueTrXLeZZTwslt/ZHr5lLYnJ8vdh7KNFCESUV2m5rO7supCx5YUiD8bqOKm5HHB",
+[954]="qqPebb1fD5BY29qVLkj4VmMJ1mFA0pUMg7SoBXhro2ngbIu2TLNJZLTJ2rK5V0/o899oEzgR8UikPkVzFrJmRvCZOjvyHLzu",
+[955]="e3VsW3VougVY8Cq2na+I0e0Jihx8dDU7KZmSwvcVss7XFiuZ9z+RdV5PJEmT2Urvc3A7gZFFEnRXqtDWXzO4r273hu1gSp6e",
+[956]="HnfXlcnXxejOgpsaMadJ5z7/sXIr2hreFz/dc01vCnPjt7V3o9Cm+mDwN9y+jax4oHaka7p3zSdXxLYKTHQJy63cCJSbQ+Nq",
+[957]="7IZ3c/6oi8EFPsL2g/d5ZrpRfr2fdjwcmvHisTF6TgW7l74cENXDi1FBLmhkaHFr/6CoN2AgoUHJktEGAi+DhsogYzbOXQNN",
+[958]="NNseWbN4qgY4ubv7tVjwAGpqzg3nralEglPAn+drEqV2oDq7as9o50zl9mqcKCpLmOe9Rd6LSVbFDCPkCMumCQYvox3nPzWf",
+[959]="wpqzZro53xIQBNRrpgFUnLXjcaQXIlmQC5O8fQldvZ3LmydItIc9q7CqE2vZF2xtWt/kqp0lzf+ngBGqwQn2SQy3ql5Z1R4a",
+[960]="ouMSBup42TVN2fbnOK8p0c1lo34GSJ55fxlDPI0B9NLKtTrKBH5ILuxFeSQWR7EliKKTFTzX3FeZ54U3DbJ4H3m11HiRbm44",
+[961]="BKnMibAO8e0484orYaXo6DnOoB49M4xTQ0Ic0yYgkNoWyBSqIh5b4fIUx2j803+X2E6DkQko9fSEkZoKI4OQvNJQeqwLwEBP",
+[962]="xpCC0ALWoeIYy6Ugev5e6EFODzZcDFlPJJA3qAVQHb1Iqx35k6ra7EvKjWAftJh0o253yZ0aL0Z9SRp/wDCmL/ydJ6+6WEP8",
+[963]="nhAm2gwFhw6v5aIXYEN+WyDz+UNwsuPOUn7QszfomFMv6ZqedNa3vSg9DeRaRAAabT63w+RWIJO9DLowRW+lf6RsDmYQEQTL",
+[964]="IMhSDnQlwEVcs6Xc6fLNrVz/uDiojK8t/LhLwJqfjv2BR/zHBfHFVfePRfIfWSCr/XJe3nboymignaK5HJXc+enFYfgNHk9x",
+[965]="Ppl/cfUteD0Hoq/FY5cjCkZmt7PDcJKEIDITodqiFDpUYuNH+87y1UR7wAIaNiG2L9py7pvLfNz5f8beTbcmNQs7dhvuHBtH",
+[966]="XMAWXqbYKHY1k9KOvxXlJWJC43XtdviwXJacRMWuTDeE+mdy/z2xP64bI1NxyJEiTytsYwCyZa3VRskUEmbRRN/sKbk7a0oE",
+[967]="/bUEw1M1u2btJqOpnj7HvHruc642Ib69WtY6w2BvF9FjZ5rFjzjg4jaOcJQRBBGnNBAhWDRnu6StxubPmDOPDTeKXA2p/RQJ",
+[968]="t62eE6YuE5F8Efexzx1ThfddIJO5DtgvG7DSjF1rTCwcW8y4+aLcgBtjGnfCP0Ko/63LnH1/bRjSsn3ugRrhBAnJHVkmgrJT",
+[969]="H6r1wRgvcx54i77KNrmwjxmkF41Wg+kD/go6MXMihOZXj+yt2CCUAUSmKHbck9nH85RzKfxv3jkm3GRsVFg+CmoJ8oA+Uv7z",
+[970]="7QWo/cpHzFpP8Orkl1rPSGDp1GLXmTK6FQSoC6rRXVrslJQQ3j4waqgQUY8/TypuKAcNq8ebTSXUGRBqMSrKJ/rtiFwxM5V/",
+[971]="SuyKsjx0ov12M9JIy+IczxglgDACwfgCVyaz16LTR8PLwv+TTksruSX8JEn2qUrtnDgnu4l/wg9Z7gzwLwt3Fbc5oQMJLFtL",
+[972]="XvgcewUGZW18hfgFEIveDRx99ACK8LGTJ7RLsWTESZPN9hwdLR//Wu3pOxx39SfV/4F7gXbPdcweUkmon1V5HNyoBrIXcqgy",
+[973]="eyp958H3gS3KWnwftcirJxepH2kTgxX7t62xK4CY8M1y4dKyRio5cN+2F8lqHi/ts2He0RzhDW6uw5SSBYTG61THStIR/Y5b",
+[974]="J1ZxROI7c8jk8o4LSqxcxSjrWlcmps8I1DGDhERNKkn11RwTtj4Xd0sDtdO6K0/W5fPyy5Psyx5HkEnkdbgbwZWaispPqTzD",
+[975]="zd1dR5Wj9gP3FDY60vha0OirEC9U9fjwOrmqVql2SE7syazwsJXlwWx3lShz1p1+PshVKacNYYlRcaQLYWvc2+HlgjLxJY3q",
+[976]="o9wIQ+kDFsnIU5GOvt0JGJe8+cAk0gxVnEo5pQsrhRoNNoHb4UYoa6wbLUlTe9tXIivyOnDECJeDukvBtsfnLN5ioslCfswn",
+[977]="Yu/9qCb24RFb7kQUlQUHyxtT/Ke2e22ShsQfEpNHf2j8HwbH3YovaXyDNxwuVz65e40NI3AI+v24THTOWWu1X0uqh3rCL5u9",
+[978]="Lf8HTWuerQKOaHiYVAVPQRDw2bjA7FTDShA4xtdapvjzXxTXVS/F9Q6gutlyyOfqCA6XNMktuuJCxNvIabWon+1f56XHcDtT",
+[979]="QBgiKvvlI9bxnmUY1YuSiYPtj0QcrtveCybjdiG6uxfxIhvyRHX260B38urms2XNR+bBOvVzOgUTl8IXJWNfswANL77sc8av",
+[980]="nnuV4Yz7RQcIGSnK/+6l0XxnF6mlNEAz5SmQV9cujzYUDObLRHqTUDushUdMVbDeWiVQIufNeAujAn2E1IhPN6ArjZY9yPRM",
+[981]="AMmp0HXLL5Cg9EjWEbGbmSuIV0Stk3IxC9uF4m83hfQu4NUXsgUHU0Do2BjHCLdeLYb/GRoMeo0NUr4jlHXnRmJgsrOlH9+9",
+[982]="DXauikq9/bz9RMqUVpyAqkIZELmTnFN00hhrdlrR+wObAtnyM+tb2nA5oebXTwKPSsfwpQPbKaVW02zBmoBoECvY2ut9YFmb",
+[983]="yNh6cxAnv9Tp4orzLfu0WW/jlkO4NNTMwBmX6nUIMf9BVx2IQPuChjOAyeJxFURyQpTNJ9meCCmZK7kfIuoff5YfV8hW8FDa",
+[984]="anUQR3QTPAyPnVHVe/DhFxV6WIP277i5hRmg55vBeLsdR9yaSUtWFFbMhAJG7x//6cq2HmcvPOGRxKbVo7wLIWepjr2e9Dux",
+[985]="rbDNPJNgXkyHxW05qhAu1nJYJkuSOuMz2lyoy+6Pm48eusitaw8dG1wili9w8qT2zjnOscRbwfQvdQjzhzuoF1F5aNJMDI/4",
+[986]="4OU3FvRE1NGI2HAf4XGmeaUGrBxeJYPdY9/vTlQtbVbbUcuZ9ICmJKCPxXQVh2u55vPZMxrkiT3/2YBnaP2UQ8lKGsFGNXzs",
+[987]="1bt9Lt1BDvXwO37kWtZXvUlzoowgDW/x4Q5ijRbyAg2nri24vsU2SjlZcGOCoeclSY8P+s3Wa/ACDuYite/ZqRC9GkysU3VQ",
+[988]="nCG8FaBBCeGvqYSw7Mlr9d86bF6W7qDD66PMGLPlabxa/L0LVGn56NRbPF0gjZNzfceUnWDjBK7pS/tIBcI+1b8MulDZBNhV",
+[989]="a/FgRSuGjv7QFd2qsd7THOC2h3YWwB5wO7ny/X9NPf33MffHsbcCtwDXUDnAorIivt1CDXuxftRIay/5Dez71+dbDVJor1LJ",
+[990]="70s97nFjTdBvD2lhVaDG4wKxzwKfzno7CPN5Pko/euqXoh2P4dOEHaFWGW8UylrLFt8w7HByFFqiuA+uMH3KTjkVPrHsVvg5",
+[991]="ga59i2T0EkCGXEbohru0jpBMoVJ155qXfq1ekKgapCFXZbp5gRL20WyujZW/HUIxjGa9IQWJZjbPju488IrMr409t+83rZKb",
+[992]="SzNpatOq1W5aQ4jIeDCWC8ImDWtkATWaDC65ThUQJgcgOP9y5qPHOZK8+0hh4BJCMQO2d1dKjsGK8XwaiY0FiYE3aOfW0G+g",
+[993]="eInMzXC3FsKfIQqTv+RYLEsm/5oZPuQBw0Ss5CRwtsx6qa1T/HLAVV4doBh0yxdKEG7bkPwIqJ52UjzWNmoU0iFxweIEX1de",
+[994]="XIzAVFx8jb6XeWW1bzIWQrSahu4TlHm6BshTxHi4XEsfh56xXRUpm1ZCfIV/jJ9+tisfmKhzwV3hqCR1FHOHaQLeX3AcZWIL",
+[995]="+Mz10Z12cEG1EXjX9rpQGd8GDD7iZUl7nhIOJC2ydtw5SWtA3opQjvgcwWCrIOtbiVSSH6QK57MN/z+OPPWq3Hbhozd6UJle",
+[996]="HpcPweucBqvyhSW5p9P7953YgF/WxaTVrJJH0iCCy6Z9UhKHiHDRMdMgMN7lKKG4rPY7CpVqk/uppAqv/KkeD5+Gux8w5tTf",
+[997]="xX0ybdg9kT/FjjQBZPATFU9e1WfHVUQTwDooCYiPvtAT4Qm1+D/SlUibyECMvGXX9SsWPmoBtuofyscWBMX8oDRN95EYp8I/",
+[998]="5vdUY/8QW+zc7J107ba6a/Yeq9mlAwQ21eKw0YGCkPiYfkOPxec8+P2dm2Pj/DOtyeGFjZa5b5aQSR/mIFaEr0hwhiixvM1V",
+[999]="8D3eHt0LHoqYDZxzupQb0suA4ch6XXG9ypDr/79qKMR596oLCq9h6Pno0UXmmhcNgEd8+sGJHLt6Fxh64dNkWa0HcU+YUlQU",
+[1000]="MxoutTx45jeO2q/baEHDG3Y4JHAltdzOoiy/ArbMR521Nupks6DVfvGSAg76PiEUzZzctBURZ4DflP/Y4RtXBmCNLwrEe80a",
+[1001]="Bo/4+VxxAufDeKfZtYHWRw1M50tnkKw1L+2BYx0pzfgV7uR/OkSDshm8bWkEQMZEaoQCakIuNwcCRO/t/0Q8xPEUGlsdEDn1",
+[1002]="BM2ltLxUYppuxEyUikWpPIEaY5m2J/Bq5Quk6lZCfCp92+FX42Pr13wVWWnUYq9DzJyi3j70AL7ig55W5JG0o3nOS0XsCp66",
+[1003]="h6STSdPMUbgD9XR12NYZNpuzjw/4XgIKJJLPChBJl5dFf2xr++vwGHK5RORbmKjPd4IUCgBcwHhv2cF2dYJ/rGTN+1m5ioBB",
+[1004]="+WBO5k6DsnvSv0Sd/+X7zq17EjV6bi1MggHbgwn130jRjAQqTBaRvanFZEIXUhg++qDoXZWzV3N4+GisATBSjQKFhZMMJXuI",
+[1005]="HOdh4YGniN3Wg0e/Mgs2OB0bcrt7pJCiJEUHDDEqib3k9+kU9YuSazimdahTC+C3CA+T5c27KnhQ2KIZut4qcTMlj3RjnAnD",
+[1006]="mAF9oXQDoQXDmhiVgdYPqp5gM4BMsOXgDrFTRoHz7bVyFehozyEw3Rk4npE4M6yJxPjhFd66fy+BQ1wP1Sij+1RF39icQWkm",
+[1007]="8djeFzetTOXwY+E+qB7gASckn4VUEjdAN3fHyfAMsRG3bwZ3K+E7vaA7eTC/5FDas/vgl8zhT3nxUktuMVNLwxG+bTo8MQ12",
+[1008]="kl90EwPzgg0BrDKRnpyMhBeT5euGlKuQ+7CxUdPrGyn1eyRmAJPJ84yAQt+QU9bL5UQGmcAV/B4dn9tpsPRaj2hYeLb2Yz80",
+[1009]="OoIsbWDg9hPcTSWytKofSJ0V64r2/4Gb08AmmBAK3ArPahraLkwseVLY03MNuVL9MWjl8ieyU/XCVOjMH44p6g12bRZ6Tke8",
+[1010]="rpJzbFBe29nKhRuHDBhCP5vyno7OiIqogEL6+f6TzJ9Kam3/9n2On2RU33RD/Zhd4YYyyIvB9Fv2Jty323VlQI6o+RwDCQBY",
+[1011]="j80gT4khmAdpwCOaa4lNqtazj6rFknecth8e4q+Gfu8GGchXG9JmYWImdQ2ZjLOL3kSMQ53o6GGtwrfDLKRFCVUQKGjnKBg2",
+[1012]="DFGhQTU0u2N6yWEOb5zvFtVzun0S7R9W3U+wwyBsZb9TNO8R9Atj/uiTrV4QW0697qDy32Z6EjFPyvgYT21ekRVhv91fkKlR",
+[1013]="WSXnpOgiaZsJHF7r0ZblOnQIS1PKnR6q6EyxLWXINZr9EXRGw52ty9ZqHTIr4YsH+SYu3o/9VleXlh+7nZdc0jvqnaik4+Sa",
+[1014]="wrszhAv0I/XAT/CyBF2QT+tlG2awYnl00EPHZ+1OjEeoK7kxywlKrZDIcIBon72VFSvQAJlW9lzz7lwOCopeMmY1oWKZn9Yx",
+[1015]="Iwly+aaT1ZOMf24DJXzDzq/Mc2LrUA/1rp/PWEvbF66N4jzhPVqzxM7TFRwRHsIj8Rv9LsCF4o3fRebLvDhW8gdnjMQMbXKP",
+[1016]="IN+yuNi7fTP+k8x6mCgC4r5m3UBzBjebNyH1OpyasfQ6VaQfVubpa0D4cQh7XYtPL5AX801f/WZUSqSgj2bKrKQV1xtV1GOe",
+[1017]="ulh7wQd3AUnl7rI9FQt4Q0xGUq1VW6Ywe0dcFp+R5WhQjbyOkyNOw//t6Tc6iEbs3hSOWl7QpFHCA798e9jkQ4WP97rFb9mq",
+[1018]="Lj5iufrYS8gux/5Do3Afo/Hen14PW7SEdftPW1K2r6Q8UDA5gdYtNfblSIv17Mbtqf7N96AcMXvX9KC1r5QR1h43u0i12Pkw",
+[1019]="2ohevsv9iShYi8Xr5xCho6N8cQBUUwZbASNw5jbguBUMVYf7bx2qDtHuxqeBRLqWRzNskyRnZ8Gj1HOr2aUHs+21puPrS+X/",
+[1020]="3kmnV1lVQwQXCXt7MnCxtNkIIrAjEsDNCwSxd30UKho3DTnRJiyuQ++Yf2/S8bzu9ooDJx6uo1MBP0LFXndr1+2GOhcX+vB1",
+[1021]="Mvg7wvpKDb5VhpCR0AYlH5yCMswipZ/+T3HhvZB9gA4kfuVSB/KIFbEj2SA1/3aPqqRFQHrGmpE1Ts7CzNWC3q+eTDGsrvoK",
+[1022]="z0DK/6NDn/R4lcN9FRRN6TmqpnxOnK8g1p4BfdKW0bWpQsHC96kUs06mfFXKWSJPcPpeyuc5DzxcBgxZe/xIYBUCwQTEuNDQ",
+[1023]="Zx8Eqp84PYoWph6fT3yxfuzOzztkdSjtMMcXfPffkKA5DUPEWIqSqBoSQaEZjvJnp2um9oR/FADcKs9TVFYN7tzmpe7A0/aR",
+[1024]="rZqGJFJUM04sJ8fKThrLALLTsScARDxFcX8vdvMxZd3Cepow5niMMhnnyaZItfATFZN9CaHZ++x7u6tsJSaY/YEzdAPX3Km2",
+[1025]="PIE+TpbjHI1TLmOZxUNP8nN0c4pgvrTZYf+gr55rqIKPTqejDe9Y8SAfNWGlDZvsqtb5EXlDRpJY/tdC62tNA1ltZuLG6+Rr",
+[1026]="rSedcqzlKx5cs628ExUaLLr+RxrY7VIekAZcSw8c7iM1jlNhK1YUwYWEDbQJrVsGo0y5lMo5bcNxaywXN9ZUp71lVrE3B8+V",
+[1027]="uJ6XEZ+T6sX2SriLVbfoilX+rvudhLWF81sX+GOqFemBre1V4pcTqRGPgys65AY6qimbo3x+cE0D3uWeMTJ/K92SZ2U8sqCS",
+[1028]="cJe3B311gOoyqBbt/nse3d5BRdzSdtMa0BWXgV7C/IUXMQ0vk2Biqm+TXmirgVZ4BltP/mpAvEQWGTNdfT9atbC54cJMSgpr",
+[1029]="tN1nFU1LA9REgVZLppqoBEnkeaOpFrqwfYZOxSUx/mJwl2bychWN6qUWPGj2TH4AzPtSYKEoiacm6boM9S3LZXAd/EaLVtiY",
+[1030]="vZB4KAkaFnzVn8SdLcnD6N0A7FBCdP+GbfSnQ07JhJhDmP4VGcuDqWv3kHuNiA0O4R4BCI4hGvewyp+KuqsiSW3H5lDYXgxF",
+[1031]="eZdQb8V1zFIsBiHRcQN+llfICGNgPhQjOpHH1PCz0eqjGvi0kEcUR7jWUmvDauxGUPEFWaCOaGWwhs2sCMqxXZjIaKiWoqYT",
+[1032]="HEJJ+qYFrnpPMj4hdyDu7gxTocI/DFdNfdQcDurOnD+mdJ0Vsu5z1rPXGtZK0kJIokXmQoSRWvynXt04ax6IPNSWCBGjGuaN",
+[1033]="v4e70AZc549wbTNSVn8Lw6tcw7skHyto/ferep4m9x39mT+mtvx1PJkUmotyK5AOgtfNTTeQorS416f79+0Lkf86ej+27IkX",
+[1034]="D3Do7awezEiqcfvv7zg4+uiyGIKGNyj1MKS7bQKRBvolz7dItxd4yiAL6OtzSOgx4WsxldiOBzg/OZMHA071HWrDqz5vtVQi",
+[1035]="zskr2OLWyqUJf2SUChXdmACZBKh75vNTn+rY36EmpZm3XxwgXlAZGdqVtEIiDkaDaZhpFD/fg8LQr3AG12IxUlecXADonPtc",
+[1036]="zL0KsuWRnryK5eOKr1JQeQhhQC64aSNnKxXu/EHPh3DgdbfYoq1D0kJFU6C7/NN+h3QZagEqEJ8jBfqJiUmrIfi5JVk6HQNu",
+[1037]="o4uofNRe/beE3IyM2X/7I5uCWnUFqkFOyBsJ/KUH7S3LsbBLlRL2K2DrM4k8hmRjEXz7UKLKM9IAvKAcyfvgHiRYaFWxpiX6",
+[1038]="ts4yUViWcl079KtsXj84z3Jc/C0TQQ/GRX6GSbUG1Oy47tkvnmeKoPoYEx6K31+uWFhcN8HNRlsbFN8OD+QxLwcC1HHM7ceL",
+[1039]="zNOLKgSUN4wXUqmWYLylLOF7UMAdPGTD51VxLm5ypyDEEJsa7rUo77FwqJXNbVnE8wpyQNPRsx1M+lIL7GDvdfAMYLW8BCBh",
+[1040]="JaQikg8f4mkU09eTI3uJBynte1Z1HTF24o7JvXwMWkF9D92vrlT/AO/KAAZO8uBdBgCw9P0DomKp4nEGMdU01RBB1PRGBBRg",
+[1041]="1veSxCMgZiexYmCCGIJwJiGfhirncFl3XRAktxApC7eCuC0e7HgG+EhWQYrIy/yfIRusB+lD3KlnH8xG9U7vhJo4D6jnQOOD",
+[1042]="YllM1fqiFLhuZZxhCZMT/mRi8yFfrRW3fuKUHK3eaLqAH+HHgYEL+IqBGX5sMt/wi/OPefh9UeEDGT59UQH0IZxZdv+LGbfG",
+[1043]="OWW6k8cOv8j1i3BcE97gOcTeeY1eK/R3dBkzmaVPffxllRlx52h+Jh/gd6Ddt7sYPo9GZYJjkMeeLt+g3rdmaAW7bnPvIOKn",
+[1044]="ciq/ZT+W/RXmMQv2yG98bs2VD/0MWyQujBJM11jgoBO7nuu1M0Vns50VHUz2OMsFDD1AiJS3E6GjlnOjmQggiSD7yM5hLZeA",
+[1045]="2N610L3PuSElbpEW/mnVoiOokEHGfqiRX43ywPdbv9anzcu4X73J25awwy2LCzf9J0iadGbq1HfWS90MEJUYORcXXtMGyPrE",
+[1046]="7Pt9tEqFnNl3/0xrJ7krUbasTewJYNYPU1S4OfG3HdF3LZPD+0c4rjIL2PzGqgjfOSuxv85huTOR7ZuaKGduLB9v2n8ezjWC",
+[1047]="+PvH9nbbRBu0ocww1iuTgfRqvlGNCSqq9Cei8PPr8t5t3uNBj7pCrDpcozgsJxclPERDkx6kbh4jTxkmPe3vWQA8qmK40ZUC",
+[1048]="jnPuzBRaQruyuJMf1YZJqDNfxR8lsXwZvIPdhmF2iMWxQ7MOGW4cK2gxmUol66uUFwzbMS8hQ82fnLBCMV9oJuCUs0JLhLUW",
+[1049]="ZgbT9pOVtAVHvbaSVwPYlxnyMbMtj2u8kPwRxwD3EEdHrnszwP6Y2iCT+pXbEI+pPdz9bVmSSwTpqH6IBV4cXWhlrmjkvQZf",
+[1050]="NPfKCJPyZwUsfjLZPtm5ufTJ5a83nEZezZD83cwmEBP6ClP8Ur3FnmQ5bX0yTiF2QEVG0fTrHK6ms60PMkCbxpUYuKFOFlGs",
+[1051]="YGgRCVwztdXDxLsLALdy7RmnqpCwg+O/TUobuJBY1um3e8bQahv7QlLGso3fmlW5G/C02AUbnYuAzNO0qfMrkMoqdwy3/LtA",
+[1052]="ojuY1j/OyQVLtG5AT82trrLDAzPUveVLegbkdqetA6I2a7k/UVPvJvKLa3Hf+gG3AzEfR0+l3kZ98zcF4tcVCHqGjGvbNXZH",
+[1053]="qKjiEc6KP8bTjFnY7gTpV449wRvWvmisT0xtjecgMa1oNt6TmmtXqwmYx+7XLOOqibCJS1vfySRTNdV8J+rzpZqvi9zuKtUZ",
+[1054]="wsnEuxaHiCyiW2/4kNe61aCj6JU2N2sx8iSOtFrx6/Fj5RbU62NbowX9E0wZfdfxQzALb9lBKsLvgSDIIr4mCQwiiDDGjTDe",
+[1055]="kNJ5bnOhVyE5ez/VM0YQ02T33ulRbpM4xmu5Chw/FIIrNqrbYdqmF0+BUVm5/SGBxMminZrLeNPnaAUK557ME34FbDE8r3dT",
+[1056]="rKLx5klaW+VrSz0mxYhDVP4AexLceTwZHLDRXyVRugktdv4sejFijed0jq/BpGaqsji+vYZHloIIxGdKM7LA+0eUNAG9z1MQ",
+[1057]="Yq32pT/V3GBWXI1+ArG8xDQUhs6t4ZAH5gndbLyoUyaj6aDDnC2xztfjn5dLn2118qU9N5dYjWM5d94lEDSTFluxMdxJacPt",
+[1058]="G7mNnS4DQdp5E0fj7PyE5t6molhw1rqJZFa/2+qmj7bRBE1N1OS8ZfTk6XuQWNrodm2gdxrs8/NiUMfx7So5CedjJFLB/sPN",
+[1059]="xdo9fN4hHvkfFBe9xbx6bJgXrQMUA02qv2nDEuPnIfvW+UtPb/loDgUkGAXSd3kclxXW1zlZZUDbI7X7TU6kQQ4WvoqhZWAH",
+[1060]="c/nwjhDbZm2CBUum4CpZf4l2PCbhia3ntKXNQc9JjfihJaLZcVJvYCxl/jBVWT87vtpqZdpKLVP8ZJItxoZikVIF3v78+bke",
+[1061]="P0bibbTlIBZpVMuP+dHBxNssozhYdruJ0pVPqzxO1r3XRYAYEhKNtqPc+3LAf1+zDJ/yoOCRlnqqh7Bm+yh0ej0ANWtnHhII",
+[1062]="cnoBPc/rB+NCmVCUKCfqlcOurY98Y66H5go88IuJ6aJEzkSQpKAAtXATaabykYJ10f2bq2RoW1HJTR6CcILFjBselpr/J6J8",
+[1063]="TXvvluDyGLBTFOdyMkfQd9yf/XZOsWtlmhJNjZf1gz5z1J+saIlZr2Qm3MJmHKghDapgykGIUnKxMlcxJA1g0uUjLaV2iSse",
+[1064]="PyvUc6CAXO6zlZpTMl7ueldRtqfpbiqriQsdxd/k5P3kcQaagouz5bxdxWIVwXNekgMJOW3OpdFv/mikcSWPpDt1EhqDDfN2",
+[1065]="jZ6ltSyOmhvtNtQ/FvjzqVqZbmCwb0dfz+SGzOD0FZZ07QoPTxpdkcncjYyPrV+O4WVYxAmxL97DrhDiHc/fXMqmQn+pUJgd",
+[1066]="NC9eM+9yAVTj3bmT6jvrxPp5NROwnuxd/h8uggRgbqEhm6ktp9X8YqYXEGli0hk6FLfQIvbWVPBV3i6W+RQ6RWcICIY+VVgB",
+[1067]="ogQqKM9rC7+wbL8HKALSBgutP9O4U95KG3E2Dko2UIlcviNI6Z1F3F7K8HoKP3BgukmZoqHLvAH/S6MdAF1t8Z5Ra4maiTjX",
+[1068]="jIfSFv7cFY6izabYZFm2JDWD0dEjN25U602w+auYdR7MgBg62t4GDEyNOwHLFhrovGP4M0li6l6dwTnBu5AImkThgWjh/8zv",
+[1069]="k8yW5ZZwGu2GokK+ZyO81gQFkyEbEy6tTfIVFCdxAMdNLKfV0pz/XSuo8XJ43/CJP5gi7/82NT1/VaZfCFncHZrap03y8/wQ",
+[1070]="3l6XeXv2PH/VLhRetDm5y9PPWDALMAkw/4QHv/R2hNaLc75f31nQoWBzbdlx0fiaMWQnQhGr3S02Wuya/1TNqglwKtrWtP3i",
+[1071]="LO2mj31wHWnPqibW+voI/QNAMz1N0GSNPKtnPvbSNfWGy/ml41rUt84am47Dfob1kKzmOUzwctaFLRDV2eSO5lzXnZGs1Ms5",
+[1072]="EkIPah1UHWZNJ3ND9KTGbSPZDgqOWBLkvegzEslvOq/25ZT/v+mxVKnKv5NB00txphMBN23zo5HEb5Be9YP2909WCTcE4hSE",
+[1073]="u6PXycoLxdDVHCZ1HWJ1EdPBPbngIn5ojjMbcK7MhXG94+Gy/dWNTqdj0ZjT/ZxZopsMVY6uOac6FeWECG8NX/92+CS3q+a2",
+[1074]="4tQFh88hbMoXXsfIFh4kIDrjG8e6XP1X2L0PygEmD2Dmn+4Ppnc/CP6otBlCoUXuQjkYjmYPGpXGZPR/J4kWqVxlaHXcbSyH",
+[1075]="+ogV6FrRjReVYS5c7PuMDDRtmyyvfGDUTjTgX7fEYV/JozgbFbzodYXi42RsVOP/LK0g/itc+V/PBkdTaRAGj2VfLhsTylVM",
+[1076]="/iIWLD+Av4fWRX5+7OxnuSdw6irVGpN0m0BXR2+ODR3FpWZnXwlx/yWTShm8m6lvy6oQHuxQ86G+RhwDt7yj4xd/fjAM2Q+w",
+[1077]="VCEswY8v5gLo3U6hcSHNghkdQ+9hDzM0DP3AYgh4x5N0BA9GyqmemqlOcYPlHgyE35zZH2csIvd9H7gnneei6xH7/00bydR0",
+[1078]="MLgaQeR1yAMXJ687upH94jl801V9FnAD28VUETebcWeFwlmaFRclzV31zZkbiSqfGpjXk/dUl6IvkHIeggN5Kv51i/+qHY3N",
+[1079]="cI8ybPhOJq6eFq2wxGnfhUul/jUjKDrk76KYMW91u07a7+6MprUDHEErIjs2u5PTr02ePDpWT2OCKb6zE7r43HAJa4D7Ws0f",
+[1080]="SWKw6WwVh1fB0ti/yK9H60YQTsw8rYabapBIRScH8HVieqUNrCSIdEyedV7PaAIEigaUiUdgzm93LifwvBc86iVQBtbJ+5aP",
+[1081]="sqLNNAGHU80ZWlVFnrnokcySlHJxA/GSgdF1YbzNgMbEyhQgKnRq1+88gurC9La/rzULICSwLw/wpNponJf4kWHYMrka8ygu",
+[1082]="1O9IP+X5q1nq/jc5xJ/ufOrLjs4K6mqOwhYX50ExaSeCcUzrBtdvVLtl23gpafTqNQmzX6DMcYFR7VymPnBsW1W5+f+eLCaC",
+[1083]="H8q/mmwk7gzvAawUdMJwWYpolmjZ5HFCt56k6LYL/WqfI+7kUAfyQoq5Qs4gf33Qvem1Q4T486mrR6OO6CPLs5foCEUGYccV",
+[1084]="AXfeQLsEkBel+PChekDTjdKfiFXnjd6I6zAsIAzGrQeOhVNO5ScUarQUbajye5uAYf6NOGOVSrD6ZqxRwfdIoiIMOL5mctLb",
+[1085]="pfhvHeq5lhbFNR7cTB62INJiYA1j7Dk/Ez7/Y0EWXhRQaM6wipiLpWmpdIIeRUn87MwPUMCUbFoLD4+Z6WxClleioXT04PtU",
+[1086]="3dFi4yhojb03+O/vgvrwTE17lXaiyJe1o2w/4WNQxiUamVvjTYr7HmF2xw/U8X7Sr+ZxHkditT83vJK2XrqY+mIxPFdCSaN8",
+[1087]="DorGHbFsoRyb4IRJhNpIzk7YqndNM4UHexF0BUP5B02W7ffUbj6qAJNFs5bSgUXSmXNZ3/vtyeR2gIBvQ2YqUnmNW6tkJqu2",
+[1088]="N0kgpVPDAz8UhjeDE0dgQNcF6KIeOvYS83Eiy9yHwsDm6Ec63SMyoODmnmPKryrsiSyXuj/YdA5777r3/uVXN/74t/qM0PTl",
+[1089]="hA21DzK4R6+iedvASAwnVX22mKpj5OSJ1QePjo8XCOYm5vEgmTUVJUekHmH+z0MrGcFAYU8EZ3UoFUbRtVsXgItIYne6T2hr",
+[1090]="RN7O6oUzivqm5miTFeDE1sGVpe+ipymD3+H5A4AeRSrOhxW3OXbiJbfbyQqoiVcE/vxpxBzkp/MTjQ5/Aj9+efFLFE32Mrse",
+[1091]="xEyW/xqpvTS9SfGWVDNijPTBzQEXGeVWIQMJa25L2W+vQ4S9FPN9C4SwmcbOB9pyZxQbqpwU0VUSzH/gPKFYyCtIGd1xnlhH",
+[1092]="sHSSPrn9SAw8hx/px8SdH56RpP1wtTeD8aI6dEf3X9gGYciG8iZ/RxsbZU6EtpW7frsBRhIa8IMMSJOPYls0QBP3JzHVyEYX",
+[1093]="eH2d244GAx/QNTLAjNV803BlLgVCbFKsKcb18JPBtrXSQaR+uba+/ye/SD4BpCFPZKeviUYXv3S1c7Yu6yclirsCRt0dUsIa",
+[1094]="+BGeCI3Jvswbh+sHA1lxGaOaphGob1gKDQSeBFK17zzX3UC/456dHPz7IMa/gG6nx+VAm5V6w9SwByK6pno1Gn4IOsQlXTcD",
+[1095]="uQjlqX71R8h3lijDSYvAI7tC4YIh3RF28I5nmTCB9V48os7svxdpfjvNnMHD3pMQRhlOX4Y9wddL36noGIDVK0OxBaoQ6qdp",
+[1096]="PIk+aPTqd/uayhl+GOsI1DIR5uTueVKtQEi+Il/Qbdy57HHa4HWqs/5e9P+cXCOrvfc8p+IwjoU3l5WN6gv91jLSA+NEvyE9",
+[1097]="FHrl3BjS+N7/Add0Lg8aJkBY6ImUkI22ZPNziBm37hLoBDtQ4L+eywJc483Yu4nsABxdH7jYFASAh+2mFZr+TO9lm8kLxi/G",
+[1098]="JN6rsfuysr4sWq05MJ6hh6xjSYifLaZ+3Ax5IM6wGVzz85z/pmP4aKu4Kpbs4aUiR3HgiElasFBit7Rr9LASCKO7jEJT+ix2",
+[1099]="1IjNc7IQwP4xk/Tg4zcLH25zrboYEQzI5CotEw93IMLA/jxVQv+T2s1Z8ItMzsuPBhyjXjkTrO1zXoXafdQ9zDVaumD+Jd9L",
+[1100]="/RLcRkHvArGvlH4gYT0AZQWDTyz8UF0HTCOkS7E9SzU/EwRB+TVmDdOkx1BtIwuOETuF07ydWuor+zGWnCL2kbDaGbhmT9lu",
+[1101]="SuNifC2oB7b6pBEgO17BbvllkihXFtkI+fSfvK7vEqhBbE75wY+aAyV6t/0DNinzqed0UlMPYxVvzbMrNh3f7hmo8w5Dl2gI",
+[1102]="T1Cu7+MAaQXxP48NllzqsL74/hZpia5Q8fD5e83RX48+sZf3LsNH+ge80DIRHJpvvgdMftUeo7nUU+rKlE3SsUg4jUwYZNiC",
+[1103]="1QrKhbvSPUgRNPHkeF4jL0AmMBMhOaSB2GRJuIhLieff+yoiQws3bqTM9NQ0IQQV54kfFrCyhKW9f4kBBLXncIzQxnFvyqks",
+[1104]="fSwSy3cdzo/ld9sC44TVT4vjDxEx+/s8fyDxBSQTaUIAiHGbZuKEsEPTxQ10g4PyOPtUjVNa65BkH9C+OCa5vI/PaKoI2kV2",
+[1105]="budkzL71kanU1KzeQDMTK4R9bmxoqPWwxFlqM7vBa+JGIiW/d31Q4qztrfcpNa6d1JfpJ3mZKHLPyvooWtdQsySXOnQkscY1",
+[1106]="CTrQmG8LVa5mlLmSZgWYDMeZDhs33kIj13K87EBXAV6WrBBmpZeCituV7JMXHXKJAJF2Qm9ZtEKagea+BS/2K9N8ENYl+BNX",
+[1107]="ahZ+2WVV+KXX4lO+iolpBCf4+hsPzvUDdALkAGipGaCodMculXB5CQSSqU0F59dQVevv9ud3nh7QWVjm298oZRE0dT1jyFSL",
+[1108]="zGXkDL6GMrNbBa24icd/Ws4Rjr9WN2o4C20cuooCZU/KofxXx5q4aIz25UJOOkwvgOXcsGgkp45KMC/761mxuKZOJL6sEcdL",
+[1109]="02EVBN9GsLl5r9nvUaVfPQQawrqRzR42w6mrOtvEwkH1UmA8Md848JMj19oEeDrX7Gsu4P8oV04SKB3y+uf5YF/BVJjZ/M5u",
+[1110]="buyHVoDq5sTjZF3icxNaMYvHCIxvAzJ00DJKSI0DwtROsHsXWU8ptEOV+2drevsfAAdmCGby1A7hwBTM9mXXOGkhg5Vl628y",
+[1111]="BGTGVM/uOLJO0xEP/+CQfFPXuMV+gcyan+CANtuwNUHywtkjm5/sQQbqFWgaG4M6a9n/4ounFOdxRiTsUGFNAxHyS3U/zbvX",
+[1112]="ktkhiBh484Vq1Bog5lgleSyzbuz5vU2yGOkV9d0Lqk6La5qyV9L/OnRna2iJG9UM0TUPjGia4EYR5v9MMnwbwaB/NVjMiwGx",
+[1113]="Qpfd5hKyc7z77wAa8nrsrc8fMQKDjjZx1254/GXl0fcG/dxsLLYPBd9h6sthgB0UWuWx+ptORpfGVpPkKQDJ0idCcCb6yh5u",
+[1114]="QjO6FfKoRMZGxtdOZ+vYXncMvzP2b1sZnQHri4biFKSYgYyx+vOpZ8mZdrZmTneGLLzEdgZ25b1+sUFry1YJZJtdno+zwgED",
+[1115]="YteuPgER6boNPD2DQGdquo9Uk+zSgeFMmhZZEazFnXlC2R1ebzxeD7N0/iA4luFdLM7KqxS4/viMXIDTSda4kWF/hEvPVbml",
+[1116]="f/mPVSHc0CbgCup5YZuEe7G2WXTEpnG0R4YnyNewrXXIkk3wX7pzjY+m7xWkqYdSoNKUBFYCDjQdl2D1G+LOdrOKpndV6FEe",
+[1117]="yCh6JZMes/F8KtO5XPLBi5f/U1/noFW56W2Vi2m1TvVg2m/ZR8UHSz41JzdlaI1XqPRyKCj2v4go5qmgPsbs37nBzQ9lo2k2",
+[1118]="yuzFNTbE4BR+EhSHXhDlt1Y23jyA4BDqDXci5wsSzNR6PONkfLTIKWJsU5C8IJRuMJFF79bj12qSWumXjtrXhy+Nd67XAh+x",
+[1119]="1UflBBMmr6P8qVloaM7WItscuqZ16UvTxplpiVyIxlAt+YZht+0dZWgcGoj5vJ4aEc+kQzRjS90h9L7CgwLNRDsurIWojpol",
+[1120]="PNRmam4Et//ghoGQd49nXi54M3gu5thHg43XeXlmSCQGcdfFpioDmEuUw9vPl8gZ5ou466AWY6/7eTle1cCWG3EnCxcmP2SP",
+[1121]="xOvsu9SmwVY9q67heEQpCaDpbD9NBW3khWHKombH16qHeAC5EuwHOCUjqMDAl61SJCfulwFbJRWHY91LyiNsEHlePRjQztLW",
+[1122]="amHX6uhP5WuhtDdP9J5M9nbEkKyzwpUncab604xf0uUIUNMIsaUqlVRJwk0M3Egr7xJSSmkswCn0qs2LsHa3PsKF9ZvxjUGV",
+[1123]="dl4Le5JK5zEJLyr5tKKMoOMArm59hhED06Mlpu7Ua/h4BxPJx/PwlFUP5IV+VrHYsQOdfSefSjJUKdqSRTsUIqNU2h9X7txT",
+[1124]="G8ojNRdShxQJ3LfJBTulOX3qKcLwKVKeQlmBfFHaQ4fqp1ceaArbM9vDLT9yTrc4srypSKqn6uNHCbAt7yW0oCkK8EjYW8xO",
+[1125]="f9v5D/X1oQu6wObNLlwLPHlkzA1CsAbY/T12YRNSVOwbyjFAxM0R55GLUTyT3Xlbj7xtFNLdFh0mTKeO5oBuzFX+QeF2TiC0",
+[1126]="AESxFH/l0iI3Di8QNBqR3Qfx8BOqTKbvX6xdpclP1lF0tzfhf508d4d+FdQhMydKjsnvudTTnLvt7UStEN4zdQy8hBek3B0a",
+[1127]="28NagGuavaEkUr4U3TW1x3kbXG7MdSL636t8uTZpSOtPBOqCDAGOxlCaeMrIDLddMpmSf4qtZIFD/WuH2re0TAqAoBGkn6oh",
+[1128]="AYOOY9TP31xeDXZVW10lqk0eMMvKCkwUQn9wSgovQyEvHhkK/6aFXDULKzBdQd0FV8Nu+GdEH7lo61qPy+06cdIzGKvPPWog",
+[1129]="bKgUEo0RWtEpUnDZFxZ6Fxe7VpXV30CfmjG0+zKlkW9wVRIF6hnhZOr8UjcRccfS5gqHx4R9et8CyrVT81TC+CknUQ6woqbj",
+[1130]="at7R536yCLSzHTmVKrHCBJ5VX3iuZwt/8OEN2QNQnGc54kAl+DjqQzwZmL3aTBENiLdFa3Q1s+ZNDXvfAt49A19f1oxxREJy",
+[1131]="m80rdTmp5bQ01U/DY80H4pT3kSGIn6MleoJub2vT+DjdFdirjBJeEhHJ8zoaQbxdCI85+sA0E5V+xFNePC4eYXSA3+cQw248",
+[1132]="7qfrujoAaiuX8M07b2lamjB0rMBYzMW9tx4m2h6//VHWSK9EHzVeum3zPUI0N+aQoCDFEkO2iE2MLWpUKYJToB71VXS9GOYQ",
+[1133]="6Oit8HUuIzX4MfODFsYhpFhX+g41AIvq+LGzeGjVACIgOOYhCIkumYPTTKsLDXMFLkqsS3MATeBT/ACm4OrwxtoD9AVwU3Zc",
+[1134]="o6w7T5JCTzckyRxnBPUxJCegQW7/l5eXk+JWkvov9A6FLJRJICfyYygmr697K2vbIz5UuO5fZLLUovw3GHuCWA7cb36D6u5V",
+[1135]="CZeBileDvTgBha0Sz1Dxf8PDgIDmSzd3rYSY3gotzdnf8VS2nAE9MKyaOuACA1SgQfAZGCboDgwVYydC1CtBRmH6rRAXuRYd",
+[1136]="ZrID6ZrDLxSgwC1AgHMFjoBceDXDzeT9WvabvwS/e74rVF3ErKykJSzaZtB2pqf6eC0NSmErZTj5+XeklZRG+aMrbKzndD7w",
+[1137]="A3mUL4CfnSuM64tmSOFVmZEnJqc8lJCTiqAlQKJyT4RnuWLxrMEG7kpf6H37rwLGqPT5L9cMmCdnJkdopP9WPXp7wr2Nru1Y",
+[1138]="TdkX6kG3DMYWf697VhCfjJdKJ14m4pI8md1ugoqvXc2eyiA5QZ3HuFdQvzJNFs1zbV0jbkCG9zpXKqB+PCyJXchcS29+Xa+g",
+[1139]="eeSNOzzKTKWC4Xv9lINUlIDPMZi0vlxtirfij8n26n8rKY68vEMs0IGAn8pGHpMsBbsevfS60aKNLUO93DgfeC9AQAxVWAxA",
+[1140]="mTRi0mge8Bt6oaeZbtmVTTn+YzbH8qZmhCn7VWvzGnwON9VxmXNWHpvjiTUMr0RiP1PMCV83m7G41oiMkaIS8bQH1/gx+0R4",
+[1141]="MEJVGccsbavR7Oj+R1k6XXqds8DKH73bNHIuhFNRB+Xeq6oaovkRcitABjCS0BhLoJsKBbIrSC6NXQcSwuuTquQwKA5foRwC",
+[1142]="5aRTHLg9TKouSUueawsRRYrcH0NgyeIbHluasN/srE8sbdTFj4cNWNGDKPMVPvKldJLq0fnnN9pXl12ucZnLwFP8uVmHHqvt",
+[1143]="ANohv8gTmGlczULihOVfJcLMxs5qjd62qwab9kHT+zoJce/Jqc6QIDUoLcb8WwkQYckoHOo8NSXH0g7Up5zruFoaZ9+wQES+",
+[1144]="8CttrbQytk99pB0L1XYaORXUiIO48TQwcRtFzvjQXs6z+9G25/je+BDpbueWgqsuLPiLyDjOosW21e5lKd8NV3HOrY5BRRor",
+[1145]="B0BY3FUBBRgJP6W634yDZqrzqpE627Cg/oTjAXkLp9QlwVjUHf+x1x+OGoEtqS0vvz7hIScB0DXNHsznGNlVK0wEZ8ICITLc",
+[1146]="CJx96FncZbRQWkQpd4be9ScSpI30YJ9KoeTweoC48m6Ovk4P3B4N5YG9rThhqJ6KK3tTdq0ABsLFdVMw8pvY+uHuVrbbmU+b",
+[1147]="Erk/XTVa1TcHBvlW15h8StaUcm5QLAsybVrJ9epqunuNzbl5sR5LC7wuDRlBNb9t4T7vGJ+AzrzdkvN+RcfsTROYxOKDDML2",
+[1148]="PiRzZB1JMPDLVpzEwtWexQaCh0PFtbamIftJ1T62uzOozt+dHgSpx6FtMcEb9m9a0qySTucNBONXjuDhCKs5oCZ9KHR5tKUt",
+[1149]="1VZUP+lvp1xTpyLAw9hkx2NDbhIMDbYK/Deu3JomZEoAkcq6wfdLcpOCmpqQIj7jO9CB+RDZkVE8KLXcfb3nooKxVPCTTHai",
+[1150]="djXl8YBKUGrNbdyYzkB6Qj1arRDoA3fGuqdiVVIUO8NiJcqP7cjeSE86Kr0ru31oEbDCKOPHYhFaQQM6rRQL+B6r7tz+YvmH",
+[1151]="CrUwkkMxTjcxmyRJwmef9JWDr7/vRpJ+gt/EfcbUOZ3fArMt9MSxUbvKUVJYUzVrsE8wVXYG6juv1+5IFov+zK6cfyg5LZxd",
+[1152]="fACf7O5aO2puKlIx/y3qAlPw063txfKl5WA17q8TqPZmFOGP6Mdf1h754/D+SQV7a2nUsSXcIDvgWxf9JA4I0KmN7yDNi0mx",
+[1153]="Y8o+qdfB7ov8xv1M/thNiHHulY3QH45K9eqHWOc4Eo0cuVj5DjQkMuvxeRnyybZ434V5ZLW9gRjYHkn6NjXqqb05NquBL59X",
+[1154]="x4ld2DVt4u29C2la9c7PRTOeelOPgT/+egPxYWA+FL/fwPHeFNG+YCojiuB663yyEkjKVx9sWVHIe/MsE4fTDXXSKY2Yw+Br",
+[1155]="V9WXlLcAP1xOBlVLJzrdXFnF69Hvm6OMJ81NSU+MY75UjKx+PqLF7Q7cJc0tNk9FSbW+QETnIjX5pp1KUDMmdl66bNMcIMwZ",
+[1156]="ETvRGBjum70jnjzctK3PcvFT5uwLJ8vnYCsb5ilM6ceQ9O01Pg3chxLMb4L+55OvOcijz4nEbuSCcfvFsfA4XPc7zp6lIsZF",
+[1157]="1UiNJ6UNWhqn765c8ACh53WRdB5KVmVqLkUo2FXwjVSKqbRvww6RWxjeLsfLcNgM6IH3b9Oo5T55kdJI5uXI/NNW0J5h/hGD",
+[1158]="YfZYWs2oxRMXc2NVgG1WQrmebQFZXltUMHOGoYg8sxfp2tZJ7hWn+B/F8nm16saa1ZI8xdbVk181SMS7uNNX87Z6/J1S37nA",
+[1159]="9ye4YsCW7A5CEDQ5aL+l0uA8r+n6UYWYzjUA5AMY9srtu/3t8Ya4Jy22uO7IvYmRmfrZ8kECvr7lhfBu6eoohbxCrj7yb1Cy",
+[1160]="9/snP3skF8AYzHkLCZyX5+9Pv+Fn/b5A648wEB7OXl6DQGZ6WAhl0ZKprA+kQ8oaCRRC+MFklrL2MkFqwL0vXIVYHnHGbRL+",
+[1161]="vBr7pPMugLi0mZsabYgemZ58Q/ZZy6MagWxoqEePg9NkTL1L24Sgedlentt/fmQCod7euNBLV51yiVgKIm0Ccir0gC+eMr6c",
+[1162]="bv2pHzaAaxR2eAermcOVTz58F08OXsM2YMeN1GgkL50DRPGWSmvSTphcnaWCs4kohenrdgcl3iSfIfz0i1ab2Tx8/BpO8App",
+[1163]="S/upLk2zX8mvk4RWaxyjbKE78A0cB4uytaJ+d1iL3Zxr7ZfztlmIUT1ObFPx6dBWZPsTSc1tPNkZ+GcYhxQpBZWmtC6Yv7bv",
+[1164]="aYUUAcB1N5blCYZMvxpD/fZYDEDrHlxmCGpnheqBpW0czB0v/IQprfIW6XP8S0OO3V0IupytOfDRkXCX9y8BGhGreW3g/8yD",
+[1165]="2WQQKHCkQuEGp6R21RX3DdosZuKUfgWkvpY8lQb6MgwTBGEBzc7DVc+myrn0A2174m+ryl21vEcv6qoKIhi65/Cf40Ny/TZe",
+[1166]="+/cC2gOoKC9mxY7OIM+gQ1+ibOFG2Eshc+1cJ3ZixqnBzDekAcqjX5sf9pz3/65Ji4crTKBm023ARMzj9xNegg6cBOvQeZAp",
+[1167]="WlP150ilRDPIfHcqjDFCVsxicRVQvQGz29Xzrnhe16Zme323fXVwWxmqR1xDCN/dn/ai+4wf+8ZTfhY6ErBz0EKMkt9svcSn",
+[1168]="xbJ4is3VgU7hZwY2ltNi960Jaclox/0CVNtTsqgBnPKPGAGADRWNliEDI8iYxAZIZDTasks9aGlt/QoTLhm1Y5fvSTkfSjs1",
+[1169]="w/vRMrfhhTS4HdatYBL3LndiCtYAUrxgZWIeTsOWSp7OmAdRhonx4VY4JRzbcB1y9WP15XwS+gTl9j8sgtV0R7H0G79SPyKj",
+[1170]="eimWoZav4dFCDiSsaxzUiowy2poO1r2WPUuO6nE2lpx1Mmn16dfrce+Lt0iQg0zIsgaQY8WynAHLvR1Oa3Q9OK+LMgSpmKbm",
+[1171]="Nxe+O7gpKb/q3Pk1Z8/lmLm7vRRsqD/igvT+wZmJMjZuGuwcUVbtDVoWLbWYSjYixeBahPseXCNbPPV2BMgC1fUFPTZusjnW",
+[1172]="wOodgWQrpQIh/Rv5Ir7WgKvqOmxvQelZ/C+BXNKk4LblvGwIFMCZXUJy+VH/U1oC+YxQ2dzpvoG2aTFejf3SSLzgQ8Znxz6i",
+[1173]="C0S0WCPBu17sxGCvWHLlTOTxXAS5u2pCIdpbMM9+m4tQphnWLmx2gFjprOD3+2W8O3eWKlnqUbkdHyDlHjbmkPJHov0HJ2Tz",
+[1174]="Dr9e96xZsITkCiV3Lsewap8Q9Oc8fKKphL/P6imARozY0pHDkc7w5eFjBKxWN5L6S0CUzP/taQ7+n17qfHDf6umS4HGJtma7",
+[1175]="/8NO1hKxStMuBSwgKJb1NBoYK3jRR1EnUsr13Bs2cRU5Q1RmqIj/5NzHiLo5nNxroyJrz1PpZvn5sSZXzQLvMPxCwyAH1sNo",
+[1176]="nR60jkkk6nqgja3pOAGd6HGWBiUpoaUN1gT78eIcXkkwfUUhnrFwPJr65IXfdOvMlKrFci5oUCM27igEGVYvPN5T6fJPvgxk",
+[1177]="LSnySAbQXSa9d0XMoGIADjya9iQUXKa9cYKDiQhbaXaXvuo1Cem/zr1W5q9RIF/UiZB0H1K9eUybpG4wMvTK0aNQx39UGeFy",
+[1178]="MY5NNSliSqswf+2YNU4P9m3T+y69M33szjakDxY4h0NKmDJoqcPY4cArVBP2Nd7An6wbAWjmELdrBvvHynBd7SxYU6bea3mA",
+[1179]="88QbpZWINLherWFZxKj7uH3p7zkmaOOfr9Uv1XHork/JL1ujn0Im3xQB7B4hNJ6fhuK6dPwr1WJOWy9m9psOSWqZwu1/ZdOb",
+[1180]="SgIBv2ZCCWv8ht/0sCE7T4UW/L+ut+Wl/J4WHAdDLA9kPIJurguF1eYjz2JzaDeIAT+KRe6izxJVo3WCHI8PJebprWC74N+0",
+[1181]="OxbqFIbr3uTxvqu2e1N2XwM7PZHGrZnb1Fjgt4pM66l0i4aMq/4RPDWUWzgLhR7Y5FxpkefmXmP/LB0yAAd41gr/HbbHc0E4",
+[1182]="LgkxJHF9ImkYvgYzd9A/r3OTbpOrpPFCEcSY1Im/kkoigDa53BL37NG+RCiJt1WrsYQ78Wtr1qXW8GD6WtEKCxyb2e4+EsLl",
+[1183]="M8LW31xvwY3LhlvEPkWqSPbAc8GfwVXOBpjGw3aGAAoQ3Dgp6b7KRYQgIYvfsJqlqOND/J6npiycvuoEwu3Q5VntedkBYNvl",
+[1184]="1dw36ikiPEkJ6cRUScrZJCwSHPJOZoX+0y/x8DCwuATDnzusDFSmgqCoLreYaqSMq2cTxEKFLdiVYFsfFb4EWAdHKT7j8RTA",
+[1185]="zkikbQLJOMf6bmzxiTWbwbBSRvqbdmjqun2ELHmE+Ll+XnmAbnVZi2uHa9KIvAosfYrIfaxTwNyde7/5BARV9udWPHBaV8t2",
+[1186]="lKy8vaVEPVgvlaFPwbzsB1HlU5rKgv647VaPHhtmGyGS5SrTMCVhDJw7iAmNwQA7EFTqzS54nXPlV2ejsQpsOMXOkwNlCf+P",
+[1187]="YJEkH73Ybx0Sq74/CSE7Mmsh8it5LIDzEO+UedRznJJc/YNVoSw5xyHW7pgMoc276hTLKAi/yKsQE07d+ke1lFexBdHxehWA",
+[1188]="0fjkiwtszgtqLGTQVYtlDpzk3pidWVlF++hlWAzHbdUZ49+zy5cO0VAbTy4nR+P8+KH0a/AbN1Oyn9+NKTEkqumMxTFwqtTc",
+[1189]="YOVBCYT3grIka6N6ckonHKOwgrHxOQvNd5mQtCNRCt5mpWTvRUcIR1XvVDxOXatc1Xq68w1ORtNFtrw9cOG6mrK90KsRrOl+",
+[1190]="jecOBc01IAmzrCDoXIs8bDS5vxRwGuNcbUboNpHXQwlE6ewYfwe0xWW76UtkWgWR7OZJub4juo7Gj+tw0YspmqQ3BGF5SQNm",
+[1191]="dUqJWVGxSDridsklB1tuqbcwTxjidWMqPGxFZHJ4tHIO+usdepA96VqK2qXWqdmbGpkyvnqyrNzGz15oc43PAS+Mos4y/xec",
+[1192]="++I1INNV5n3mEysDB1NhKSVNH8Cir5CP7f4DQHi6DfT7eceUZbO0SHDq7/AcmzlSMiCQ5WgP/9PnH/g97C9rNRt3aqDNhtDY",
+[1193]="DjhmwRkaG0GzrpskaS90n5dNO5oebrGh80egWjrCz/StPGVRHiTMydfmQm2RMvbWw2GKjDkc5me9s12Mfo3XF/5CDsV3N0ic",
+[1194]="5ctjnbjpDag1lVUc3i+eoop+/+VeKYMPmsUAhAZMwMm6ygJpXJ5YSkH+1nTAN/+lFsHomU9xoV3565PD+jHcJvllpQk/g/Yb",
+[1195]="uqwttjhd6HYOrjoJpImdNAw2RLf1nO+yx1rDPmcjhJ7/4U5dSH/tGwBdpvXe5AmjHD8jPp4F+VknhotBTKjmKK1ZeRde4wI7",
+[1196]="MHUFu5sOXMbny6PwcaD5iGjSRR8gMxssTjCtn3sRV0a75xkOxciEwGY3+Zqs1k0/Swv+tIl+qpDd1G/N7mZt5OISAHu1Jhag",
+[1197]="9dSD/1eUESWvCuGE3WzxjSbd1Lk9U2+HtswAdprXgvLipVEaO1PAAvxLmmKQjW4eNvuu3+pFdKxHTIaSg6kppRmEDmiQ1e/x",
+[1198]="wEIyy85342Xt0WzsBzKGTsFi3V7Ij8bJtlJT056Jf5wgu7nHThwMi+jCBFMB43yjKk0WIAaiKtYCVqzxUZgJ4LTN98HaJ5Rs",
+[1199]="qMfjpolvJgkzQGV9eKguZbd5XnsZ1L8pu1UDQjsS0SC6qoxFy8xlyMj09Bju5Oj05MHaqnD334O8a1r0S1bUbNqyGUj6xoC8",
+[1200]="HHgekyY1F7Vbz4gPQS5+pMhBucRqLqDi1A32pJFVkjYdFyTX0rW467a9EiJjbOMN7DVydUzybY1A05vvC/mj36rkC9jnuuNb",
+[1201]="aYaKw259t+RLWI4xnVIOlawbOisLWbwMrkn+EitdkVzakra71VuOtQbdllWT5zMHMVL81GpDYdErtTvQsj7Og9DN1hhwSxI1",
+[1202]="jLbdXEBDmcNODj8nvucvjVpRZlgzqFSlAcN7mdKZRR0dUnE2o8oPnpLx86DoUFmPk2NxBT+AggGFAFGe9NQagyEj1o6y0wGa",
+[1203]="Tm+uYMxSmmfoh+Vv4TQAsiqOS5ct/pMqiXPw/MQE8ci6s1Yl7X47T6+MzlZN2DHfr/vh562KNQ0DOEBPq2KHfK8DZXABOT/4",
+[1204]="FUfUBSM1sv3KN9tXDlXopgeF5+gjkf8LfOGCSWLoQyeuJgF+svCgWwxq9HJE8+EA6bNtkyQ98aXOUFW45ll5Dy2MjvhgfGKT",
+[1205]="neRZN9zF1qPzJYcPCS0rhl8doU735ade8GWNRwu3rJ+pwJYD7YND/LG8xjf5W4oIyGTvQT2r4rmvHRTW8R7y8wXq"
 }
 
-local crosshairLines = {}
-for _, info in ipairs(lines) do
-    local line = Instance.new("Frame", CrosshairContainer)
-    line.Size = info.Size
-    line.Position = info.DefaultPos
-    line.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    line.BorderSizePixel = 0
-    table.insert(crosshairLines, {Line = line, DefaultPos = info.DefaultPos})
+local _Q473426={{499135847,433231220,658157498,391940800,433003054,360036705,329652816,796318909,721008306,102296292,998932073,177466992,886425130},{569056552,815304776,660149773,300496388,588319986,820575176,322399512,364312846,133477045,506564830,833978084,538586199,172453897},{839197216,242135670,704973347,918058407,423292328,172555334,305996150,164887928,272241898,476156965,272761993,162487909,913781470},{717248870,360256702,445588209,996322025,862072491,241860015,519050709,227342213,947785511,190389767,268852458,262550727,507132379},{528837521,847350504,145958868,713467494,902938905,101035806,914529410,214214991,902499569,643491834,556195812,587494723,124542066},{283440818,283665696,592838300,162758331,485890830,850078410,426733787,987387248,123027383,764596633,566575321,453641457,212282867},{194798955,877050160,331520936,669942882,590613972,632789668,816523314,956183742,373202170,659503272,411654431,585456387,297119312},{527372270,704642587,152453414,416213989,413691912,947064543,635825622,630034472,422166804,971914657,691321462,636091816,543065791},{804196916,307321101,742198831,932371334,106185420,962063641,531836777,404407526,814862605,487589650,571762992,543753947,988547043},{997537840,956572462,900338494,148449018,315079009,463159562,832020400,277897462,333025801,642444328,184220103,790661574,932491304},{809092984,689336259,715609620,463765116,758300018,771948624,830308158,587001980,845879216,499749983,341565853,417766875,906191318},{547233571,651136775,522881575,938223778,979005185,208233760,531516396,416807800,650049917,946475126,459706255,279522401,277695698},{578865300,414138778,143722047,478005412,829763702,291035444,811549980,781322114,768967997,120650936,907207524,674402138,928020295},{929729666,636056996,216233914,726840783,426202199,831838869,165014755,536018440,612471526,402663694,412363633,775547103,114467706},{440380510,799163021,446739906,794994857,289987997,663613937,118445454,434776605,448660370,119086873,183527346,909133804,727372776},{855022089,754743961,456939747,520885054,889168128,630031082,103029139,918981469,736521004,414060739,627314594,549642587,188466499},{571924620,747534419,740183139,781157966,754772100,239881159,253393553,792982591,893454817,105136659,728122714,535455527,489073069},{448255025,321154351,700494815,322723084,446372652,649212384,920698261,529437353,407747316,823960979,612253044,932320985,519549345},{591883279,203087546,142067193,183465467,331826302,971767094,337001263,817708642,615369380,464097851,831364088,494544431,265052911},{857448432,620508289,176483746,846619181,111675242,794261009,781696657,456825115,868878010,275130827,630132167,591545721,782360461},{418633350,724819730,569979705,740262887,506881554,234749941,979156951,770059118,484238429,447030175,185396852,127710378,645055652},{173184513,424867180,132297487,229303837,770718802,622320118,859576029,887555639,376644832,169347117,280908249,682389999,204749861},{625569960,597199213,541071025,455606637,753197905,607545651,901151024,478657363,449266737,533429886,312422841,779010632,801520391},{339289774,545226949,168819960,131798958,964948492,483549117,298297874,655305373,144944638,411455717,551180381,668220506,606886937},{815620853,944217101,485293997,457893040,770377797,656486943,500094138,725875054,333617477,344958134,492609082,454650486,334265462},{476028441,171003200,985731565,728421933,653369728,140748584,366926908,240886127,776878653,356361398,610772843,294282984,865647984},{252429856,826557062,819197179,561239980,918918973,542100790,451617483,641702579,771712177,259766670,706556849,626790829,310812635},{201063461,125937529,788891891,671591663,402762922,448829588,934288077,866436059,864948193,387394958,487760764,748494626,897720144},{915405918,378448995,973310064,795197674,711667051,491486039,813325184,487932725,712625254,365323646,703780786,796319033,177453836},{199195257,316189085,539474939,248684045,676088311,945432149,286907147,780069728,328722768,318389464,172152904,954646681,944209645},{492558230,411045824,155916560,394918223,137457602,951328485,813258532,503787620,219093681,304989312,643456930,549536876,278652427},{122057042,408415764,338550049,910434540,278875739,994243321,880173691,330533172,430074747,424989334,189262333,522780324,813980522},{817833093,440379189,210127955,172177256,740504364,340134480,810563784,210390112,241255523,900117500,150308736,625042465,692604142},{276131772,182477284,522316694,208847247,526739657,614138619,505403817,800500502,994663416,670863550,941233015,488681823,411749613},{282871079,843517016,921286821,494746704,749020577,794289315,805809802,738004111,328674654,456661442,946639737,484253589,984492721}}; __t5(41);__t4(51);__t1(96);__t2(63)
+local _Q820823={{902437139,266153677,264473249,135668564,427387001,260023785,222114837,963691223,595360057,992579294,176509542,791811045,434796916},{504462866,474990023,308438197,300298701,111995927,173658137,219683259,315321117,211569152,635379215,421540929,990392341,613314029},{160606838,671551050,730771402,230519805,602035429,923614336,892828507,321364674,100344964,396328390,168726276,693790417,418305134},{378017216,804416687,567267247,271746589,607985909,340289986,114746452,170928991,914413275,786296392,984480474,412685023,960036563},{816992768,667147390,642982229,898776025,432831615,720302781,701370825,813065820,519773932,510252046,429255363,731733750,954968688},{936505733,950246890,491084492,393403184,119421296,964723776,812447315,171932407,251351958,691387036,410132775,667900769,652845233},{762742545,805490843,962130284,943772509,977940383,138039669,361200897,418184375,673877382,851646535,432442057,595641933,591348542},{932663631,482910216,542504121,154511864,462505308,324702109,599012158,124967514,540348070,288243889,150109511,815147652,818536372},{297316998,360531274,582818439,828985091,945431941,549457949,193265661,887621376,543440139,412701662,351309035,200951708,665483782},{427643949,802654612,277323042,251901694,164769791,469891376,278742250,481074892,143350113,710247759,447089197,485005124,768064093},{660910204,368004689,107097126,531789933,675453212,401346171,811488616,352657478,877414329,865633885,818871273,870450702,544519671},{651652993,298448371,504093353,985027813,562048339,381178036,440756117,857730331,320109557,601723179,380963743,741885364,466208962},{903245013,259355314,305292335,762595596,494043686,529236931,773306226,768927006,950495090,576407147,131317615,579393257,589785471},{201848692,945867679,930017208,278395964,506518045,688179632,643004554,835332622,304429859,682926908,497209256,595885309,806178228},{913565680,764306342,836808978,507612897,369015584,269523307,422245256,251332572,540746862,754473155,433084059,469236518,369157035},{396025461,254623494,866624236,250776125,220915872,670738620,962475173,573341645,502199466,287830519,172938707,653248053,128191610},{105108035,250143210,572159509,878870787,754545253,398345038,516439470,417662707,317795749,467744158,940482854,531680174,555635364},{957464828,110020717,987048729,605765375,413615275,778872936,138132239,533223400,148735127,534951373,444730498,948544349,276882302},{740752760,393059949,167315365,696144458,308026273,251934231,733626928,612021808,280297618,306877536,786850010,822203231,888057143},{799576615,779749299,482598160,233841957,277322742,727149809,356810667,384046537,817624272,411568962,233024669,183817024,776277624},{683469575,504586617,294031317,149161035,741342749,336690053,418004553,536005898,455847394,461354547,717457789,173484580,702491038},{197868897,115417613,238097534,943772788,161563877,450239109,116137829,694294802,575645042,549676566,189460127,186107873,230290366}}; __t2(17);__t2(15);__t1(12);__t1(52)
+local _Q568537={{262785571,344562903,509614380,947579396,876258639,329878399,818220432,174914145,397265249,613106793,282133306,552375926,391002065},{986280041,384459622,260369194,528911883,965354056,291583831,368799857,819273317,797342328,107487795,578842624,601159250,428162678},{319019759,774244771,135383090,644703189,262029045,388015452,360367120,859705905,172923438,719085322,790734645,200347572,260566500},{682460710,411861614,496677546,558045351,348355008,637989280,997719139,227407613,614145540,773133925,206301736,702404774,993450500},{749218844,615912851,623503295,535960041,919603890,722360057,395455561,226212038,402550403,567872386,510828965,739881312,612670520},{391443787,971389076,152002347,401397314,848645744,475673638,682279977,834588860,210364382,959197788,263106535,579625238,568385244},{532139455,471184347,284490630,739586082,754093069,604067431,541833690,812609721,815240015,943622348,240395216,582324513,790128300},{675788813,839604345,764353087,873189944,908245956,153645220,348751315,111946385,885590286,153217681,276841750,217709154,587474121},{808996419,337215285,224406720,275174016,509382952,575003779,482413950,437117702,109320385,534614541,827345232,655917886,618753731},{955995349,587234098,632634043,482783408,172472116,283663101,687662801,970964908,459167868,843184455,621096154,754187702,634344490},{886849954,202243302,812973696,237682753,620579595,457055644,269992011,680763345,441914721,381091734,515266141,347400115,335242917},{362054431,942390821,361925277,245016237,746941672,716362264,474210590,615991104,345737139,368494562,442746929,174072932,559500248},{342197811,474666401,952963351,783699449,226539279,873999583,940930622,676782879,554745266,979709808,893434525,453414148,705332051},{640875180,307589731,219240218,290556234,195897655,147469869,892071267,368924264,901070127,538294601,905147665,156138977,966333099},{398813994,668730260,417003898,854246395,543176843,620110028,551668580,522082027,498731252,964026991,614620655,375795125,349350236},{864642343,285455023,288652123,468379042,836719991,281308362,742011996,179343594,699440165,152971742,217484684,824702443,920574943},{673098146,548342561,331307579,416134377,390909849,313735237,738553534,592980278,656219004,829356758,684895348,658436013,780774036},{313160530,769641546,659924662,192851935,516880217,130765636,692250402,315198862,330515161,990350743,437447741,306409897,704717816},{636012969,552070439,458698179,416344822,671437977,766725489,788756585,475997528,232161633,248331226,826215822,875262740,610601447},{916387567,334634062,924913516,951099017,122113002,384612048,652604854,885411931,260912918,844585060,361443975,256895472,701755390},{312171534,748718678,970547488,853565859,293713000,136402652,334569274,774881020,412678268,947501281,229146411,283845119,287242644},{376115239,866481968,852613086,787620355,596241100,871651988,254258394,346002418,133303981,913627491,149245814,971989029,915665724},{123676868,466922726,789027047,737003418,947758652,538903739,374156046,805983952,899465646,374086563,717517636,325203280,509857709},{749807917,650368735,334822365,538516943,326602081,835583768,500444221,881215678,572927653,187979125,179290622,127580409,963046942},{784823561,278819819,528561208,796603565,761474831,937114863,548305479,406780375,506865101,484979149,654928163,210838088,990072726},{232034389,805090012,964173203,781032099,373651480,670697951,288895290,673924846,663704780,447258167,576978179,542928726,735347413},{306164742,718511571,744846614,661303708,640719799,742239328,252218265,235248039,637157088,218358725,606641600,624497888,396786940}}; __t5(63);__t2(101);__t2(49);__t4(76)
+local _Q563842={{389051278,402747515,405283463,597728204,155497451,447711988,954280444,714167118,197575229,749948348,835686366,120144720,657496035},{936137423,926590609,420238802,102382505,218664913,262782596,265056205,714075666,457010211,304700967,793345865,299493968,201261804},{274718191,423757423,676397309,551764388,741640135,988767266,193327608,979177122,147008610,184537375,559663357,282421530,764271114},{945788574,533069478,687007226,438801228,982990984,406481548,314255127,622590686,406639816,423808445,493143008,208206713,803906733},{187385188,563334409,716783830,581472867,187082950,236541991,571883258,478404773,672745603,934206061,988544525,123699919,933591649},{513160872,837548231,771568731,267257734,877737830,184621150,743031304,471991743,205300695,725854823,717354620,168574571,176936940},{328475499,447913309,708277221,108106199,275589540,781449107,316231281,853379694,425439383,403255430,194434527,781843094,384106816},{149657044,134708805,356635946,640996161,647600948,550729954,142553682,778283767,832876296,918003842,715617735,270398756,167699922},{795981013,743799767,908670641,505113115,287219649,400206793,275518649,797942413,637029289,103841222,927646413,911066281,232033371},{674198320,594772388,984539860,143366786,196968507,558961246,990813225,447074507,684761620,225769694,578400883,650693529,692689496},{340433581,417466197,565882791,539629930,818084807,773208758,277536989,796406032,279556811,363809027,218754769,394557135,373162207},{838115569,279258693,834135736,104784349,218635365,774503238,376843484,804251463,248564966,668426192,903942079,105632584,355306557},{704980217,906770936,240420280,885613563,507170023,717680805,519834945,661369319,290375816,252244818,737532812,838768202,811672424},{451810021,554888751,724122376,764972848,547607824,411139921,894441286,495995398,257035571,885537502,735214237,658665331,317482783},{304194296,904270016,401472938,639161959,839139694,855809987,696125252,384651817,601555499,785291742,554028470,994861036,596951236},{949800286,108240382,822710365,962776102,107727329,125911056,246545717,517535212,816426344,393735315,253583505,340461236,481488517},{171526696,312629844,679717308,429345451,708300230,993582745,513504393,811853455,956964191,777323725,160610859,447702836,149887501},{541068797,589852617,624456417,173641041,630802528,530164647,154480438,996434265,565591243,879216044,658995700,899857491,255636230},{593889324,767652774,484598489,120272471,607711606,394426895,852844194,426708972,557801385,179741874,459679997,637128718,865166010},{689062758,459052210,994971575,533978629,961066594,154478440,811024261,822952613,919281521,293948525,400962835,332092361,800567817},{382023487,828689275,922000436,647622746,732067589,778713111,748026089,643252215,189264064,945732218,173336677,823533929,554701629},{610289341,168342965,149475530,106487567,751422003,861317416,551874392,163302482,125850832,385586129,741191985,996168431,960413866},{398536647,932272534,885207626,820352605,552229914,475697025,866305274,574774470,387695152,823322023,360876064,937694148,935624727},{295968766,500358802,178538635,813134619,763894539,605987813,939864481,699996208,867645445,766596711,190401466,102928661,508065996},{550077002,728832582,897392096,112815087,512395012,859798853,573571539,157168886,523793672,268582225,169956011,196896718,478567843},{443359122,542445951,143379463,861510908,117345316,133606661,488969743,493858975,436260576,565456728,914921314,851590866,381387305},{243837343,736129691,936352353,724196766,523030249,631042730,386352034,591286251,699218157,628101856,434857667,150193514,322873629},{595219784,791004359,848633633,927279173,405455925,114624465,255091249,489011803,588807179,959872556,243009002,609232375,175754743},{747049024,949117651,390604852,549813884,495569236,241205218,873479875,405543073,698359255,513323660,173286163,730545412,743032007},{431149018,857986516,834118198,168332164,777761208,374311202,888851519,674829987,822887171,809421904,628986437,741152332,281494387},{741670123,982849439,863623937,408366159,821967367,347257914,440130657,739662884,599745110,899815165,943438476,156966666,328754099},{291601633,861739611,357521659,314972089,150550097,128408885,312649314,142955224,508484022,186373756,814152824,958840218,885815696},{862635016,609341429,836874976,898323697,116973857,921689657,512832733,726641441,428258204,427250833,499409468,194616213,442524102},{390007651,934068265,648754281,913534544,800135645,972040284,498341235,238447938,241426419,481511384,754195918,497219937,726147522},{234519104,520334108,666419729,842221711,133899566,936170481,942647118,235784059,119366968,975116247,335115817,390431578,427547143},{692992164,198794394,158973142,885333424,834393552,564433371,872919986,904588710,984191792,321896349,553563841,329959099,631297865},{978995496,648694871,436162563,541381824,523251044,913592637,802490677,422198346,654786114,534083870,178093969,356077906,766728652}}; __t1(42);__t2(74);__t2(72);__t1(95)
+local _Q373501={{518960502,939257330,402044746,236074550,243905751,351223148,607127673,428604707,754696954,407497595,139106415,967454493,186459664},{190259281,290258006,270257867,973783600,868339541,360216421,456895279,577776822,573189889,230399191,481557912,250430554,881368949},{977421145,920214814,758104023,725060899,177493976,141558017,827249250,777121945,427710839,704328672,698468391,592524795,143805708},{593818828,965375012,416952924,236962986,248675730,374475674,479585075,287100255,221202077,640800852,744009903,324213323,702640903},{804661098,581400834,270458176,304764642,204684315,415297781,641108782,124784310,522952553,537699359,554136369,141907398,205988638},{739102619,683380769,858702742,554335169,397245531,838872298,545362704,202749323,752545177,967803062,968597878,997745605,219810119},{409977590,618363915,112343962,949188928,479367172,673689258,825942308,343298269,454524765,518626867,554309943,802687564,909293394},{789802848,834333310,406504571,686560907,507213099,473952437,105363215,744995409,392513235,125166074,258826056,434058261,876454589},{714883379,548389805,247269485,531285573,821345323,379762519,163252482,607008908,456253914,476581508,139750664,390009423,984493509},{738402994,524068471,697231812,705602656,800358946,451541702,350797220,367509664,673061191,317889116,507488302,523875454,698385828},{146160512,511566139,401487579,574882135,452026922,539032807,819770180,653949255,817072531,504245281,764554616,462915430,517427221},{618399497,261387634,911962757,604943746,880957336,470018709,919485339,404153522,703383220,587010460,164155008,485913764,770062781},{715966098,279419057,113019552,698729404,899692764,535070975,599767538,925385127,154455087,617634724,253483504,681950238,525742070},{623157823,853351679,782369239,508529171,596171046,981778939,671417588,268658853,282866231,660838683,403670921,475043416,989192664},{894344522,603404502,966157781,223477914,619901257,714701797,797007107,918128385,396539347,180735119,871887514,245070055,987708746},{728583949,879807056,338020899,310433983,888728929,948112669,939565368,717912363,872790576,966826786,707100834,694637292,374496938},{874105393,178160724,335802735,923404560,303206026,410024098,156184760,971840206,499000562,734064509,719807765,402557710,301062952},{288187179,270499000,992979568,458903760,136279696,776368790,716950458,786469920,437118541,898210340,638712215,266062013,519026717},{956746208,170918616,543474833,298316748,462750666,323721136,136947643,267581669,236660524,217136042,950589600,371625832,425309593},{446126313,848582376,496497617,231899473,581017919,403995019,733245351,235136089,182249448,679963774,332552263,779931841,559486980},{902107983,655946335,201706167,920366310,808564736,658269792,666691107,817305645,488562144,924841517,506667078,676890637,462753745},{412931526,111270332,759689080,221777966,484500526,876125338,237325579,114126479,622114033,933875470,776391022,345076036,827710573},{790751719,369217882,945039405,919047179,444108544,884043158,237189047,975540623,106954738,522813065,311493914,879460629,354204440},{949901454,102834419,907390192,697533942,598757609,579990533,406381549,683929866,466484730,899000115,178339051,392068422,862673219},{723868060,133562865,693655817,581023643,409874158,893001423,586946221,553489505,369684266,492620309,234974534,583242323,594809675},{408599472,507507365,969568421,996916151,446998382,568016727,997789716,729427613,473065330,761439163,907595982,259792053,217021620},{418964125,167559750,909043029,992320853,329905792,770907661,143229728,428033026,216662429,451816876,212830488,523997105,544259176},{867291142,289386034,876619857,984289012,567050848,602037141,746750756,545495334,556694067,636097948,619242780,343677941,492990113},{692744915,741881599,856400944,120363661,126931512,773211847,875320761,772807709,360062665,947029662,564611029,121396628,216196570},{346750429,773181468,209134561,794748301,562719965,313038666,122363613,205187986,678120330,638375646,454023544,888124339,358902738},{323418151,344276894,657029727,619710402,435510720,301658205,476996169,313754384,568594615,673152239,549479627,984308914,997420225},{345474851,648161301,349955798,698747936,309000918,269623900,738175455,363341110,919201196,492725533,225190642,595273240,274247142},{270764800,156078672,644825877,611339437,128916210,281610613,571182374,509408246,493844606,128684117,788752736,183457567,179867692},{384469077,545907470,182528523,922740704,280808279,755474366,630614653,469519414,714247576,796018751,862897159,274041191,559477836},{249535754,819534546,978796019,164348987,274648698,569998500,625884919,797523979,329831984,313652656,312365005,267652172,323771218},{414980674,567232070,431091087,870493902,962385794,203243752,561514934,526363575,671581796,100584044,568230429,307717047,335289217}}; __t3(6);__t2(99);__t5(73);__t5(12)
+local _Q428559={{336983722,590161855,751228010,191719737,664761823,997520984,865586837,670844329,492164720,160524173,889145513,623235922,635428570},{755078551,130203914,116703150,908261523,568396023,959682803,649455934,911416146,262270377,911388492,687746765,699491962,758389631},{184401507,807936938,599085485,381868876,158243309,424707408,999657850,404912076,190509458,132001363,329678187,999573646,690407568},{599543327,401355716,266867618,576311606,881549570,770165476,200065102,245862341,981221072,913808693,434949780,806915013,956979818},{155212430,617624182,757193591,492638535,285436851,448133998,289206437,789638049,261860398,936300454,453306710,443781904,549069465},{711824176,458772240,420212999,311068905,483191927,283099266,814535097,610356247,525660986,114774926,361494235,258796971,166732133},{458570585,455219621,663886951,309764452,335265391,714246816,508483386,314660118,896898509,933250343,833078310,696056027,862176475},{616487202,607353045,374021105,147103964,598981132,828834631,195411787,741386703,710574637,298473658,229236503,657002667,685850932},{682894529,467867493,246040546,313781074,486260211,996536564,470079200,432041231,965862650,464940514,461717372,539462268,178748294},{609500230,475222211,115263053,567678526,226107794,712423552,893828265,345444239,764395460,454072457,114130465,259897271,307748610},{415721135,879084702,169685113,136186937,496265110,990036319,938078209,805366316,462106914,420342025,386778043,706905525,208744704},{185117677,486319660,299370512,837706176,717401698,117049289,507349559,914142116,755043418,355918442,371680483,754199285,399158990},{395670831,189616792,244788344,736585048,800842009,266902121,961454905,276299534,270983175,845472094,612801642,793911609,942395910},{116219651,723700170,456824429,259811756,119683050,193329701,465303206,111319335,458019638,160062167,503061980,582228701,187551604},{411687840,678372817,203164641,468035969,741991644,108958448,773529182,223443163,371077661,427676870,901142547,747484487,786021427},{880593070,938740888,321409858,545726197,127907113,930137101,658995410,445693997,388869458,969436245,239414070,236139242,721881405},{637312175,967731680,187695055,122620346,971244972,429764820,604344023,915591382,353738518,477310006,467176088,919481864,790440839},{985739123,983783977,463515310,619434681,779861156,282694235,555595362,790279506,774148340,168249828,230064060,540211696,998570104},{297379406,990911468,831315824,998242546,942824554,568029773,236168938,198186748,243313505,796726600,153212216,657824656,235627386},{476898132,973342486,807478372,431196285,768116092,427282874,909473873,578613664,263668014,391153815,467361925,562974955,750515038},{426162372,223697125,682958332,388798487,640397241,690079950,273871841,496279744,570415581,405315602,106271958,155911749,608622741},{580521663,663651659,132607091,762836542,628886627,724866301,821758506,471022451,344076779,984348594,768698108,570188918,183762297},{538417425,682034043,212874746,546351342,708974329,545123788,496456844,141440735,835323476,288661449,713592118,248291738,394666207},{586481186,948821806,555810206,593164446,440756937,783352861,853429427,440708667,636629385,812096708,406110163,480718030,427178103},{176917400,212254891,408252375,605484024,520954152,345607171,587200220,279725774,166773220,372101118,873073801,223144402,148562569},{662175745,754262492,980142416,123119344,667756137,887294718,427287239,375092803,678798397,781117118,140598770,577255497,901180985},{826966352,190014890,897404539,532965226,677195595,302489775,668270436,964506667,975564882,315719099,777997205,231354581,751157134},{121143413,938766719,835123502,819539475,532286073,596346332,774322110,375723030,289682683,356490327,944292577,683953703,340185532},{926138671,187709707,375775672,350997380,753641839,154817009,723995041,721281312,183799437,237023492,458625888,447055383,390533310},{497579650,950328990,761972714,416812209,531103136,897994806,686150254,510413032,487714462,733076988,322571326,924858710,419397368},{377430435,720505200,181851734,112187618,131216891,255514112,596084017,231020786,288961863,819333889,452010840,810222292,224869582},{773537954,405817793,740121638,723625377,888726918,591291349,412999572,284118166,861870514,564350745,791720460,438124717,239564435},{496439144,691512285,633876941,197053713,491130225,147784203,493114130,289442138,542579086,148841563,916589407,733015396,623651017},{140785641,984953585,408053903,185121582,238563329,446869567,751340346,511686207,662093602,317736898,566048599,325320187,385803565},{329849227,712969469,726259355,647894567,786533533,369914466,546613150,565851069,422980579,330476926,322480645,311950285,649611978},{464017108,847461157,312307539,383464511,829575388,711022832,309583128,660194118,933089060,839170976,219109477,439352286,478573268},{712858619,804486490,510236783,425740021,293671754,335373339,540847315,124269888,892391686,658241970,880149442,436898772,810783889}}; __t1(5);__t1(100);__t4(50);__t5(89)
+local _Q690995={{355801516,554496146,666488703,575773677,783750307,914341138,721330015,968462736,599887233,546582686,961034958,801286791,743675680},{410689921,694187866,109426912,704576971,999340613,376764097,374363377,155259695,336947886,217592056,373075344,106445484,729464036},{229002528,339512318,824486815,211231406,542303603,906532090,991019711,313159350,622042167,129573254,262137176,291185781,273255689},{886307051,410462062,116669774,945558080,303377526,310697545,686309291,304221857,452368703,261504021,286501328,521087799,443166180},{940615562,889383488,489225236,140943210,737898646,973973249,701817766,465300851,884158460,843180253,552791439,920386003,667666195},{734081986,630025743,930630190,923982905,328260351,531465749,447950623,699902620,374550773,443784357,807630091,885911601,372128224},{567434533,405986994,849002324,944883006,612227019,523308015,768963701,115342759,462641685,259832056,773239401,370212033,461297570},{812566197,481568350,260523923,975279534,600301593,239236518,352812465,675161793,680667586,792019532,290547327,856777043,642518087},{359010780,847373227,267335518,774925615,447151325,445053803,172325476,269548852,636885907,719662690,564855315,505037954,150650984},{210529440,301555435,611157167,108131958,812489596,193010697,395920435,320385224,983397701,304633102,711395034,707131639,390537538},{398030574,141705882,473217012,493888743,221217434,687852168,999357463,348564419,720268893,905117881,817927643,447697546,917668426},{505863353,910817712,235696092,491478535,171210928,248291207,973899828,687110017,394254590,926144252,779556461,731129797,377243159},{195873402,279398106,690417000,988887857,598208949,849230418,453210203,754414172,170321138,712864405,126808672,936496582,241704468},{700806646,562194094,535429072,738386381,220454732,864820353,178092090,234007903,866122940,663773937,282945802,909839962,738251357},{556490380,369758342,260880440,292522840,841338984,926117016,894250526,564732406,724890650,724504851,475732831,514583608,178775880},{960276276,578841269,367692017,345780393,114003583,273588886,460369294,776098846,725933742,984529697,385223359,850853086,201932291},{273970151,187090200,830365256,962995987,866937581,182124894,106601198,679074147,859433745,707876858,546869547,263667809,356664496},{512126303,180727852,660303830,817200098,228499806,694302725,142282012,527301974,584647782,192698036,735975820,236350731,155423563},{754701100,885647329,820955157,330880350,441198382,879331247,193160879,970334468,462834624,445707852,298575938,859379253,449834628},{130875077,506146196,453222163,632130913,577444648,915507768,775628423,681191099,401648173,687955758,766178111,909611640,173176007},{298837593,987194237,265465065,588580239,843025124,219595469,527875565,962562609,310040646,671310339,101143567,787654070,169341807},{121030694,248419840,346945668,327430474,693307996,377388232,787345603,928790163,330399058,791370407,628242089,152821677,420261770}}; __t3(92);__t1(55);__t2(74);__t2(32)
+local _Q525837={{893440102,679804057,502291214,517318021,316613282,863202357,974162811,297869589,451174820,907310649,387148197,530389641,860492570},{646857132,776231016,505428470,308963862,634768546,199134004,725968980,833581714,870449978,908071816,737561145,925619327,262965637},{286293167,343650821,455677094,434316953,171723933,898609600,839260813,544796901,406034284,630139099,770462845,833292341,436176776},{548401713,772477470,301085660,706687601,452674895,615391057,610401171,172995255,497948567,418840418,283173190,146760985,578588345},{688487630,753823241,284780091,435526101,323032738,899883909,613337072,164188563,711090596,230617671,775041444,118246617,517597338},{914996373,202715768,217980090,192553319,177795875,800515520,496413348,723478257,899241111,708789967,694865698,548326962,945881338},{286601807,742437800,922419363,671704873,391141482,348965156,325330676,457397494,215617494,610609135,641268824,735371576,627122905},{396410269,650028686,821490978,281036011,453851576,666356740,479985124,973426416,502864245,762054230,962506805,726879563,932022226},{583536312,214156892,998822193,969563962,265320226,790569100,409192469,195851953,493955802,161956151,578981582,684276173,429162684},{296242162,993533972,773824188,382179842,846010767,297743210,400368602,254649751,850640503,395915731,109448163,655262094,254808016},{233966429,589267149,313160424,705615898,776048881,644251923,730654510,179249038,517492721,784768020,579335290,517394489,382656598},{951877775,147874792,774701603,892131483,824846991,624862913,116500904,620346555,437936950,993652068,976522100,684151332,657700567},{819241062,706634634,203660184,284531883,927760811,338877283,883646784,588080712,577979651,479368506,360948820,281340834,140071007},{238749647,475538986,955649747,205647538,908725365,243572770,494423987,750094849,648545792,957107526,805119488,364472907,376296884},{605536085,465678175,699476733,472260931,352660501,503347153,314859665,544903018,508453108,205987361,117748964,627268921,193144856},{158737153,139839416,584433960,751073100,820248963,516790080,144686661,281935638,201555458,992881024,861607526,339310494,554863886},{988263755,708990069,706871781,941792787,125894919,839954647,620264180,292317500,469168128,739885244,882613150,901702460,460461482},{682097740,874792617,767516583,859714840,162332175,269115239,287213521,931121615,123534669,924461334,724400697,250473051,770926810},{396852048,232899841,294610430,392290842,669350577,397114773,784354964,485018207,350245123,377134728,587359626,613390738,141355192},{376606533,453723206,175614318,515451482,632993720,482022119,655043889,584179524,472747016,990854528,551126573,202859633,158896486},{537208357,237807913,647058684,897671558,421063500,655965902,184476490,994181284,780658799,479259554,176433261,307001507,729283659},{782165560,161194578,600629666,600468129,991199271,705929263,294805512,482978381,102243324,346206937,882097679,763261364,490678877},{508073191,985806513,561221573,367564680,833457619,705909218,211390513,650527150,345883479,278625253,970323736,909364917,920746832},{405650764,375706432,863262348,758829158,263348059,974280809,422772207,120503078,721230569,629887369,902283061,312810636,759751859},{514771776,991175463,895715790,647137461,651360563,228253727,777107518,885578935,984384742,463046963,130325907,354160904,240373968},{510677774,166017414,209788328,217929703,526890599,907469969,298020201,695384411,435636132,874048127,776647200,692778463,331578385},{499137177,796063089,425238746,471314446,493222700,273233513,314633826,229955934,210796506,271073243,716136693,988526897,464822028},{643573806,836130595,590294607,548536875,544686560,796352230,164954656,900772112,623462125,732383627,964324544,671327727,288947121},{435295365,631290096,382988384,705569792,889815790,898104272,402345882,840266810,606955387,101470072,239979570,734701707,845766069},{961009396,508929247,242716292,703080502,827920754,758131477,268395883,459436388,215334116,842249446,417438245,498599215,391168973},{250736172,598622443,802496243,376784458,705396075,196079476,593612478,461563214,657421817,621327041,321840186,757420155,205673838}}; __t1(18);__t5(5);__t2(38);__t5(32)
+local _Q377648={{281376863,454907747,389012218,740801496,512010470,783111920,705820966,727134408,681879553,761126510,360736943,489868621,179345050},{222971704,101011246,805515105,926961739,379800330,710605537,418295289,618081729,796347908,555983774,531273331,652082897,381577910},{184428963,730496287,952415554,799627025,544188465,857618535,953990687,656654062,823754232,106313988,996442688,486535650,474968027},{120896993,529266904,502971107,458113726,305425581,785417749,913067809,353672986,218357181,611863313,371804434,452945473,488199002},{714912315,114073069,105115233,985824486,105810784,222941316,840850928,288082758,245361302,145579600,141713353,366473630,386015828},{134282664,740692980,802272602,672796742,320141470,255622153,725154578,338101815,270545196,466440204,231315587,846404835,195236166},{169236735,671891031,228058278,985604813,350147820,812636400,803826397,325185352,429066410,587939294,889589716,827465549,685344113},{275298284,615264823,809376733,245736448,834716071,455078678,563475809,683927792,248858501,891740678,264129114,522738414,224337033},{437213729,557004474,785775230,731624568,431464589,230582876,848179530,597250682,886499970,984872145,996394173,122810274,845771530},{307862618,913110335,369979040,756596150,490127326,292919435,657734415,888008847,494294797,165673979,276925502,821382218,456503145},{372172249,798066115,984247624,431776486,255111496,152201531,744091515,743089127,170170478,416949695,656947274,789233873,938852082},{613761593,241427853,911758006,571094711,299864210,266798322,318649117,429267949,778196504,227155311,936991165,253691062,791756107},{899109952,292434407,443411316,579443207,660676683,638274115,319281466,782216026,958554100,145646997,704823950,177931954,447031918},{195989136,116304507,263527916,892308875,627603860,656066218,260266326,184111054,878157073,400160815,476589143,850319821,343233962},{899919198,200915026,991324517,746344109,201977074,892207429,238162909,207671041,248645230,628011412,464923994,679153200,885514802},{642021304,127461896,985953578,876376553,669453206,242103043,951497417,737037903,899534094,471683508,849190978,260525120,829665592},{490639637,231765944,480733542,694672444,468034960,769376609,894640540,218606561,896547824,771987145,536952429,889861315,675014065},{463704906,479011271,423205308,630609324,296971859,429907475,591927959,907860769,389350987,146732994,668878454,945988596,916195645},{665483352,712499971,862973068,378865096,276792137,999982919,241436748,920370707,660812443,775454925,124636627,629272594,307710826},{855763681,653905634,573972023,869647178,949738872,615047432,618399877,762935143,818154682,120217895,462928387,928596770,560386611},{589941462,755295802,322578565,729648409,448533040,922736507,749947707,253493842,518261416,434264765,499251104,927274178,945452443},{935461060,115941014,190168793,973743446,358808526,901041688,754759336,561608631,310427204,365754573,189667935,547615846,217720453}}; __t2(97);__t1(41);__t4(72);__t2(21)
+local _Q783814={{200902026,983534936,344028937,124611279,117166712,672449408,162603095,203003289,922893079,958707778,512855459,138650551,269596128},{624951259,894605511,343979941,754138194,950246232,137148599,720867798,615448370,426301969,714673150,205403522,212304246,843279756},{512918467,811810715,983296904,578076100,806471073,982132643,749015569,229409757,305174811,960629743,986427608,272146049,737616666},{990360578,826165702,288318790,318492642,349850592,416261144,751947168,880165326,167268846,729667470,560989844,293839428,764440517},{417227904,146388410,198859335,670959997,895563268,613654804,133724493,440106073,285401688,931043483,916637199,953163004,542675932},{503353883,546568254,475018868,315851466,670588714,282010439,660916734,731505370,976459876,305784677,979751683,322761322,164055517},{177750940,155599611,485209994,917287413,611153855,939493447,647986164,297729215,490204368,987588518,303011197,370600279,407717759},{512599105,646002921,534548808,746362811,180176791,132633895,264608701,581277821,135330479,701561640,172686924,498542636,139337846},{402096952,106539026,144622055,898688253,609609429,565945384,400447143,476569311,291997382,575550552,500569221,843267325,955862214},{625915016,688048053,745985441,981012459,390605469,179761437,765410207,210227520,389223424,769419297,206736092,324638665,736734071},{911936331,599318627,955831177,108576569,694590398,828631925,600698780,956541946,387466178,939235543,358708260,726189575,226913261},{375259246,773260217,781817354,882525049,339427427,787618910,731284063,879149562,110895591,315305358,642657252,281771765,735683625},{498778229,366386794,547472423,189263302,224563919,558566089,776597077,343883083,729731308,286725255,658571445,607388678,974227100},{658710280,841033435,574986160,909392552,284849941,587181458,648670282,854391947,276920962,464562212,184609426,413077564,146613368},{958721313,669064079,758826842,313516817,283005324,207898846,233121285,972526676,401328147,898306360,760654756,412214926,373871427},{201868961,518649513,159836968,814136356,720232214,821969928,362075975,164470370,230996055,997938321,630278002,835155221,513861974},{594055811,368127801,969767731,467720671,755670786,615440533,455072883,397576702,590587177,205888309,471792873,503732073,821554674},{773104561,182876122,654929406,134631965,249523557,638279163,890519539,462203831,982084918,712309436,326130350,602422232,769855836},{875310212,992251543,309096958,914028225,929209947,723374749,871342538,412129038,374774785,482334181,604239435,257832241,607329854},{505931826,168972090,296040575,841854785,672086244,238905814,279388854,977318073,334232833,428316222,180918643,398676069,193803809},{682703984,472193105,879905878,309429965,821062433,289138379,680785476,520764267,199910462,899377741,642484214,391804711,568222048},{579934959,329169828,812957840,236147781,806362874,591593661,561778239,537430226,581312996,126978360,387153574,396666264,319957440},{554222612,237363619,491822989,153560809,686391020,937824262,116122425,219245227,273514166,909661685,596970107,379856573,626145150},{372495923,641269381,956907509,532326402,861553048,860966987,502509573,763230471,930028486,103710208,941589188,610460114,447920882},{619413978,925114666,645226357,715740755,148071229,753536336,599540071,678738779,761312634,920839875,591497669,400398420,988699031},{486604501,561743917,627974609,480189165,792300274,906312317,734929466,133389731,928107532,637485680,466530472,963514897,250480783},{679839902,612163361,273396200,990068267,203831510,846055450,176785725,635024907,770415927,361381577,807154717,345240245,744963420},{782694028,775249624,298451909,876452924,863694158,897004448,917439731,619827567,465648016,612946708,690750049,300510303,839915424},{993212408,177989165,185060034,363078089,898295295,798407313,247795430,186051693,271132812,471993708,544387727,190673315,473310997},{393008624,737704049,171130953,335445012,753650082,430832581,838302280,973887815,191261880,999515350,723704859,807196246,324369055},{421456403,270022219,465497662,440834567,158239456,327796765,243986375,967790197,833880162,858091027,257441248,357359314,822597422},{793125564,988985542,904681209,521036058,927683092,182089464,222420850,751822389,489948871,950242835,211535380,605680397,297002580},{885285507,767633580,237394207,992535483,198719865,690219206,432557119,329064442,630200961,620618224,165757177,729731396,647192957},{970815145,111854550,555388444,192858618,361974828,301913212,678292151,712250764,402894059,227685331,130782358,942192870,623350585}}; __t4(97);__t1(110);__t5(61);__t1(38)
+
+local function __bxor_str(data, key)
+    local out = table.create(#data)
+    local kl = #key
+    for i = 1, #data do
+        out[i] = string.char(bit32.bxor(string.byte(data, i), key[((i - 1) % kl) + 1]))
+    end
+    return table.concat(out)
 end
 
-local RageTextLabel = Instance.new("TextLabel", RageUIGui)
-RageTextLabel.AnchorPoint = Vector2.new(0.5, 0.5)
-RageTextLabel.Position = UDim2.new(0.5, 0, 0.5, 25)
-RageTextLabel.Size = UDim2.new(0, 280, 0, 20)
-RageTextLabel.BackgroundTransparency = 1
-RageTextLabel.Text = "(multvallk ragebot:in the void...^^)"
-RageTextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-RageTextLabel.TextStrokeTransparency = 0
-RageTextLabel.Font = Enum.Font.GothamBold
-RageTextLabel.TextSize = 12
-RageTextLabel.TextXAlignment = Enum.TextXAlignment.Center
-RageTextLabel.Visible = false
-
-local rageHue = 0
-local rotAngle = 0
-RunService.RenderStepped:Connect(function()
-    RageTextLabel.Visible = CrosshairContainer.Visible or ragebotOrKillAura
-    if RageTextLabel.Visible then
-        rageHue = (rageHue + 2) % 360
-        local rainbowColor = Color3.fromHSV(rageHue / 360, 1, 1)
-        for _, item in ipairs(crosshairLines) do item.Line.BackgroundColor3 = rainbowColor end
-        RageTextLabel.TextColor3 = rainbowColor
-
-        rotAngle = (rotAngle + 4) % 360
-        CrosshairContainer.Rotation = rotAngle
-
-        local timeVal = tick() * 5
-        local pulse = (math.sin(timeVal) + 1) * 0.5
-        
-        crosshairLines[1].Line.Position = UDim2.new(0, math.floor(3 + pulse * 6), 0.5, -1)
-        crosshairLines[2].Line.Position = UDim2.new(1, math.floor(-11 - pulse * 6), 0.5, -1)
-        crosshairLines[3].Line.Position = UDim2.new(0.5, -1, 0, math.floor(3 + pulse * 6))
-        crosshairLines[4].Line.Position = UDim2.new(0.5, -1, 1, math.floor(-11 - pulse * 6))
-
-        if activeTargetPart and activeTargetPart.Parent then
-            local tModel = activeTargetPart:FindFirstAncestorOfClass("Model") or activeTargetPart.Parent
-            RageTextLabel.Text = "(multvallk ragebot kill " .. tModel.Name .. ")"
-        else
-            RageTextLabel.Text = "(multvallk ragebot:in the void...^^)"
-        end
-    end
-end)
-
--- Fast Melee & Cooldown Override Loops
-task.spawn(function()
-    while true do
-        task.wait(0.1)
-        if fastMeleeEnabled or attackCooldownDisabled or projectileCooldownDisabled then
-            pcall(function()
-                for _, v in pairs(getgc(true)) do
-                    if type(v) == "table" then
-                        if attackCooldownDisabled or fastMeleeEnabled then
-                            if rawget(v, "Cooldown") then rawset(v, "Cooldown", 0) end
-                            if rawget(v, "AttackCooldown") then rawset(v, "AttackCooldown", 0) end
-                            if rawget(v, "SwingCooldown") then rawset(v, "SwingCooldown", 0) end
-                            if rawget(v, "HitCooldown") then rawset(v, "HitCooldown", 0) end
-                            if rawget(v, "Delay") then rawset(v, "Delay", 0) end
-                        end
-                        if projectileCooldownDisabled then
-                            if rawget(v, "ProjectileCooldown") then rawset(v, "ProjectileCooldown", 0) end
-                            if rawget(v, "ThrowCooldown") then rawset(v, "ThrowCooldown", 0) end
-                        end
-                    end
-                end
-                
-                if fastMeleeEnabled then
-                    local char = LocalPlayer.Character
-                    if char then
-                        local hum = char:FindFirstChildOfClass("Humanoid")
-                        if hum then
-                            for _, track in pairs(hum:GetPlayingAnimationTracks()) do
-                                local animName = string.lower(track.Animation.AnimationId)
-                                if animName:find("sword") or animName:find("melee") or animName:find("knife") or animName:find("slash") or animName:find("punch") or animName:find("attack") then
-                                    track:AdjustSpeed(8.0)
-                                end
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-    end
-end)
-
--- Gun Hooking & Silent Aim Mechanics
-pcall(function()
-    if FighterController and FighterController.LocalFighter and FighterController.LocalFighter.GetMouseLocation then
-        local LocalFighter = FighterController.LocalFighter
-        local oldMouseLoc = LocalFighter.GetMouseLocation
-        LocalFighter.GetMouseLocation = newcclosure(function(...)
-            if silentAimTarget and (silentAimEnabled or ragebotOrKillAura) then
-                local screenPos = Camera:WorldToScreenPoint(silentAimTarget.Position)
-                return Vector2.new(screenPos.X, screenPos.Y)
-            end
-            return oldMouseLoc(...)
-        end)
-    end
-end)
-
-pcall(function()
-    local CosmeticLibrary = require(ReplicatedStorage.Modules:WaitForChild("CosmeticLibrary", 5))
-    local DataController = require(LocalPlayer.PlayerScripts.Controllers:WaitForChild("PlayerDataController", 5))
-
-    local originalOwns = CosmeticLibrary.OwnsCosmetic
-    CosmeticLibrary.OwnsCosmetic = function(self, inv, name, wpn)
-        if skinChangerEnabled then return true end
-        return originalOwns(self, inv, name, wpn)
-    end
-    CosmeticLibrary.OwnsCosmeticNormally = function(...) if skinChangerEnabled then return true end return false end
-    CosmeticLibrary.OwnsCosmeticUniversally = function(...) if skinChangerEnabled then return true end return false end
-    CosmeticLibrary.OwnsCosmeticForWeapon = function(...) if skinChangerEnabled then return true end return false end
-
-    local originalGet = DataController.Get
-    DataController.Get = function(self, key)
-        local data = originalGet(self, key)
-        if skinChangerEnabled and key == "CosmeticInventory" then
-            local proxy = {}
-            if data then for k, v in pairs(data) do proxy[k] = v end end
-            return setmetatable(proxy, {__index = function() return true end})
-        end
-        return data
-    end
-end)
-
-RunService.Heartbeat:Connect(function()
-    pcall(function()
-        if not FighterController or not FighterController.LocalFighter then return end
-        local item = FighterController.LocalFighter.EquippedItem
-        if not item then return end
-
-        if noSpreadEnabled then
-            if rawget(item, "Spread") then rawset(item, "Spread", 0) end
-            if rawget(item, "CurrentSpread") then rawset(item, "CurrentSpread", 0) end
-            if item.Info and type(item.Info) == "table" then
-                if rawget(item.Info, "Spread") then rawset(item.Info, "Spread", 0) end
+local function __b64dec(data)
+    local b = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+    local inv = {}
+    for i = 1, #b do inv[string.sub(b, i, i)] = i - 1 end
+    data = string.gsub(data, "[^%w%+%/%=]", "")
+    local out = {}
+    local n, buf = 0, 0
+    for i = 1, #data do
+        local c = string.sub(data, i, i)
+        if c ~= "=" then
+            buf = buf * 64 + (inv[c] or 0)
+            n = n + 6
+            if n >= 8 then
+                n = n - 8
+                out[#out + 1] = string.char(math.floor(buf / (2 ^ n)) % 256)
+                buf = buf % (2 ^ n)
             end
         end
-
-        if rapidFireEnabled or hoNyangNoCDEnabled then
-            if rawget(item, "ShootCooldown") then rawset(item, "ShootCooldown", 0) end
-            if rawget(item, "FireRate") then rawset(item, "FireRate", 0) end
-            if rawget(item, "Cooldown") then rawset(item, "Cooldown", 0) end
-            if item.Info and type(item.Info) == "table" then
-                if rawget(item.Info, "ShootCooldown") then rawset(item.Info, "ShootCooldown", 0) end
-                if rawget(item.Info, "FireRate") then rawset(item.Info, "FireRate", 0) end
-            end
-        end
-
-        if noRecoilEnabled then
-            if rawget(item, "Recoil") then rawset(item, "Recoil", 0) end
-            if rawget(item, "CameraRecoil") then rawset(item, "CameraRecoil", 0) end
-            if item.Info and type(item.Info) == "table" then
-                if rawget(item.Info, "Recoil") then rawset(item.Info, "Recoil", 0) end
-            end
-        end
-
-        if noMuzzleFlashEnabled then
-            if rawget(item, "MuzzleFlash") then rawset(item, "MuzzleFlash", false) end
-        end
-
-        if bulletSpeedBoost then
-            if item.BulletSpeed then
-                if not item._origBulletSpeed then item._origBulletSpeed = item.BulletSpeed end
-                item.BulletSpeed = item._origBulletSpeed * bulletSpeedMult
-            end
-        else
-            if item._origBulletSpeed then item.BulletSpeed = item._origBulletSpeed end
-        end
-    end)
-end)
-
--- Render / Visuals & Skybox Presets
-local SEGMENT_COUNT = 32
-local circleSegments = {}
-
-local circleFill = (Drawing and Drawing.new or function() return setmetatable({},{__index=function() return function() end end, __newindex=function() end}) end)("Circle")
-circleFill.Thickness = 0
-circleFill.NumSides = 64
-circleFill.Filled = true
-circleFill.Transparency = 1.0
-circleFill.Visible = false
-
-for i = 1, SEGMENT_COUNT do
-    local line = (Drawing and Drawing.new or function() return setmetatable({},{__index=function() return function() end end, __newindex=function() end}) end)("Line")
-    line.Thickness = 2.2
-    line.Transparency = 1
-    line.Visible = false
-    table.insert(circleSegments, line)
+    end
+    return table.concat(out)
 end
 
-local function getRainbowColor(hueOffset)
-    local hue = (tick() * 0.5 + hueOffset) % 1
-    return Color3.fromHSV(hue, 1, 1)
+local _Q791740={{375576373,589597033,392447990,682118018,964386255,374666693,725881614,987328925,301897697,618723115,566935518,867943162,792415672},{541397103,748001884,524518107,595161021,318974542,838687062,439085284,672834490,687194513,631983149,753768273,633064601,854410085},{952978397,477006977,634248792,653729890,418583576,996244313,283974418,147024952,641207384,498578404,306375222,345696181,385673211},{444387186,329064419,128036158,265910667,685237235,485662053,153537641,164671391,371811433,549626851,193388619,613973416,471201545},{167104395,688389832,592050879,201129005,420254196,559209543,564114595,749026203,753037599,785051217,676663581,236617129,329631410},{934740224,245910752,748784423,730542164,792572132,503868263,914323485,864091972,140285238,988113223,802062827,729652542,744663671},{102818848,192934280,718511243,890129187,724976409,347520518,804007956,200267921,530336014,553560559,471883062,814415359,765855272},{751960924,871270560,636222524,316679702,322489167,586773098,872923903,699323132,281352780,180831413,472358904,239698292,468957836},{261741879,157238856,520063437,322743307,338776872,286840231,397871230,388762585,191822854,370458543,211208461,257268355,264541489},{625292067,742190966,215094784,245522417,599877223,970969384,482753579,540274698,954867478,823731646,358144155,922481495,319416067},{184906271,570162105,340616147,952155659,645534124,309507558,358237505,593981992,434368721,581669552,329446950,262973096,202174018},{111081710,943076925,216815797,856733998,245149335,197654313,481186955,685242284,252278028,523637556,786467099,987706429,685679378},{160348439,803182876,688758710,949953620,370160482,224266778,836719547,154021313,965405153,643226805,390297556,578912777,934328613},{810219294,127934430,814966174,673094809,571086971,650464570,408734100,596859135,136518867,710353513,940195864,352828683,878696940},{510776799,842401977,612618028,352689009,704000993,220620200,513975388,567615831,480823853,943593543,212377125,348141475,809975438},{402577321,587200496,697340600,313200399,824226422,482032452,521922861,581487137,432448048,987898248,139085201,104013829,981968895},{629293066,836751669,171180118,962424621,869037442,489555338,445072497,613446805,846036555,463893554,895997562,548032683,616366795},{576553678,759012103,644185144,265331551,737514170,162660728,735450640,758394851,635275125,466172334,246185023,310522831,167465946},{738623626,474678886,857553434,991968791,888658878,649271806,851186187,224931562,149750607,537073745,290008536,115616551,342366148},{388198831,647534964,966621919,828777684,557339540,522725791,524009889,991669762,181063653,556049310,199225694,811408268,471028229},{341463643,246288072,868149247,348952201,266468002,735266903,697753019,330214246,438037707,368817936,261289947,408606835,324659951},{661040797,193724482,788343489,389330544,186424070,982428299,794601640,106016540,789156725,438449085,778669597,876171993,682248516},{884175168,953603403,146069188,370748567,903395260,591902991,493035066,532560250,932739218,826823174,384411361,207811816,586827761},{333477510,307062489,874275350,624911477,337190582,728256882,281226530,804067899,290759465,684860984,802326991,591725362,343677597},{994680375,842956277,170920012,329989377,132069765,732093969,987578875,957378320,820466826,599051159,261514360,663786153,553992552},{282436197,950761062,866229837,499198937,584234169,437474932,524744608,421074337,221882282,742656748,766649097,963232816,326838182},{402071029,500283727,591558502,971518892,933464643,861602361,902239233,269781929,952906965,356076829,698938988,392634171,437077655},{924275752,933721980,267922597,518755167,533777111,308031749,437746200,195871526,237378656,987378861,209096434,576650931,185296767},{318879903,583127425,744163507,128116604,653140421,715950990,503669798,684756662,988177418,933016387,658548112,568320825,453999167},{887388223,482809949,680549838,487217742,140986213,350662253,719554112,395260491,233486824,404415799,410843818,923534866,731826880},{115327588,410517917,910034599,448987986,843045410,352774337,663818427,230300891,990939517,270969225,446154364,970317338,571594342},{208722599,157926992,678939426,868661884,131107424,913448383,628296998,993742494,791441990,520688553,293648124,723968045,226209146},{597737661,966334095,246349271,650693801,370870860,666780049,962344510,136306978,546734811,861851199,866351720,903296843,684100695}}; __t2(62);__t2(53);__t3(66);__t1(43)
+local _Q660912={{495839060,383951439,327713079,441628822,608265579,338224590,319278867,248906026,907317258,921541886,153790246,676480716,539912569},{118250524,237605968,935505157,400143258,719254864,383243696,870260083,906311100,827603586,356682819,353094858,413420102,108735397},{255001057,287749319,400625900,219433963,170128998,820946009,293935644,587752476,748206114,436034491,327691603,993272872,563735318},{502392723,690281955,606674727,767171284,981449161,360312246,183274755,282684457,845017995,809996201,921675271,359087384,752588906},{982082736,570405422,809122127,497503670,470017732,150278579,277702754,567625636,881045304,766092646,347805115,308325453,666638610},{188892131,129225476,259013375,238789601,294052292,121047438,777368210,470687199,433878265,750559190,822008414,389477015,577983014},{588485222,549653288,372966480,609183694,887928378,563235763,618922550,144793740,131510301,114825253,656297840,721008639,838028209},{314216981,435613087,500643738,290199217,248385340,579440522,210555231,807987247,767945205,240678980,522271222,534587789,705937470},{582910071,179108922,286124064,375743043,861180968,421686449,989715836,407963033,231192395,264562500,216806524,501216394,989494620},{151471657,507401487,783158393,934001011,404326979,296438963,470049716,208318070,693678829,973503528,132169594,321147552,216758935},{558851268,615540001,158280004,357563991,954158325,608974113,549204702,354820537,733364447,891137260,895775500,118507559,596563386},{397121317,655209740,880347854,583262200,448597954,583575581,790334313,802805419,970721007,691206182,539779745,955513786,600684672},{420238697,909391080,238761240,610870650,445495595,108357719,493056759,516397703,946382267,508389792,823945278,581357969,581957486},{977527259,311163348,347756415,905480439,818720408,149004877,484253160,946857337,461403758,134402449,597586536,352154665,875548409},{246869309,589657456,825075366,585029859,227538119,979804199,316492773,976058894,509696472,320013093,853591154,442503121,613570872},{931842306,957581243,916371645,480157397,510120746,924860919,995730394,109676185,388220520,183303640,396359032,593382654,532062802},{941132562,425422776,364313849,288208528,732277700,373721774,699711264,285004689,443116416,743619033,981966631,693838040,176002664},{112173060,420995317,885910131,771450067,876789267,350800333,650543749,561345074,985324610,652964171,679746009,638875907,231637249},{874542769,300820212,116657449,265868882,645886025,880837169,699482045,373916424,367288923,140416945,570679074,289143495,189195254},{828533766,757660509,387642103,873634591,876645507,668986743,900504119,106196823,121065330,882318845,460042350,833617880,187874977},{791997394,491908266,415597788,640699346,254179740,521747446,742499684,874422958,111487169,409121691,796573134,971769704,372126667},{178786482,119539860,660023963,622201794,676520615,235254258,827657823,851428190,949024059,815978806,615037671,792841605,956819127},{944881805,915641322,411735271,229276402,160797275,276468121,554223438,516300620,872160784,874485651,304138610,950818086,311642877}}; __t4(32);__t5(32);__t1(48);__t2(98)
+local _Q221802={{452803817,143680745,363526846,326259535,857852569,785308839,943389590,855152274,385676624,659613090,842140657,520552878,133388029},{171341724,419045105,401033049,252535731,495134354,948215341,143169446,660973552,420379513,432452136,668854622,303973989,718325910},{672455231,585742069,726971021,194826062,576368359,279885903,785938174,586844302,323999289,240216369,267014213,987875348,877101973},{530309811,340123378,443392946,305772160,543154548,488674221,742239757,714063731,109702152,863464513,952066910,615891737,750049985},{281917304,822131756,416885210,815417722,597781217,957396477,386522279,337408068,819429742,980079668,672299556,172048549,264642506},{690509013,934718789,587117245,632074772,271895399,839735647,759884834,539866422,739789040,219657941,255923640,683042936,447723363},{683377370,960650625,640957481,115837282,293648971,984855326,935487433,437662324,138339321,199930623,429685172,453905691,115861017},{301220254,679767833,289914815,350095231,552683837,764384201,520584085,297734023,272875499,741136055,573148932,687924362,208623657},{599970800,963560565,477541027,600105071,739590964,599521973,355411683,159742762,511107307,390343506,624087458,636981243,341034177},{231383696,256464485,172768065,969422368,249777679,491577498,278389839,534741957,320918761,575562167,789194816,108670288,880807311},{639920606,998982376,173326345,109709087,487884832,601500685,630161056,164723530,310118377,761859267,878049354,154397310,567577546},{197303359,554602641,979427951,657848967,928128947,828015900,983528774,352678376,814039913,824019329,563759849,987659728,446040825},{370812572,652883771,838193564,833781440,273840049,299755950,677638667,729808406,431808891,890011479,381453754,283851708,399005547},{288838915,785856446,912695140,313672940,756555462,630127335,242322846,713715245,427584934,595812813,243943188,926678697,430376603},{526516059,637657584,421032313,358146926,748181518,978227592,402530126,779639500,537897038,452989347,960826656,281490047,925359773},{210566512,193291081,797742864,638266308,245911582,136060019,322908305,934904592,892277668,361139221,876882223,811930765,975747807},{640995890,488734121,813495287,242818042,182176013,769166763,661643753,459238729,184760930,618293584,748356657,619979448,346186195},{117034901,164463902,822855533,388987868,110248684,217877575,971797720,895700678,815431173,849839513,839826718,154897461,495251155},{101286462,559936312,636166285,719454659,376616001,584389296,294337014,983405305,774219990,309230508,231524073,325308231,893087095},{745576424,923348464,490769802,855473222,395964098,970871193,276572666,929146267,846660163,279865269,691811665,757105631,595229200},{316233646,981317031,283123631,537135939,472198594,851400677,162049240,777926525,589510705,276395458,302293635,417253598,668961493},{212098825,858231593,368205307,397809812,323700248,716927556,292694517,580443497,785699568,896297026,892909509,724037225,824897592},{149810709,953382892,533804807,844174282,977501054,342152525,613403054,885658351,450868591,941880337,576196782,301598711,414451828},{417967971,816641663,869831156,119382052,776133177,931303963,140934252,829561889,352783165,737303187,382093805,588271182,740770936},{289211587,168660224,313887641,499295800,717979472,354391295,888900586,166402150,767508349,882275835,448355544,909482527,428964212},{544130062,806936159,890689566,694806137,924256078,288504064,529657697,370600249,113474553,127740491,247243450,846386581,247030174},{229487181,382206010,676894147,183053772,617645709,167591347,616952251,359198072,641011984,278961390,501675713,176460018,765585506},{207383747,823997963,374963904,567317875,612485695,969193558,312446460,531797937,175538085,883284423,165137698,832146715,912282629},{208617487,153362092,181856722,786363040,562069494,909323132,490977307,866373265,373001857,522375972,664102614,958250735,143305496}}; __t2(86);__t4(69);__t3(66);__t4(50)
+local _Q107070={{427662034,280565009,481325223,453084137,392284419,255253403,949648142,420827790,493186693,677742775,371544946,226302403,296548055},{689501819,150437106,353584514,994300058,243325732,738286832,767640628,362927346,292241119,731247719,807122716,540683215,501168800},{888053264,595983010,865810013,233601715,319227596,213543632,187173401,486955615,472400494,307266045,205057301,259564258,954941939},{758877790,240750909,118863195,250468081,686150510,185785244,272645272,532001812,260027685,561845475,318254380,872655814,953164207},{978999259,894222226,854531004,644665602,135810631,934224088,207798288,629354978,691794544,518866011,803342458,786607557,220718605},{499963629,782977927,600897354,475676086,316067034,697406076,716067479,949113971,304141627,679531896,126430213,610945917,771475414},{851283068,813282893,954075754,342208807,181389857,776336019,762938748,398759008,779518323,715013883,912968653,214165476,584442615},{124911925,556827489,846660226,705145972,839379829,334057472,661969295,733867098,755807732,483366884,405514372,427159476,138000685},{694241372,176890545,831654302,602657363,423170018,149567349,617058500,461645374,843515117,550212192,667740387,287061220,192316703},{821669736,906737072,743342422,732473087,733525386,316921394,773545270,469583662,485107359,986420081,783022859,588184734,863582727},{910693608,551933514,748286822,170930498,590953969,205278571,670682552,330241657,145832422,336191148,132076689,646137712,576430801},{210546424,959442357,718999907,926219964,996400300,117323690,140517575,991197825,760682546,463994286,492517231,244786838,518434676},{774010284,856469990,124438079,751881998,567099513,727833839,257733927,419780260,594115919,196965127,830999789,171966441,446788870},{179596375,995631779,671139803,619945908,357904938,975841200,179239351,848627061,800690516,915070729,142276868,785158148,481666685},{153966936,989907805,102945356,245382088,610707414,540454614,690297997,266782847,685508022,290031230,541293771,121174885,308783393},{971576943,215902969,414860655,510641563,981009464,191905723,235293236,273956968,923775177,465746758,804840188,358361850,651017328},{103342669,238376375,501829462,967735936,138967479,930994201,221414621,668031092,496392097,293151390,428043266,266745359,561023585},{694832250,167676848,238793421,599720387,978979721,788003199,441726802,441742506,278217678,421719822,147349849,172031053,254441666},{503566044,244793164,116209977,385084908,653919223,794762269,989583237,411060207,308430435,919442242,358697994,476675813,932700947},{158099524,607163210,765528094,189989576,493360089,478372777,356415993,303957156,815163612,875577292,123438768,863510157,938176721},{119569344,125911566,338440027,529754069,789137584,592323827,894847716,630024062,677269969,541268080,312688576,619278110,788797146},{250632405,889464108,822594867,193979583,178485443,917738471,359816166,279081595,166751622,363433620,446194787,134119573,530739247},{940741446,915324944,190073455,302371923,212867867,497966251,145643270,633964694,879242267,241855088,630035419,845917196,556494564},{772897935,618699432,887568576,663573437,162555509,835407474,884139902,477232338,238630249,844299294,294375860,576177967,315829694}}; __t1(102);__t1(17);__t4(28);__t5(77)
+local _Q488679={{189909867,399975896,242744303,564775283,265282406,423025753,554890456,848641829,981488870,264744495,255951603,324621370,675794545},{245870801,519088532,901281603,750380562,439021066,915158918,229030155,147552830,625818027,660025443,775480725,774849694,773188155},{365995049,562946791,471812744,483720118,963165591,182904332,678576053,439648266,867415120,889196589,477064882,564828144,295692112},{499764925,121573847,260737732,686531888,927107906,565326980,385280493,864380213,592903729,826487885,732841787,405245463,768967428},{410031616,970175849,442141532,747808001,512616295,828364629,956335663,152709552,348156243,568066374,409424328,897296323,603674736},{927274275,628611891,190263494,360196625,477205596,332862343,536130468,758029042,921269721,431603365,838387751,622435375,706063787},{646564559,166835801,880258783,554068981,336843498,682828591,974439074,775689451,686862130,781559558,659662991,760213337,864279478},{743662585,925561686,603785743,493349542,731614822,147246190,293547237,219328857,681376257,400249292,167921376,187761473,743161852},{834466653,449684618,138812925,513379368,901278723,662504473,884649859,725034386,389069392,729585330,298003342,515816543,269082999},{987958945,347857988,642747546,695267622,478649110,110350542,272255301,536739019,318809573,497022316,308799290,972851001,336968383},{809538761,148780944,625161756,465609429,963414131,710379050,352814350,619089911,483927392,912284831,865772961,544812353,354535186},{196624198,861286722,269655528,657958748,155383195,886688941,439997863,354117852,824034315,786758717,481713228,424316775,841972978},{431646001,976834502,760364243,847514896,579148615,415273284,502631067,691474832,368991675,435031041,203146697,649386186,182724715},{942087864,857734513,833663735,973576449,836601342,150886535,906412983,662503685,333071887,250427545,466239381,421943723,197750334},{193822500,135449590,873044974,807369270,621741236,406929379,803426806,762498693,999925083,797489911,409904673,225355010,264278012},{213438568,221352411,162508023,856460300,862307934,375088927,632724319,357450794,878924918,996401905,484996005,147470109,884751440},{934158854,748918972,896371088,225663480,113926540,725751862,894778861,243635035,949130535,822142579,385204663,210263267,515985018},{223407389,651859050,923583358,923040724,666936382,627052439,833425865,480586915,762820766,440420318,811199620,789798212,894049224},{394414806,742412220,554458552,488180515,546505617,617730175,869124571,168182174,585936457,363997174,126247849,306313442,802210000},{895349256,341761038,882642725,228122556,265307244,269599210,191127764,822487515,420465495,943450454,526257380,606551036,655895602},{729662179,299701936,735412978,459174816,400277152,959535276,901512728,584630361,613285741,252481032,728255813,309184240,729946803},{984835002,509529120,605224210,190004169,117505196,980583268,753041699,402050512,904793166,516061820,388076494,323908466,316692931},{553557467,434769570,664419223,516615997,401781904,943766166,861240721,852347907,572154765,715778685,404743428,968783009,213389325},{164814063,110362905,244637662,953435786,323588352,211918956,644642510,586827282,903069816,544746112,518269213,859273736,909147577}}; __t4(39);__t2(6);__t2(2);__t1(46)
+local _Q701338={{868002556,273919162,857196103,608009948,346103606,864226006,538525847,686936680,593280873,282748136,977799190,713679628,687970586},{264819201,816692520,449315521,544037797,235589917,833662494,198865421,881220683,465426392,220969778,615041645,733137419,133405630},{881775511,866671961,348808616,918154393,842037698,356758312,577421614,827753667,271424290,280390912,505691994,368570440,984471245},{562514782,104025116,583724095,221434238,605276174,800308819,698330492,572152258,125801829,630638580,963805078,217594076,726238716},{434362306,305838528,918916518,523182131,584996419,953742155,793205528,629386343,114484660,160619601,798154122,784973764,752097251},{873547786,880869846,661624800,205002736,315372358,864190886,911175384,174376632,418831610,175418189,112299095,901137120,947385743},{954909775,125462498,510436130,240926252,623664202,322833014,127829383,533719847,732773741,910941103,562795336,314215680,257852599},{677108725,216992549,409508025,692707284,214499388,611732787,375664450,609430800,784143789,932988380,301060382,215635132,796185061},{567071316,982801339,127153071,179019291,155509971,458478910,583703502,677895197,374201264,282160130,228712719,607465734,695226829},{996335658,767277257,791096850,538444538,953797228,683984642,886444919,127334402,832913104,309028257,631294718,160042700,234655170},{988975478,539141209,182756146,595394011,885191965,623432518,674920329,730210094,808274425,910689808,100019531,361740574,957480216},{394666895,714802956,306536039,328809406,913435122,846001987,685888428,588489632,579671892,288820430,498779439,159421250,998496974},{428917690,581754839,198629131,301253692,629223252,112276390,375490940,368858995,762732004,518270384,169991883,293962439,909930817},{197032636,297315767,214806136,611513017,948567894,107883471,119675247,763257500,489041617,365317111,837865585,915407960,597556253},{717641731,888724752,220910491,701174055,310935688,544513064,115801476,734524919,674096821,950142583,988496582,169802141,556635686},{314485736,427847978,312223862,458362455,583564797,222649839,214863422,558246374,117100078,430170643,765302159,652003936,216291127},{944236031,895522170,236862321,452113633,986063325,832161828,140389441,178315719,365678328,942727143,915455199,402210946,372440139},{219165471,277017983,643667456,185124803,160676638,721081429,464563620,935330681,865333661,749384361,223512595,631213294,506020504},{382871726,214041084,773788089,957488239,518599627,263997375,520118618,512613751,857624500,173855080,296181740,908212420,619855051},{544254720,913408783,249488450,974735481,959020293,522336502,845139716,144987510,969447105,537609888,229844537,196562365,572622342},{862837115,476588182,922509051,322073873,563353979,239465967,528511436,535193457,176137295,916160948,410753722,243566989,685741817},{686703480,634706971,962098370,911000785,610011022,307107261,526261813,327756349,522206930,744542615,933294272,266437435,880791293},{529366057,346784249,454816811,565962369,587324044,669064946,275051558,799753581,397481642,649207413,591253360,487316622,169903821}}; __t5(101);__t4(48);__t3(51);__t5(38)
+local _Q631225={{699939919,790926450,908148574,383743733,902389872,902206449,173322809,237598176,876195965,426666057,925472134,358593619,878041009},{387266372,950600267,961918333,532164722,619640907,101091036,655850307,513456592,955763460,227788657,850907399,304907286,626783255},{906357034,781344262,226026959,584699157,949083795,518579749,536255888,581354794,466023990,429169103,627311765,383017668,195031303},{115655133,747352656,300394577,397410271,636079937,273072266,103731964,288693745,633373379,704266638,328802436,799915956,436376212},{918919385,177570324,343995621,533982788,329894048,304139972,181299170,476501442,328323844,523447510,442182806,962320620,156169045},{862790680,515384019,578552019,356586171,775726385,288189220,296949167,855915200,198735422,105568986,810437907,896676563,651579821},{213387428,756007101,571759217,746077832,994999103,904859115,380548555,940415072,379302590,565456598,993256390,798162543,860129955},{380226566,804006455,264556992,872946788,406830166,900657979,258797103,339970892,125129566,257650217,678225999,222040577,271150816},{778846586,442660701,320812704,939560450,603710499,393898829,714273952,520152701,502952358,393594485,767594267,983624882,988543523},{673822839,771019761,560902816,395621318,617247825,712864355,563232991,949213416,633751804,790491136,999288538,261763291,198455056},{264360273,315469826,149547408,984896947,229410550,680723887,275456222,752200195,376514670,833807484,365238772,591586011,536840575},{947130222,596903137,440638979,747949381,982847426,508524072,198127020,469309961,913610597,774032264,709449428,121835172,203618042},{131385172,422168331,223195336,977283898,647042512,809030610,844631089,458941227,396262124,652548369,943293414,618010993,356435020},{882720728,478009925,574093461,677209026,289351101,627582722,946762379,368649497,269301797,853307259,268335034,450091454,343140499},{354378382,880254622,934389542,182445499,752272060,733314224,562533637,260751825,997760857,778158194,603805490,163735798,207379565},{936107865,261995570,985886583,953112018,841037832,332399370,674224230,180398890,738205509,607473227,696562141,975870982,238898666},{545175681,568549412,927996107,166361719,571836574,590834895,191934553,662471096,894136266,624465888,153607076,209438430,585109650},{302590328,506705978,695270333,976936218,135274187,159552149,334532282,488596995,366099698,272392268,405315272,346971134,502475413},{967296536,610755271,454521323,551681300,621551301,277169627,533621360,702442514,567538097,918188343,917464724,451854001,629980811},{581682467,366462940,407451901,544353284,617930737,330114873,641981650,153298433,567316852,685040633,263900663,908968663,928022580},{969368860,386926732,139335307,315232131,694244127,377218900,877320129,159036060,492320931,788315681,170379001,388619484,703982906},{949266478,598981602,129147223,236128332,447221020,491787500,631207351,540156690,446629584,849842088,362840648,122063070,815903536},{366383876,219400881,749713044,404722820,161869119,415706433,939996619,596256636,627736484,766003417,572127296,155723783,517484599},{891467273,291785095,266736909,112845185,891142098,709212817,573658769,113393079,513602493,892764243,433318341,814936256,357309335}}; __t1(99);__t5(108);__t4(30);__t3(92)
+local _Q663195={{397843100,869367428,874177673,903935542,967300016,950891349,174126849,460948866,167266074,227873906,110449389,765019654,810838032},{766967128,799148046,715671665,889974640,875156592,267826528,368947427,878472930,927424293,535377305,439673072,816016888,657391679},{165480016,131556936,274077369,257883918,600870936,234655494,152435422,460969271,279049218,676219168,913118326,794017858,499535636},{663726784,407523420,437899821,522934710,513553293,363437685,362814264,364741444,760461498,501767652,884412630,538091865,246760774},{593340300,770549954,318079582,796324357,466497200,727971531,183854009,275128829,929567134,904887533,954201476,391214988,356811320},{301010770,746907476,859570084,594244911,185402885,699234846,248300412,616950457,496385568,995465348,847312556,522147113,414336378},{718696301,863239345,617355355,839948258,979567566,387514086,413697134,181538525,694041216,976399844,756923789,750514535,565887887},{186542224,611332843,684907098,291283868,139421981,680333876,574779234,130972440,654336646,654423421,495389718,862997400,708170012},{553233321,698252729,768778276,431161085,878177126,129800400,376576439,383526762,511540353,833978257,306627210,519525929,193615501},{306595354,158518788,624830802,713234893,269480973,977560155,628693783,994566832,228473597,793961012,117671927,204329346,238617460},{128979110,503404494,804974263,846560364,972367542,176722769,480890091,131540896,132723533,901547798,876727592,371725243,844430251},{970545379,206463717,867117983,931986633,593742760,806459693,940678822,853207270,800002083,697313454,768736055,482426330,524882411},{322803859,638265139,182855400,354377862,249139828,541478104,598186314,306054505,860823319,121778608,196739717,608450243,198065985},{853970557,458075404,958063957,675547886,429730492,962209332,724048626,422204324,695837273,968112411,178707498,780073708,521608225},{811881465,610160634,513723670,445207164,225139654,501780256,734574140,891346755,458186446,648227022,662239140,517062160,195596097},{617009227,321973030,175703208,496055603,194441512,848222211,106564066,385004284,733997699,573413567,812633583,992449200,185200000},{974201187,798771597,297387129,242954916,981035647,725201186,801241812,303302477,352746745,264956288,207154780,692943797,734375393},{808805826,204878094,280376167,209640548,614247934,806676751,774662218,351947106,875783363,296452365,158159020,536136023,733710238},{690218156,762408328,715458053,124739617,620862916,252822467,580342859,867174952,565776780,655290059,521194652,849708056,451950787},{466727095,574987329,389007819,692074034,433815862,751284018,765262563,966938975,779847755,128207775,384061788,878101488,990552337},{553903524,485750181,910095790,345690670,851926319,900121444,708081067,935225989,518412701,201323203,103790321,550611626,562783780},{478875706,602425914,254977615,213038008,610898847,847982475,680400529,166634462,854356363,391355422,834080802,950134930,584425904},{668142737,719057276,641824799,218460641,402255816,972328609,300794951,911744558,655870467,999350748,242324109,780231122,100993049}}; __t2(7);__t2(56);__t3(71);__t5(71)
+
+local function __assemble()
+    __t3(42)
+    __t5(13)
+    local parts = table.create(#_S)
+    for i = 1, #_S do
+        parts[i] = _S[i]
+        _S[i] = nil
+        if i % 50 == 0 then __t5(i) end
+    end
+    local joined = table.concat(parts)
+    for i = 1, #parts do parts[i] = nil end
+    parts = nil
+    local layer = __b64dec(joined)
+    joined = nil
+    layer = __bxor_str(layer, _K5)
+    layer = __bxor_str(layer, _K4)
+    layer = __bxor_str(layer, _K3)
+    layer = __bxor_str(layer, _K2)
+    layer = __bxor_str(layer, _K1)
+    return layer
 end
 
-local skyPresets = {
-    ["Dark Sky"] = { SkyboxUp = "rbxassetid://570555929", SkyboxRt = "rbxassetid://570555882", SkyboxDn = "rbxassetid://570555964", SkyboxFt = "rbxassetid://570555800", SkyboxLf = "rbxassetid://570555840", SkyboxBk = "rbxassetid://570555736" },
-    ["Vaporwave"] = { SkyboxUp = "rbxassetid://1417494643", SkyboxRt = "rbxassetid://1417494499", SkyboxLf = "rbxassetid://1417494402", SkyboxFt = "rbxassetid://1417494253", SkyboxBk = "rbxassetid://1417494030", SkyboxDn = "rbxassetid://1417494146" },
-    ["Lake Sky"] = { SkyboxRt = "rbxassetid://6823531746", SkyboxUp = "rbxassetid://6823528533", SunTextureId = "rbxassetid://5392574622", SkyboxDn = "rbxassetid://6823525702", SkyboxFt = "rbxassetid://6823482923", SkyboxLf = "rbxassetid://6823530023", SkyboxBk = "rbxassetid://6823523318" },
-    ["Black Mesa"] = { SkyboxUp = "rbxassetid://9569598752", SkyboxRt = "rbxassetid://9569601267", SkyboxDn = "rbxassetid://9569613307", SkyboxFt = "rbxassetid://9569611418", SkyboxLf = "rbxassetid://9569608166", SkyboxBk = "rbxassetid://9569742122" }
-}
+local _src = __assemble()
+_S = nil
+__t1(#_src % 97)
+__t5(#_src)
 
-local function applySkybox()
-    local customSky = Lighting:FindFirstChild("multvallkCustomSky")
-    if not customSkyboxEnabled then
-        if customSky then customSky:Destroy() end
-        return
-    end
-    local skyData = skyPresets[skyboxTheme] or skyPresets["Vaporwave"]
-    if not customSky then
-        customSky = Instance.new("Sky")
-        customSky.Name = "multvallkCustomSky"
-        customSky.Parent = Lighting
-    end
-    for prop, val in pairs(skyData) do pcall(function() customSky[prop] = val end) end
+local _fn, _err = loadstring(_src)
+_src = nil
+
+if not _fn then
+    warn("[vallkmult] protected restore failed")
+    return
 end
 
-local function setSkyboxTheme(selectedTheme)
-    skyboxTheme = selectedTheme
-    customSkyboxEnabled = true
-    applySkybox()
+local _ok, _e = pcall(_fn)
+_fn = nil
+if not _ok then
+    warn("[vallkmult] protected exec error:", _e)
 end
-
-RunService.RenderStepped:Connect(function()
-    local myChar = LocalPlayer.Character
-    local mousePos = UserInputService:GetMouseLocation()
-
-    if false and circleCrosshairEnabled then -- Drawing crosshair disabled (freeze)
-        local centerPos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-        local radius = math.clamp(circleCrosshairSize, 1, 600)
-        local currentRot = (tick() * circleRotationSpeed) % (math.pi * 2)
-
-        circleFill.Position = centerPos
-        circleFill.Radius = radius
-        circleFill.Color = getRainbowColor(0)
-        circleFill.Visible = true
-
-        for i = 1, SEGMENT_COUNT do
-            local line = circleSegments[i]
-            local angle1 = currentRot + ((i - 1) / SEGMENT_COUNT) * (math.pi * 2)
-            local angle2 = currentRot + (i / SEGMENT_COUNT) * (math.pi * 2)
-
-            line.From = centerPos + Vector2.new(math.cos(angle1) * radius, math.sin(angle1) * radius)
-            line.To = centerPos + Vector2.new(math.cos(angle2) * radius, math.sin(angle2) * radius)
-            line.Color = getRainbowColor((i - 1) / SEGMENT_COUNT)
-            line.Visible = true
-        end
-    else
-        circleFill.Visible = false
-        for _, line in ipairs(circleSegments) do line.Visible = false end
-    end
-
-    if aimbotEnabled and myChar then
-        local closestTarget = nil
-        local closestDist = math.huge
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and not is_teammate(player) and not get_character_immune(player) and not is_reflecting_or_parrying(player) then
-                local hitPart = player.Character and player.Character:FindFirstChild(aimbotHitPart)
-                if hitPart then
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(hitPart.Position)
-                    if onScreen then
-                        local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                        if screenDist <= aimbotFovRadius and screenDist < closestDist then
-                            if (not aimbotWallCheck) or has_line_of_sight(hitPart, myChar) then
-                                closestDist = screenDist
-                                closestTarget = hitPart
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        if closestTarget then
-            local targetPos = Camera:WorldToScreenPoint(closestTarget.Position)
-            local currentPos = UserInputService:GetMouseLocation()
-            local moveVector = (Vector2.new(targetPos.X, targetPos.Y) - currentPos) / math.max(1, aimbotSmoothness)
-            mousemoverel(moveVector.X, moveVector.Y)
-        end
-    end
-
-    silentAimTarget = nil
-    if (silentAimEnabled or ragebotOrKillAura) and myChar then
-        local closestDist = math.huge
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and not is_teammate(player) and not get_character_immune(player) and not is_reflecting_or_parrying(player) then
-                local hitPart = get_character_root(player.Character)
-                if hitPart then
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(hitPart.Position)
-                    if onScreen then
-                        local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                        local maxFov = ragebotOrKillAura and 99999 or silentAimFovRadius
-                        
-                        if screenDist <= maxFov and screenDist < closestDist then
-                            if (not silentWallCheck) or has_line_of_sight(hitPart, myChar) then
-                                closestDist = screenDist
-                                silentAimTarget = hitPart
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end)
-
-RunService.Stepped:Connect(function()
-    local myChar = LocalPlayer.Character
-    if not myChar then return end
-    local hrp = myChar:FindFirstChild("HumanoidRootPart")
-    local hum = myChar:FindFirstChildOfClass("Humanoid")
-    if not hrp or not hum then return end
-
-    if noclipEnabled then
-        for _, part in pairs(myChar:GetDescendants()) do
-            if part:IsA("BasePart") then part.CanCollide = false end
-        end
-    end
-
-    if rapidSpeedEnabled and hum.MoveDirection.Magnitude > 0 then
-        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * (rapidSpeedMultiplier * 0.4))
-    end
-
-    if (pcFlyEnabled or mobileFlyEnabled) then
-        hum.PlatformStand = true
-        local flyVel = Vector3.zero
-        if pcFlyEnabled then
-            local moveDir = Vector3.zero
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Camera.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
-            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir = moveDir - Vector3.new(0, 1, 0) end
-            if moveDir.Magnitude > 0 then flyVel = moveDir.Unit * 50 end
-        elseif mobileFlyEnabled and hum.MoveDirection.Magnitude > 0 then
-            flyVel = Camera.CFrame.LookVector * 50
-        end
-        hrp.AssemblyLinearVelocity = flyVel
-        hrp.AssemblyAngularVelocity = Vector3.zero
-    else
-        if hum.PlatformStand then hum.PlatformStand = false end
-    end
-end)
-
--- ============================================================================
--- SECTION: User Interface Framework (Optimized Size & Left Margin Applied)
--- ============================================================================
-local valkLib = { accentclr = Color3.fromRGB(128, 213, 247) }
-
-local function make_draggable(clickObject, dragObject)
-    pcall(function()
-        local dragging = false
-        local dragInput, dragStart, startPos
-        clickObject.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
-                dragging = true
-                dragStart = input.Position
-                startPos = dragObject.Position
-                input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then dragging = false end 
-                end)
-            end 
-        end)
-        clickObject.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end 
-        end)
-        UserInputService.InputChanged:Connect(function(input)
-            if input == dragInput and dragging then 
-                local delta = input.Position - dragStart
-                dragObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            end 
-        end)
-    end)
-end
-
-local MainGui = Instance.new("ScreenGui")
-MainGui.Name = "multvallkHalmuUI"
-MainGui.ResetOnSpawn = false
-pcall(function() if gethui then MainGui.Parent = gethui() else MainGui.Parent = CoreGui end end)
-if not MainGui.Parent then MainGui.Parent = PlayerGui end
-
--- HALMU VALK Main Frame Construction (紐⑤컮�� 媛��낆꽦�� �꾪빐 �ш린瑜� �댁쭩 以꾩씠怨� 醫뚯륫 �щ갚/鍮꾩쑉 理쒖쟻��)
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Parent = MainGui
-MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-MainFrame.BackgroundTransparency = 0.15
-MainFrame.BorderSizePixel = 0
-MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-MainFrame.Size = UDim2.new(0, 480, 0, 560) -- �ш린 理쒖쟻�� 異뺤냼
-MainFrame.Visible = false -- key �듦낵 �� �쒖떆
-MainFrame.ClipsDescendants = true
-
-local Outline1 = Instance.new("ImageLabel", MainFrame)
-Outline1.BackgroundTransparency = 1
-Outline1.Position = UDim2.new(0, 1, 0, 1)
-Outline1.Size = UDim2.new(1, -2, 1, -2)
-Outline1.Image = "rbxassetid://2592362371"
-Outline1.ImageColor3 = Color3.fromRGB(60, 60, 60)
-Outline1.ScaleType = Enum.ScaleType.Slice
-Outline1.SliceCenter = Rect.new(2, 2, 62, 62)
-
-local TopBar = Instance.new("Frame", MainFrame)
-TopBar.Name = "TopBar"
-TopBar.AnchorPoint = Vector2.new(0.5, 0)
-TopBar.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
-TopBar.BorderSizePixel = 0
-TopBar.Position = UDim2.new(0.5, 0, 0, 2)
-TopBar.Size = UDim2.new(1, -5, 0, 28)
-
-local TopBarTitle = Instance.new("TextLabel", TopBar)
-TopBarTitle.BackgroundTransparency = 1
-TopBarTitle.Position = UDim2.new(0, 7, 0, 5)
-TopBarTitle.Size = UDim2.new(0, 0, 0, 16)
-TopBarTitle.Font = Enum.Font.Code
-TopBarTitle.Text = "multvallk Premium v3 (Optimized UI)"
-TopBarTitle.TextColor3 = Color3.fromRGB(230, 230, 230)
-TopBarTitle.TextSize = 15
-TopBarTitle.TextXAlignment = Enum.TextXAlignment.Left
-
-local TopBarLine = Instance.new("Frame", TopBar)
-TopBarLine.BackgroundColor3 = valkLib.accentclr
-TopBarLine.BorderSizePixel = 0
-TopBarLine.Position = UDim2.new(0, 0, 0, 27)
-TopBarLine.Size = UDim2.new(1, 0, 0, 1)
-
-make_draggable(TopBar, MainFrame)
-
-local ContainerHolder = Instance.new("Frame", MainFrame)
-ContainerHolder.Name = "ContainerHolderFrame"
-ContainerHolder.AnchorPoint = Vector2.new(0.5, 0)
-ContainerHolder.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
-ContainerHolder.Position = UDim2.new(0.5, 0, 0, 35)
-ContainerHolder.Size = UDim2.new(1, -12, 1, -42) -- �쇱そ �щ갚�� 以꾩뿬 紐⑤컮�� �섎┝ 諛⑹�
-ContainerHolder.BackgroundTransparency = 1
-
-local TabHolder = Instance.new("ScrollingFrame", ContainerHolder)
-TabHolder.Name = "TabHolderFrame"
-TabHolder.BackgroundTransparency = 1
-TabHolder.Size = UDim2.new(1, 0, 0, 32)
-TabHolder.CanvasSize = UDim2.new(0, 700, 0, 0)
-TabHolder.ScrollBarThickness = 0
-
-local TabListLayout = Instance.new("UIListLayout", TabHolder)
-TabListLayout.FillDirection = Enum.FillDirection.Horizontal
-TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-TabListLayout.Padding = UDim.new(0, 4)
-
-local TabPadding = Instance.new("UIPadding", TabHolder)
-TabPadding.PaddingLeft = UDim.new(0, 3) -- �쇱そ �⑤뵫 理쒖냼��
-
--- Tab Creation System
-local tabEntries = {}
-local isFirstTab = true
-
-local function AddValkTab(tabName)
-    local btn = Instance.new("TextButton", TabHolder)
-    btn.Name = tabName .. "_TabBtn"
-    btn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    btn.BorderSizePixel = 0
-    btn.Font = Enum.Font.Code
-    btn.Text = tabName
-    btn.TextColor3 = Color3.fromRGB(150, 150, 150)
-    btn.TextSize = 13
-    btn.AutoButtonColor = false
-    
-    local txtSize
-    pcall(function()
-        txtSize = TextService:GetTextSize(tabName, 13, Enum.Font.Code, Vector2.new(500, 500))
-    end)
-    btn.Size = UDim2.new(0, (txtSize and txtSize.X or (#tabName * 7)) + 22, 0, 26)
-    
-    local topLine = Instance.new("Frame", btn)
-    topLine.BackgroundColor3 = valkLib.accentclr
-    topLine.BorderSizePixel = 0
-    topLine.Position = UDim2.new(0, 0, 0, 0)
-    topLine.Size = UDim2.new(1, 0, 0, 2)
-    topLine.Visible = false
-    
-    local outline = Instance.new("ImageLabel", btn)
-    outline.BackgroundTransparency = 1
-    outline.Size = UDim2.new(1, 0, 1, 0)
-    outline.Image = "rbxassetid://2592362371"
-    outline.ImageColor3 = Color3.fromRGB(45, 45, 45)
-    outline.ScaleType = Enum.ScaleType.Slice
-    outline.SliceCenter = Rect.new(2, 2, 62, 62)
-
-    local holder1 = Instance.new("ScrollingFrame", ContainerHolder)
-    holder1.Name = tabName .. "_Holder1"
-    holder1.BackgroundTransparency = 1
-    holder1.Position = UDim2.new(0, 1, 0, 35)
-    holder1.Size = UDim2.new(0.49, -2, 1, -40)
-    holder1.Visible = false
-    holder1.ScrollBarThickness = 3
-
-    local h1Padding = Instance.new("UIPadding", holder1)
-    h1Padding.PaddingTop = UDim.new(0, 5)
-    local h1Layout = Instance.new("UIListLayout", holder1)
-    h1Layout.SortOrder = Enum.SortOrder.LayoutOrder
-    h1Layout.Padding = UDim.new(0, 8)
-    h1Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        holder1.CanvasSize = UDim2.new(0, 0, 0, h1Layout.AbsoluteContentSize.Y + 20)
-    end)
-
-    local holder2 = Instance.new("ScrollingFrame", ContainerHolder)
-    holder2.Name = tabName .. "_Holder2"
-    holder2.BackgroundTransparency = 1
-    holder2.Position = UDim2.new(0.51, 1, 0, 35)
-    holder2.Size = UDim2.new(0.49, -2, 1, -40)
-    holder2.Visible = false
-    holder2.ScrollBarThickness = 3
-
-    local h2Padding = Instance.new("UIPadding", holder2)
-    h2Padding.PaddingTop = UDim.new(0, 5)
-    local h2Layout = Instance.new("UIListLayout", holder2)
-    h2Layout.SortOrder = Enum.SortOrder.LayoutOrder
-    h2Layout.Padding = UDim.new(0, 8)
-    h2Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        holder2.CanvasSize = UDim2.new(0, 0, 0, h2Layout.AbsoluteContentSize.Y + 20)
-    end)
-
-    local entry = {btn = btn, topLine = topLine, outline = outline, h1 = holder1, h2 = holder2}
-    table.insert(tabEntries, entry)
-
-    if isFirstTab then
-        isFirstTab = false
-        holder1.Visible = true
-        holder2.Visible = true
-        btn.BackgroundColor3 = Color3.fromRGB(33, 33, 33)
-        btn.TextColor3 = Color3.fromRGB(230, 230, 230)
-        topLine.Visible = true
-        outline.ImageColor3 = Color3.fromRGB(65, 65, 65)
-    end
-
-    btn.MouseButton1Click:Connect(function()
-        for _, t in ipairs(tabEntries) do
-            if t.btn == btn then
-                t.btn.BackgroundColor3 = Color3.fromRGB(33, 33, 33)
-                t.btn.TextColor3 = Color3.fromRGB(230, 230, 230)
-                t.topLine.Visible = true
-                t.outline.ImageColor3 = Color3.fromRGB(65, 65, 65)
-                t.h1.Visible = true
-                t.h2.Visible = true
-            else
-                t.btn.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
-                t.btn.TextColor3 = Color3.fromRGB(150, 150, 150)
-                t.topLine.Visible = false
-                t.outline.ImageColor3 = Color3.fromRGB(45, 45, 45)
-                t.h1.Visible = false
-                t.h2.Visible = false
-            end
-        end
-    end)
-
-    local tabObj = {}
-    function tabObj:Section(sectionName, side)
-        local parentHolder = (side == 2) and holder2 or holder1
-
-        local secFrame = Instance.new("Frame", parentHolder)
-        secFrame.Name = "Section"
-        secFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        secFrame.BorderSizePixel = 0
-        secFrame.Size = UDim2.new(1, -2, 0, 24)
-
-        local secOutline = Instance.new("ImageLabel", secFrame)
-        secOutline.BackgroundTransparency = 1
-        secOutline.Size = UDim2.new(1, 0, 1, 0)
-        secOutline.Image = "rbxassetid://2592362371"
-        secOutline.ImageColor3 = Color3.fromRGB(60, 60, 60)
-        secOutline.ScaleType = Enum.ScaleType.Slice
-        secOutline.SliceCenter = Rect.new(2, 2, 62, 62)
-
-        local secTitleFrame = Instance.new("Frame", secFrame)
-        secTitleFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        secTitleFrame.BorderSizePixel = 0
-        secTitleFrame.Position = UDim2.new(0, 8, 0, 0)
-
-        local secTitle = Instance.new("TextLabel", secTitleFrame)
-        secTitle.BackgroundTransparency = 1
-        secTitle.Position = UDim2.new(0, 0, 0, -3)
-        secTitle.Size = UDim2.new(1, 0, 0, 7)
-        secTitle.Font = Enum.Font.Code
-        secTitle.Text = sectionName
-        secTitle.TextColor3 = Color3.fromRGB(230, 230, 230)
-        secTitle.TextSize = 13
-        secTitleFrame.Size = UDim2.new(0, secTitle.TextBounds.X + 6, 0, 7)
-
-        local itemHolder = Instance.new("Frame", secFrame)
-        itemHolder.AnchorPoint = Vector2.new(0.5, 0)
-        itemHolder.BackgroundTransparency = 1
-        itemHolder.Position = UDim2.new(0.5, 0, 0, 14)
-        itemHolder.Size = UDim2.new(1, -12, 0, 0)
-
-        local itemLayout = Instance.new("UIListLayout", itemHolder)
-        itemLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        itemLayout.Padding = UDim.new(0, 4)
-
-        local function updateSize()
-            secFrame.Size = UDim2.new(1, -2, 0, itemLayout.AbsoluteContentSize.Y + 22)
-            holder1.CanvasSize = UDim2.new(0, 0, 0, holder1:FindFirstChildOfClass("UIListLayout").AbsoluteContentSize.Y + 20)
-            holder2.CanvasSize = UDim2.new(0, 0, 0, holder2:FindFirstChildOfClass("UIListLayout").AbsoluteContentSize.Y + 20)
-        end
-
-        itemLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateSize)
-
-        local secObj = {}
-        function secObj:Toggle(text, getv, setv)
-            local toggleBtn = Instance.new("TextButton", itemHolder)
-            toggleBtn.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
-            toggleBtn.BorderSizePixel = 0
-            toggleBtn.Size = UDim2.new(1, 0, 0, 21)
-            toggleBtn.Text = ""
-
-            local btnOutline = Instance.new("ImageLabel", toggleBtn)
-            btnOutline.BackgroundTransparency = 1
-            btnOutline.Size = UDim2.new(1, 0, 1, 0)
-            btnOutline.Image = "rbxassetid://2592362371"
-            btnOutline.ImageColor3 = Color3.fromRGB(60, 60, 60)
-            btnOutline.ScaleType = Enum.ScaleType.Slice
-            btnOutline.SliceCenter = Rect.new(2, 2, 62, 62)
-
-            local indicator = Instance.new("Frame", toggleBtn)
-            indicator.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-            indicator.Position = UDim2.new(1, -16, 0, 3)
-            indicator.Size = UDim2.new(0, 14, 0, 14)
-            indicator.BorderSizePixel = 0
-
-            local indColor = Instance.new("Frame", indicator)
-            indColor.Size = UDim2.new(1, -4, 1, -4)
-            indColor.Position = UDim2.new(0, 2, 0, 2)
-            indColor.BorderSizePixel = 0
-            indColor.BackgroundColor3 = getv() and valkLib.accentclr or Color3.fromRGB(40, 40, 40)
-
-            local label = Instance.new("TextLabel", toggleBtn)
-            label.BackgroundTransparency = 1
-            label.Position = UDim2.new(0, 5, 0, 0)
-            label.Size = UDim2.new(1, -22, 1, 0)
-            label.Font = Enum.Font.Code
-            label.Text = text
-            label.TextColor3 = Color3.fromRGB(200, 200, 200)
-            label.TextSize = 11
-            label.TextXAlignment = Enum.TextXAlignment.Left
-
-            local function refreshToggleUI()
-                indColor.BackgroundColor3 = getv() and valkLib.accentclr or Color3.fromRGB(40, 40, 40)
-            end
-
-            toggleBtn.MouseButton1Click:Connect(function()
-                setv(not getv())
-                refreshToggleUI()
-            end)
-            -- no per-frame UI refresh (was causing freeze)
-            updateSize()
-        end
-
-        function secObj:Slider(text, min, max, getv, setv)
-            local sliderFrame = Instance.new("Frame", itemHolder)
-            sliderFrame.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
-            sliderFrame.BorderSizePixel = 0
-            sliderFrame.Size = UDim2.new(1, 0, 0, 30)
-
-            local sOutline = Instance.new("ImageLabel", sliderFrame)
-            sOutline.BackgroundTransparency = 1
-            sOutline.Size = UDim2.new(1, 0, 1, 0)
-            sOutline.Image = "rbxassetid://2592362371"
-            sOutline.ImageColor3 = Color3.fromRGB(60, 60, 60)
-            sOutline.ScaleType = Enum.ScaleType.Slice
-            sOutline.SliceCenter = Rect.new(2, 2, 62, 62)
-
-            local lbl = Instance.new("TextLabel", sliderFrame)
-            lbl.BackgroundTransparency = 1
-            lbl.Position = UDim2.new(0, 5, 0, 2)
-            lbl.Size = UDim2.new(1, -10, 0, 12)
-            lbl.Font = Enum.Font.Code
-            lbl.Text = text .. ": " .. string.format(max > 1000 and "%.0f" or "%.2f", getv())
-            lbl.TextColor3 = Color3.fromRGB(200, 200, 200)
-            lbl.TextSize = 10
-            lbl.TextXAlignment = Enum.TextXAlignment.Left
-
-            local barBg = Instance.new("TextButton", sliderFrame)
-            barBg.Position = UDim2.new(0, 5, 0, 16)
-            barBg.Size = UDim2.new(1, -10, 0, 8)
-            barBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-            barBg.BorderSizePixel = 0
-            barBg.Text = ""
-
-            local barFill = Instance.new("Frame", barBg)
-            barFill.BackgroundColor3 = valkLib.accentclr
-            barFill.BorderSizePixel = 0
-            barFill.Size = UDim2.new(math.clamp((getv() - min) / (max - min), 0, 1), 0, 1, 0)
-
-            local dragging = false
-            barBg.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true end
-            end)
-            UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
-            end)
-            UserInputService.InputChanged:Connect(function(input)
-                if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                    local pos = math.clamp((input.Position.X - barBg.AbsolutePosition.X) / barBg.AbsoluteSize.X, 0, 1)
-                    local val = min + (max - min) * pos
-                    setv(val)
-                    barFill.Size = UDim2.new(pos, 0, 1, 0)
-                    lbl.Text = text .. ": " .. string.format(max > 1000 and "%.0f" or "%.2f", val)
-                end
-            end)
-            updateSize()
-        end
-
-        return secObj
-    end
-
-    return tabObj
-end
-
--- Key System Frame
-local KeyFrame = Instance.new("Frame", MainGui)
-KeyFrame.Size = UDim2.fromOffset(260, 130)
-KeyFrame.Position = UDim2.new(0.5, -130, 0.5, -65)
-KeyFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-KeyFrame.BorderSizePixel = 0
-KeyFrame.Visible = not keyPassed
-
-local KeyOutline = Instance.new("ImageLabel", KeyFrame)
-KeyOutline.BackgroundTransparency = 1
-KeyOutline.Size = UDim2.new(1, 0, 1, 0)
-KeyOutline.Image = "rbxassetid://2592362371"
-KeyOutline.ImageColor3 = Color3.fromRGB(60, 60, 60)
-KeyOutline.ScaleType = Enum.ScaleType.Slice
-KeyOutline.SliceCenter = Rect.new(2, 2, 62, 62)
-
-local KeyTitle = Instance.new("TextLabel", KeyFrame)
-KeyTitle.Size = UDim2.new(1, 0, 0, 28)
-KeyTitle.BackgroundTransparency = 1
-KeyTitle.Text = "multvallk Key System"
-KeyTitle.TextColor3 = valkLib.accentclr
-KeyTitle.Font = Enum.Font.Code
-KeyTitle.TextSize = 12
-
-local KeyBox = Instance.new("TextBox", KeyFrame)
-KeyBox.Size = UDim2.new(0.85, 0, 0, 28)
-KeyBox.Position = UDim2.new(0.075, 0, 0.3, 0)
-KeyBox.PlaceholderText = "Enter Key..."
-KeyBox.Text = ""
-KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-KeyBox.Font = Enum.Font.Code
-KeyBox.TextSize = 11
-
-local SubmitBtn = Instance.new("TextButton", KeyFrame)
-SubmitBtn.Size = UDim2.new(0.85, 0, 0, 28)
-SubmitBtn.Position = UDim2.new(0.075, 0, 0.62, 0)
-SubmitBtn.BackgroundColor3 = valkLib.accentclr
-SubmitBtn.Text = "Submit Key"
-SubmitBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
-SubmitBtn.Font = Enum.Font.Code
-SubmitBtn.TextSize = 11
-
-make_draggable(KeyTitle, KeyFrame)
-
--- Toggle Menu Button
-local ToggleBtn = Instance.new("TextButton", MainGui)
-ToggleBtn.Size = UDim2.fromOffset(100, 30)
-ToggleBtn.Position = UDim2.new(0, 10, 0, 10)
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-ToggleBtn.TextColor3 = valkLib.accentclr
-ToggleBtn.Font = Enum.Font.Code
-ToggleBtn.TextSize = 11
-ToggleBtn.Text = "multvallk UI"
-ToggleBtn.BorderSizePixel = 0
-ToggleBtn.Visible = true
-
-local TogOutline = Instance.new("ImageLabel", ToggleBtn)
-TogOutline.BackgroundTransparency = 1
-TogOutline.Size = UDim2.new(1, 0, 1, 0)
-TogOutline.Image = "rbxassetid://2592362371"
-TogOutline.ImageColor3 = valkLib.accentclr
-TogOutline.ScaleType = Enum.ScaleType.Slice
-TogOutline.SliceCenter = Rect.new(2, 2, 62, 62)
-
-local function trySubmitKey()
-    local typed = tostring(KeyBox.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
-    if typed == validKey or typed == "Paid_masterkey-vallkmult" then
-        keyPassed = true
-        KeyFrame.Visible = false
-        MainFrame.Visible = true
-        ToggleBtn.Visible = true
-        pcall(function()
-            if tabEntries and tabEntries[1] and tabEntries[1].btn then
-                -- ensure first tab content visible
-            end
-        end)
-        print("[multvallk] Key OK �� UI open (RightShift toggle)")
-    else
-        KeyBox.Text = ""
-        KeyBox.PlaceholderText = "Invalid Key!"
-    end
-end
-SubmitBtn.MouseButton1Click:Connect(trySubmitKey)
-KeyBox.FocusLost:Connect(function(enter)
-    if enter then trySubmitKey() end
-end)
-UserInputService.InputBegan:Connect(function(input, g)
-    if g then return end
-    if KeyFrame.Visible and input.KeyCode == Enum.KeyCode.Return then
-        trySubmitKey()
-    end
-end)
-
-ToggleBtn.MouseButton1Click:Connect(function()
-    if keyPassed then MainFrame.Visible = not MainFrame.Visible end
-end)
-
-UserInputService.InputBegan:Connect(function(input, g)
-    if g then return end
-    if input.KeyCode == Enum.KeyCode.RightShift and keyPassed then 
-        MainFrame.Visible = not MainFrame.Visible 
-    end
-end)
-
--- Mobile Scaling Adjuster
-local function updateMobileSize()
-    if mobileOnEnabled then
-        MainFrame.Size = UDim2.fromOffset(560, 320)
-    else
-        MainFrame.Size = UDim2.fromOffset(480, 560)
-    end
-    for _, t in ipairs(tabEntries) do
-        if t.h1 and t.h1:FindFirstChildOfClass("UIListLayout") then
-            t.h1.CanvasSize = UDim2.new(0, 0, 0, t.h1:FindFirstChildOfClass("UIListLayout").AbsoluteContentSize.Y + 20)
-        end
-        if t.h2 and t.h2:FindFirstChildOfClass("UIListLayout") then
-            t.h2.CanvasSize = UDim2.new(0, 0, 0, t.h2:FindFirstChildOfClass("UIListLayout").AbsoluteContentSize.Y + 20)
-        end
-    end
-end
-
--- Tab Setup & Feature Assignments
-local MainTab = AddValkTab("Main")
-local RageTab = AddValkTab("Ragebot")
-local FFTab = AddValkTab("FFMode")
-local EspTab = AddValkTab("ESP")
-local MiscTab = AddValkTab("Misc")
-local UiTab = AddValkTab("UI Set")
--- Force show first tab content
-task.defer(function()
-    if tabEntries[1] then
-        for i, t in ipairs(tabEntries) do
-            local on = (i == 1)
-            t.h1.Visible = on
-            t.h2.Visible = on
-            if on then
-                t.btn.BackgroundColor3 = Color3.fromRGB(33, 33, 33)
-                t.btn.TextColor3 = Color3.fromRGB(230, 230, 230)
-                t.topLine.Visible = true
-            end
-        end
-    end
-end)
-
-
--- Main Tab Options
-local mSec1 = MainTab:Section("Aimbot Settings", 1)
-mSec1:Toggle("Mobile Mode UI", function() return mobileOnEnabled end, function(v) mobileOnEnabled = v; updateMobileSize() end)
-mSec1:Toggle("Aimbot (Smooth Camera)", function() return aimbotEnabled end, function(v) aimbotEnabled = v end)
-mSec1:Toggle("Wallbang", function() return wallbangEnabled end, function(v)
-    wallbangEnabled = v
-    if not v then
-        pcall(function()
-            local e = getgenv()
-            if e.DesyncController then e.DesyncController:Stop() end
-        end)
-    end
-end)
-mSec1:Slider("Aimbot Smoothness", 1, 20, function() return aimbotSmoothness end, function(v) aimbotSmoothness = v end)
-mSec1:Slider("Aimbot FOV", 10, 500, function() return aimbotFovRadius end, function(v) aimbotFovRadius = v end)
-mSec1:Toggle("Aimbot Wall Check", function() return aimbotWallCheck end, function(v) aimbotWallCheck = v end)
-
-local mSec2 = MainTab:Section("Gun & Silent Aim", 2)
-mSec2:Toggle("Silent Aim", function() return silentAimEnabled end, function(v) silentAimEnabled = v end)
-mSec2:Slider("Silent FOV", 10, 1000, function() return silentAimFovRadius end, function(v) silentAimFovRadius = v end)
-mSec2:Toggle("Silent Wall Check", function() return silentWallCheck end, function(v) silentWallCheck = v end)
-mSec2:Toggle("Fast Melee", function() return fastMeleeEnabled end, function(v) fastMeleeEnabled = v end)
-mSec2:Toggle("No Cooldown", function() return hoNyangNoCDEnabled end, function(v) hoNyangNoCDEnabled = v end)
-mSec2:Toggle("No Recoil", function() return noRecoilEnabled end, function(v) noRecoilEnabled = v end)
-mSec2:Toggle("No Spread", function() return noSpreadEnabled end, function(v) noSpreadEnabled = v end)
-mSec2:Toggle("No Muzzle Flash", function() return noMuzzleFlashEnabled end, function(v) noMuzzleFlashEnabled = v end)
-mSec2:Toggle("Rapid Fire", function() return rapidFireEnabled end, function(v) rapidFireEnabled = v end)
-
--- Ragebot Tab Options (Single Ragebot Integrated)
-local rSec1 = RageTab:Section("Rage Engine", 1)
-rSec1:Toggle("muilt premium ragebot", function() return ragebotOrKillAura end, function(v) ragebotOrKillAura = v end)
-
-local rSec2 = RageTab:Section("Ragebot / Void Spam", 2)
-rSec2:Toggle("Void Spam", function() return voidSpamEnabled end, function(v) voidSpamEnabled = v end)
-rSec2:Slider("Hide", 0, 1, function() return voidHideTime end, function(v) voidHideTime = v end)
-rSec2:Slider("Attack", 0, 1, function() return voidShootTime end, function(v) voidShootTime = v end)
-rSec2:Toggle("Ragebot Indicator", function() return ragebotIndicatorEnabled end, function(v) ragebotIndicatorEnabled = v end)
-rSec2:Toggle("Ammo Indicator", function() return ammoIndicatorEnabled end, function(v) ammoIndicatorEnabled = v end)
-
--- Shoot Attempts / Height: internal only (hidden from menu)
--- voidAttackAttempts, ragebotHeightOffset keep defaults
-
--- FFMode Tab Options
-local ffSec = FFTab:Section("FF Mode Mechanics", 1)
-ffSec:Toggle("Enable FFMode", function() return ffModeEnabled end, function(v) ffModeEnabled = v end)
-ffSec:Toggle("Team Check", function() return ffTeamCheckEnabled end, function(v) ffTeamCheckEnabled = v end)
-ffSec:Toggle("Baiting (Fall Inducer)", function() return ffBaitingEnabled end, function(v) ffBaitingEnabled = v end)
-
--- ESP Tab Options
-local espSec = EspTab:Section("Visual ESP", 1)
-espSec:Toggle("Master ESP Toggle", function() return espEnabled end, function(v) espEnabled = v end)
-espSec:Toggle("ESP Boxes", function() return espBoxEnabled end, function(v) espBoxEnabled = v end)
-espSec:Toggle("ESP Names", function() return espNameEnabled end, function(v) espNameEnabled = v end)
-espSec:Toggle("ESP Health", function() return espHealthEnabled end, function(v) espHealthEnabled = v end)
-espSec:Toggle("Gun Tracer Line", function() return gunTracerEnabled end, function(v) gunTracerEnabled = v end)
-local skinSec = EspTab:Section("Cosmetics / All Skins", 2)
-skinSec:Toggle("Unlock All Skins", function() return skinChangerEnabled end, function(v) skinChangerEnabled = v end)
-
-
--- Misc Tab Options
-local miscSec = MiscTab:Section("Movement & Mods", 1)
-miscSec:Toggle("Mobile Fly (Touch)", function() return mobileFlyEnabled end, function(v) mobileFlyEnabled = v end)
-miscSec:Toggle("PC Fly (WASD)", function() return pcFlyEnabled end, function(v) pcFlyEnabled = v end)
-
-local miscSecLion = MiscTab:Section("Lion Misc", 2)
-miscSecLion:Toggle("Auto Respawn", function() return autoRespawnEnabled end, function(v) autoRespawnEnabled = v end)
-miscSecLion:Toggle("Collect Drops", function() return collectDropsEnabled end, function(v) collectDropsEnabled = v end)
-miscSecLion:Toggle("Hit Notifier", function() return hitNotifyEnabled end, function(v) hitNotifyEnabled = v end)
-miscSecLion:Toggle("Hit Sound", function() return hitSoundEnabled end, function(v) hitSoundEnabled = v end)
-miscSecLion:Slider("Hit Sound Volume", 0, 5, function() return hitSoundVolume end, function(v) hitSoundVolume = v end)
--- Hit sound picker (�몃꽩 �ㅽ��� �좏깮)
-for _, snd in ipairs(HIT_SOUND_LIST) do
-    local name = snd
-    miscSecLion:Toggle("Sound: " .. name, function() return hitSoundName == name end, function(v)
-        if v then hitSoundName = name end
-    end)
-end
-
-miscSec:Toggle("Bullet Speed Boost", function() return bulletSpeedBoost end, function(v) bulletSpeedBoost = v end)
-miscSec:Toggle("Rapid Speed Hack", function() return rapidSpeedEnabled end, function(v) rapidSpeedEnabled = v end)
-miscSec:Toggle("Noclip", function() return noclipEnabled end, function(v) noclipEnabled = v end)
-
-miscSec:Toggle("Hit Sound", function() return hitSoundEnabled end, function(v) hitSoundEnabled = v; hitNotifyEnabled = true end)
-miscSec:Slider("Hit Sound Volume", 0, 5, function() return hitSoundVolume end, function(v) hitSoundVolume = v end)
-miscSec:Toggle("Sound: neverlose", function() return hitSoundName=="neverlose" end, function(v) if v then hitSoundName="neverlose" end end)
-miscSec:Toggle("Sound: gamesense", function() return hitSoundName=="gamesense" end, function(v) if v then hitSoundName="gamesense" end end)
-miscSec:Toggle("Sound: skeet", function() return hitSoundName=="skeet" end, function(v) if v then hitSoundName="skeet" end end)
-miscSec:Toggle("Sound: rust", function() return hitSoundName=="rust" end, function(v) if v then hitSoundName="rust" end end)
-miscSec:Toggle("Sound: �μ땐�� �뺤”諛� 蹂댁뙂", function() return hitSoundName=="�μ땐�� �뺤”諛� 蹂댁뙂" end, function(v) if v then hitSoundName="�μ땐�� �뺤”諛� 蹂댁뙂" end end)
-miscSec:Toggle("Hit Notify Text", function() return hitNotifyEnabled end, function(v) hitNotifyEnabled = v end)
-
--- UI Set Tab Options
-local uiSec = UiTab:Section("Skybox & Crosshair", 1)
-uiSec:Toggle("Circle Crosshair", function() return circleCrosshairEnabled end, function(v) circleCrosshairEnabled = v end)
-uiSec:Toggle("Sky: Dark Sky", function() return customSkyboxEnabled and skyboxTheme == "Dark Sky" end, function(v) if v then setSkyboxTheme("Dark Sky") else customSkyboxEnabled = false; applySkybox() end end)
-uiSec:Toggle("Sky: Vaporwave", function() return customSkyboxEnabled and skyboxTheme == "Vaporwave" end, function(v) if v then setSkyboxTheme("Vaporwave") else customSkyboxEnabled = false; applySkybox() end end)
-uiSec:Toggle("Sky: Lake Sky", function() return customSkyboxEnabled and skyboxTheme == "Lake Sky" end, function(v) if v then setSkyboxTheme("Lake Sky") else customSkyboxEnabled = false; applySkybox() end end)
-uiSec:Toggle("Sky: Black Mesa", function() return customSkyboxEnabled and skyboxTheme == "Black Mesa" end, function(v) if v then setSkyboxTheme("Black Mesa") else customSkyboxEnabled = false; applySkybox() end end)
-
-MainFrame.Visible = keyPassed -- false until key
-
-
--- Yokai.win Crosshair
-task.spawn(function()
-    getgenv()._vallkYokaiCrosshair = getgenv()._vallkYokaiCrosshair ~= false
-    if _G.YokaiCrosshair then pcall(function() _G.YokaiCrosshair:Destroy() end) end
-    if _G.YokaiCrosshairConnection then pcall(function() _G.YokaiCrosshairConnection:Disconnect() end) end
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "Yokai.winCrosshair"
-    screenGui.ResetOnSpawn = false
-    screenGui.DisplayOrder = 99999
-    screenGui.IgnoreGuiInset = true
-    pcall(function()
-        if gethui then screenGui.Parent = gethui() else screenGui.Parent = CoreGui end
-    end)
-    if not screenGui.Parent then screenGui.Parent = PlayerGui end
-    _G.YokaiCrosshair = screenGui
-    local container = Instance.new("Frame")
-    container.BackgroundTransparency = 1
-    container.Size = UDim2.fromOffset(28, 28)
-    container.AnchorPoint = Vector2.new(0.5, 0.5)
-    container.Parent = screenGui
-    local lines = {Top=Instance.new("Frame"),Bottom=Instance.new("Frame"),Left=Instance.new("Frame"),Right=Instance.new("Frame")}
-    for _, line in pairs(lines) do
-        line.BackgroundColor3 = Color3.new(1,1,1)
-        line.BorderSizePixel = 0
-        line.ZIndex = 10
-        line.Parent = container
-        local st = Instance.new("UIStroke"); st.Color = Color3.new(0,0,0); st.Thickness = 1; st.Parent = line
-    end
-    lines.Top.Size = UDim2.fromOffset(3, -12)
-    lines.Top.Position = UDim2.new(0.5, -1.5, 0, 0)
-    lines.Bottom.Size = UDim2.fromOffset(3, -12)
-    lines.Bottom.Position = UDim2.new(0.5, -1.5, 1, 12)
-    lines.Left.Size = UDim2.fromOffset(-12, 3)
-    lines.Left.Position = UDim2.new(0, 0, 0.5, -1.5)
-    lines.Right.Size = UDim2.fromOffset(-12, 3)
-    lines.Right.Position = UDim2.new(1, 12, 0.5, -1.5)
-    local textLabel = Instance.new("TextLabel")
-    textLabel.Text = "lll.win"
-    textLabel.Font = Enum.Font.Arcade
-    textLabel.TextSize = 16
-    textLabel.BackgroundTransparency = 1
-    textLabel.Size = UDim2.fromOffset(100, 20)
-    textLabel.ZIndex = 20
-    textLabel.TextColor3 = Color3.new(1,1,1)
-    textLabel.Parent = screenGui
-    local ts = Instance.new("UIStroke"); ts.Color = Color3.new(0,0,0); ts.Thickness = 1; ts.Parent = textLabel
-    local t = 0
-    _G.YokaiCrosshairConnection = RunService.RenderStepped:Connect(function(dt)
-        if hideCrosshairEnabled or getgenv()._vallkYokaiCrosshair == false then
-            screenGui.Enabled = false
-            return
-        end
-        screenGui.Enabled = true
-        t = t + dt
-        local mousePos = UserInputService:GetMouseLocation()
-        container.Position = UDim2.fromOffset(mousePos.X, mousePos.Y)
-        textLabel.Position = UDim2.fromOffset(mousePos.X - 50, mousePos.Y + 36)
-        local speed = 175 + 90 * (0.5 + 0.5 * math.sin(t * 2.2))
-        container.Rotation = (container.Rotation + dt * speed) % 360
-        local pulse = math.sin(t * 4.0) * 0.5 + 0.5
-        local len = -12 - 14 * (pulse * pulse)
-        lines.Top.Size = UDim2.fromOffset(3, len)
-        lines.Bottom.Size = UDim2.fromOffset(3, len)
-        lines.Bottom.Position = UDim2.new(0.5, -1.5, 1, -len)
-        lines.Left.Size = UDim2.fromOffset(len, 3)
-        lines.Right.Size = UDim2.fromOffset(len, 3)
-        lines.Right.Position = UDim2.new(1, -len, 0.5, -1.5)
-        local color = Color3.fromHSV((t * 0.20) % 1, 1, 1)
-        lines.Top.BackgroundColor3 = color
-        lines.Bottom.BackgroundColor3 = color
-        lines.Left.BackgroundColor3 = color
-        lines.Right.BackgroundColor3 = color
-        textLabel.TextColor3 = color
-    end)
-end)
-
-
-task.spawn(function()
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "VallkESP"
-    gui.ResetOnSpawn = false
-    gui.IgnoreGuiInset = true
-    gui.DisplayOrder = 40
-    pcall(function() if gethui then gui.Parent = gethui() else gui.Parent = CoreGui end end)
-    if not gui.Parent then gui.Parent = PlayerGui end
-    local entries = {}
-    local function ensure(plr)
-        if entries[plr] or plr == LocalPlayer then return end
-        local box = Instance.new("Frame")
-        box.BackgroundTransparency = 1
-        box.Visible = false
-        box.Parent = gui
-        local stroke = Instance.new("UIStroke", box)
-        stroke.Thickness = 1.5
-        stroke.Color = Color3.fromRGB(255, 80, 80)
-        local name = Instance.new("TextLabel")
-        name.BackgroundTransparency = 1
-        name.Font = Enum.Font.Code
-        name.TextSize = 12
-        name.TextColor3 = Color3.new(1,1,1)
-        name.TextStrokeTransparency = 0
-        name.Size = UDim2.fromOffset(140, 14)
-        name.Visible = false
-        name.Parent = gui
-        entries[plr] = {box=box, name=name}
-    end
-    for _, plr in ipairs(Players:GetPlayers()) do ensure(plr) end
-    Players.PlayerAdded:Connect(ensure)
-    Players.PlayerRemoving:Connect(function(plr)
-        local e = entries[plr]
-        if e then pcall(function() e.box:Destroy() e.name:Destroy() end) entries[plr]=nil end
-    end)
-    local f = 0
-    RunService.RenderStepped:Connect(function()
-        f += 1
-        if f % 2 ~= 0 then return end
-        local cam = Workspace.CurrentCamera
-        if not cam then return end
-        for plr, e in pairs(entries) do
-            if not espEnabled then e.box.Visible=false; e.name.Visible=false
-            else
-                local char = plr.Character
-                local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                local hum = char and char:FindFirstChildOfClass("Humanoid")
-                local head = char and (char:FindFirstChild("HitboxHead") or char:FindFirstChild("Head") or hrp)
-                if hrp and hum and head and hum.Health > 0 and not is_teammate(plr) then
-                    local top = cam:WorldToViewportPoint(head.Position + Vector3.new(0,0.7,0))
-                    local mid = cam:WorldToViewportPoint(hrp.Position)
-                    local bot = cam:WorldToViewportPoint(hrp.Position - Vector3.new(0,3,0))
-                    if mid.Z > 0 then
-                        local h = math.max(math.abs(top.Y - bot.Y), 20)
-                        local w = h * 0.55
-                        if espBoxEnabled then
-                            e.box.Size = UDim2.fromOffset(w, h)
-                            e.box.Position = UDim2.fromOffset(mid.X - w/2, top.Y)
-                            e.box.Visible = true
-                        else e.box.Visible = false end
-                        if espNameEnabled then
-                            e.name.Text = plr.DisplayName or plr.Name
-                            e.name.Position = UDim2.fromOffset(mid.X - 70, top.Y - 14)
-                            e.name.Visible = true
-                        else e.name.Visible = false end
-                    else e.box.Visible=false; e.name.Visible=false end
-                else e.box.Visible=false; e.name.Visible=false end
-            end
-        end
-    end)
-end)
-
-
-
-
--- Wallbang + Desync (Main) �� toggle via wallbangEnabled
-task.spawn(function()
-    if getgenv().__VallkWallbangInit then return end
-    getgenv().__VallkWallbangInit = true
-    local env = getgenv()
-    pcall(function()
-        if env.DesyncController and env.DesyncController.Stop then env.DesyncController:Stop() end
-        if env.TargetController and env.TargetController.Stop then env.TargetController:Stop() end
-        if env.WallbangController and env.WallbangController.Stop then env.WallbangController:Stop() end
-    end)
-
-    local function cref(x)
-        return (cloneref and cloneref(x)) or x
-    end
-    local Players = cref(game:GetService("Players"))
-    local RunService = cref(game:GetService("RunService"))
-    local ReplicatedStorage = cref(game:GetService("ReplicatedStorage"))
-    local Workspace = cref(game:GetService("Workspace"))
-    local UserInputService = cref(game:GetService("UserInputService"))
-    local LP = Players.LocalPlayer
-    local Camera = Workspace.CurrentCamera
-
-    local GunItem, Utility
-    pcall(function()
-        GunItem = require(LP.PlayerScripts.Modules.ItemTypes.Gun)
-        Utility = require(ReplicatedStorage.Modules.Utility)
-    end)
-    if not GunItem or not Utility then
-        warn("[Wallbang] GunItem/Utility missing")
-        return
-    end
-
-    local DesyncController = {}
-    function DesyncController:init()
-        self.active = false
-        self.connection = nil
-        self.currentTarget = nil
-    end
-    function DesyncController:Start(target)
-        self:Stop()
-        self.active = true
-        self.connection = RunService.Heartbeat:Connect(function()
-            if not self.active or not wallbangEnabled then return end
-            local char = LP.Character
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-            if not root then return end
-            local tr = target and target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-            if not tr then self:Stop() return end
-            self.currentTarget = target
-            local desyncCF = tr.CFrame * CFrame.new(0, -5, 0)
-            local bakCF, bakVel = root.CFrame, root.AssemblyLinearVelocity
-            root.CFrame = desyncCF
-            pcall(function()
-                RunService:BindToRenderStep("vallk_desync_fb", 101, function()
-                    root.CFrame = bakCF
-                    root.AssemblyLinearVelocity = bakVel
-                    pcall(function() RunService:UnbindFromRenderStep("vallk_desync_fb") end)
-                end)
-            end)
-        end)
-    end
-    function DesyncController:Stop()
-        self.active = false
-        self.currentTarget = nil
-        if self.connection then self.connection:Disconnect() self.connection = nil end
-        pcall(function() RunService:UnbindFromRenderStep("vallk_desync_fb") end)
-    end
-    DesyncController:init()
-    env.DesyncController = DesyncController
-
-    local TargetController = {}
-    function TargetController:init()
-        self.active = true
-        self.target = nil
-        self.connection = RunService.Heartbeat:Connect(function()
-            if not wallbangEnabled then self.target = nil return end
-            self.target = self:GetClosestTarget()
-        end)
-    end
-    function TargetController:IsValid(character)
-        local root = character:FindFirstChild("HumanoidRootPart")
-        local head = character:FindFirstChild("Head")
-        local hum = character:FindFirstChildWhichIsA("Humanoid")
-        return root and head and hum and hum.Health > 0
-    end
-    function TargetController:IsEnemy(player)
-        local a, b = player:GetAttribute("TeamID"), LP:GetAttribute("TeamID")
-        if a ~= nil and b ~= nil then return a ~= b end
-        return true
-    end
-    function TargetController:GetClosestTarget()
-        local closest, best = nil, math.huge
-        local mouse = UserInputService:GetMouseLocation()
-        local cam = Workspace.CurrentCamera
-        if not cam then return nil end
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LP and self:IsEnemy(player) then
-                local ch = player.Character
-                if ch and self:IsValid(ch) then
-                    local root = ch.HumanoidRootPart
-                    local sp, on = cam:WorldToViewportPoint(root.Position)
-                    if on then
-                        local d = (mouse - Vector2.new(sp.X, sp.Y)).Magnitude
-                        if d < best then best, closest = d, player end
-                    end
-                end
-            end
-        end
-        return closest
-    end
-    function TargetController:Stop()
-        if self.connection then self.connection:Disconnect() self.connection = nil end
-    end
-    TargetController:init()
-    env.TargetController = TargetController
-
-    local WallbangController = {}
-    function WallbangController:init()
-        self.startShootingRef = GunItem.StartShooting
-        self.desyncCleanup = nil
-        self.hooked = false
-    end
-    function WallbangController:Start()
-        if self.hooked then return end
-        self.hooked = true
-        local startRef = self.startShootingRef
-        GunItem.StartShooting = function(controller, ...)
-            local result = {startRef(controller, ...)}
-            if not wallbangEnabled then
-                return unpack(result)
-            end
-            local clientFighter = controller and controller.ClientFighter
-            if not clientFighter or not clientFighter.IsLocalPlayer then
-                return unpack(result)
-            end
-            local cameraData = result[3]
-            if type(cameraData) ~= "table" then
-                return unpack(result)
-            end
-            result[4] = true -- no spread
-            local targetPlayer = TargetController.target
-            if not targetPlayer or not targetPlayer.Character then
-                return unpack(result)
-            end
-            if DesyncController.currentTarget ~= targetPlayer then
-                DesyncController:Start(targetPlayer)
-                task.wait(0.05)
-            end
-            if self.desyncCleanup then pcall(task.cancel, self.desyncCleanup) end
-            local head = targetPlayer.Character:FindFirstChild("Head")
-            if not head then return unpack(result) end
-            local targetPos = head.Position
-            local targetCF = head.CFrame
-            local shootingPos = targetPos - Vector3.new(0, 5, 0)
-            local shootingOffset = targetCF:ToObjectSpace(CFrame.new(targetPos + Vector3.new(math.random(), math.random(), math.random())))
-            pcall(function()
-                cameraData[utf8.char(0)] = Utility:EncodeCFrame(CFrame.new(shootingPos, targetPos) * CFrame.Angles(CFrame.lookAt(shootingPos, targetPos):ToOrientation()))
-                cameraData[utf8.char(1)] = Utility:EncodeCFrame(CFrame.new(targetPos) * CFrame.Angles(CFrame.lookAt(shootingPos, targetPos):ToOrientation()))
-                cameraData[utf8.char(2)] = head
-                cameraData[utf8.char(3)] = Utility:EncodeCFrame(shootingOffset)
-            end)
-            self.desyncCleanup = task.delay(0.15, function()
-                DesyncController:Stop()
-            end)
-            return unpack(result)
-        end
-    end
-    function WallbangController:Stop()
-        if self.startShootingRef then
-            GunItem.StartShooting = self.startShootingRef
-        end
-        self.hooked = false
-        DesyncController:Stop()
-    end
-    WallbangController:init()
-    env.WallbangController = WallbangController
-
-    -- keep hook installed; gate with wallbangEnabled
-    WallbangController:Start()
-    print("[multvallk] Wallbang ready (toggle in Main)")
-end)
-
--- Ragebot / Ammo red indicators (void / killing / reloading)
-task.spawn(function()
-    if getgenv().__VallkRageIndicators then return end
-    getgenv().__VallkRageIndicators = true
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "VallkRageIndicators"
-    gui.ResetOnSpawn = false
-    gui.IgnoreGuiInset = true
-    gui.DisplayOrder = 999
-    pcall(function()
-        if gethui then gui.Parent = gethui() else gui.Parent = game:GetService("CoreGui") end
-    end)
-    if not gui.Parent then gui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
-
-    local function makeLabel(name, y)
-        local t = Instance.new("TextLabel")
-        t.Name = name
-        t.BackgroundTransparency = 1
-        t.Size = UDim2.new(0, 420, 0, 22)
-        t.AnchorPoint = Vector2.new(0.5, 0)
-        t.Position = UDim2.new(0.5, 0, 0.5, y)
-        t.Font = Enum.Font.Code
-        t.TextSize = 14
-        t.TextColor3 = Color3.fromRGB(255, 60, 60)
-        t.TextStrokeTransparency = 0
-        t.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        t.Text = ""
-        t.Visible = false
-        t.Parent = gui
-        return t
-    end
-    local rageLbl = makeLabel("RagebotIndicator", 36)
-    local ammoLbl = makeLabel("AmmoIndicator", 52)
-    ammoLbl.TextSize = 11
-    ammoLbl.Size = UDim2.new(0, 420, 0, 18)
-
-    local function getAmmo()
-        local cur, max, reloading = nil, nil, false
-        pcall(function()
-            local ps = LocalPlayer.PlayerScripts
-            local ok, fc = pcall(require, ps.Controllers.FighterController)
-            if not ok or not fc or not fc.LocalFighter then return end
-            local item = fc.LocalFighter.EquippedItem
-            if not item then return end
-            local function gp(key)
-                local s, v = pcall(function()
-                    if item.Get then return item:Get(key) end
-                    return item[key] or (item.Data and item.Data[key]) or (item.Info and item.Info[key])
-                end)
-                return s and v or nil
-            end
-            cur = gp("CurrentAmmo") or gp("Ammo") or gp("Bullets") or gp("MagazineAmmo")
-            max = gp("ReserveAmmo") or gp("StoredAmmo") or gp("MaxAmmo") or gp("MaxBullets")
-            reloading = gp("Reloading") == true or gp("IsReloading") == true
-            if item.Info and type(item.Info) == "table" then
-                if cur == nil then cur = item.Info.CurrentAmmo or item.Info.Ammo end
-                if max == nil then max = item.Info.ReserveAmmo or item.Info.MaxAmmo end
-                if item.Info.Reloading or item.Info.IsReloading then reloading = true end
-            end
-        end)
-        return cur, max, reloading
-    end
-
-    if not RunService then return end
-    RunService.RenderStepped:Connect(function()
-        local rageOn = ragebotOrKillAura == true
-        if ragebotIndicatorEnabled and rageOn then
-            local cur, max, reloading = getAmmo()
-            local isReload = reloading or (typeof(cur) == "number" and cur <= 0)
-            if isReload then
-                rageLbl.Text = "ragebot : reloading..."
-            elseif activeTargetPart and activeTargetPart.Parent then
-                local model = activeTargetPart:FindFirstAncestorOfClass("Model") or activeTargetPart.Parent
-                local plr = Players:GetPlayerFromCharacter(model)
-                local name = plr and (plr.DisplayName or plr.Name) or (typeof(model) == "Instance" and model.Name or "???")
-                rageLbl.Text = "ragebot : killing " .. tostring(name) .. "..."
-            else
-                -- 怨듦꺽 �� �� �� 臾댁“嫄� void
-                rageLbl.Text = "ragebot : void..."
-            end
-            rageLbl.Visible = true
-        else
-            rageLbl.Visible = false
-        end
-
-        if ammoIndicatorEnabled then
-            local cur, max, reloading = getAmmo()
-            local text
-            if reloading then
-                text = "reloading"
-            elseif typeof(cur) == "number" and typeof(max) == "number" then
-                text = string.format("%d/%d", math.floor(cur + 0.5), math.floor(max + 0.5))
-            elseif typeof(cur) == "number" then
-                text = tostring(math.floor(cur + 0.5))
-            end
-            if text then
-                ammoLbl.Text = text
-                ammoLbl.Position = UDim2.new(0.5, 0, 0.5, (ragebotIndicatorEnabled and rageOn) and 52 or 36)
-                ammoLbl.Visible = true
-            else
-                ammoLbl.Visible = false
-            end
-        else
-            ammoLbl.Visible = false
-        end
-    end)
-end)
-
--- Lion Auto Respawn + Collect Drops
-task.spawn(function()
-    local deathConn
-    local function getRespawnRemote()
-        local ok, r = pcall(function()
-            local RS = game:GetService("ReplicatedStorage")
-            local duels = RS:FindFirstChild("Duels") or RS:FindFirstChild("Remotes")
-            if duels then
-                return duels:FindFirstChild("RespawnNow") or duels:FindFirstChild("Respawn")
-            end
-            for _, d in ipairs(RS:GetDescendants()) do
-                if d:IsA("RemoteEvent") and d.Name:lower():find("respawn") then
-                    return d
-                end
-            end
-        end)
-        return ok and r or nil
-    end
-    local function setup(char)
-        if deathConn then pcall(function() deathConn:Disconnect() end) deathConn = nil end
-        if not autoRespawnEnabled then return end
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
-        if not hum then return end
-        deathConn = hum.Died:Connect(function()
-            task.wait(0.15)
-            if not autoRespawnEnabled then return end
-            pcall(function()
-                local r = getRespawnRemote()
-                if r then r:FireServer() end
-            end)
-        end)
-    end
-    if LocalPlayer.Character then setup(LocalPlayer.Character) end
-    LocalPlayer.CharacterAdded:Connect(setup)
-
-    local tracked = {}
-    local function track(obj)
-        if obj:FindFirstChild("Ammo") or obj:FindFirstChild("Health") then
-            tracked[obj] = true
-        end
-    end
-    for _, c in ipairs(Workspace:GetChildren()) do track(c) end
-    Workspace.ChildAdded:Connect(track)
-    Workspace.ChildRemoved:Connect(function(o) tracked[o] = nil end)
-
-    local nextT = 0
-    RunService.Heartbeat:Connect(function()
-        if not collectDropsEnabled then return end
-        if tick() < nextT then return end
-        nextT = tick() + 0.4
-        local char = LocalPlayer.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if not hrp or not firetouchinterest then return end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        local needHp = hum and hum.Health < hum.MaxHealth
-        for obj in pairs(tracked) do
-            if not obj.Parent then tracked[obj] = nil
-            elseif (obj:FindFirstChild("Health") and needHp) or obj:FindFirstChild("Ammo") then
-                pcall(firetouchinterest, hrp, obj, 0)
-                pcall(firetouchinterest, hrp, obj, 1)
-            end
-        end
-    end)
-end)
-
--- Skin unlock reinforce when toggled
-task.spawn(function()
-    while true do
-        task.wait(2)
-        if not skinChangerEnabled then continue end
-        pcall(function()
-            if not CosmeticLibrary then
-                local ok, lib = pcall(function()
-                    return require(ReplicatedStorage:WaitForChild("Modules", 2):WaitForChild("CosmeticLibrary", 2))
-                end)
-                if ok then CosmeticLibrary = lib end
-            end
-            if not CosmeticLibrary then return end
-            for _, name in ipairs({"OwnsCosmetic", "OwnsCosmeticNormally", "OwnsCosmeticUniversally", "OwnsCosmeticForWeapon", "PlayerOwnsCosmetic"}) do
-                if type(CosmeticLibrary[name]) == "function" then
-                    local orig = CosmeticLibrary[name]
-                    CosmeticLibrary[name] = function(self, ...)
-                        if skinChangerEnabled then return true end
-                        return orig(self, ...)
-                    end
-                end
-            end
-        end)
-    end
-end)
-
-print("[multvallk Premium v3] Loaded (anti-freeze patches)")
--- anti-freeze: toggle UI no longer refreshes every frame; old void loop disabled
