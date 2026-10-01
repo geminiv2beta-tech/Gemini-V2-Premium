@@ -14,74 +14,182 @@ eli_ipairs = function(t) return eli_inext, t, 0 end;
 eli_pairs = function(t) return next, t, nil end;
 if not cloneref then cloneref = function(ref) return ref end end
 
--- ============================================================
--- Dv.a hook | Hardened Anti-Cheat Bypass Stack
--- ============================================================
+-- ============================================================================
+-- Dv.a hook Premium v3 (beta) | Anti-Kick / Security / Anti-Cheat Bypass (vallkmult stack)
+-- ============================================================================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 
 pcall(function()
     if setthreadidentity then pcall(setthreadidentity, 8) end
 end)
 
--- 1) Kick nullify
 pcall(function()
-    if LocalPlayer and typeof(LocalPlayer.Kick) == "function" and hookfunction and newcclosure then
+    -- 1) Local kick nullify
+    if LocalPlayer and typeof(LocalPlayer.Kick) == "function" then
         local oldKick = LocalPlayer.Kick
-        LocalPlayer.Kick = function() end
-        pcall(function() hookfunction(oldKick, newcclosure(function() end)) end)
+        LocalPlayer.Kick = function(...) end
+        pcall(function()
+            if hookfunction and newcclosure then
+                hookfunction(oldKick, newcclosure(function(...) end))
+            end
+        end)
     end
-    if typeof(Players.Kick) == "function" then
-        Players.Kick = function() end
-    end
-end)
 
--- 2) setmetatable anti-detect (MiscellaneousController / CameraSecurity / AC traces)
-pcall(function()
-    if not (hookfunction and newcclosure) then return end
-    local function harden_setmetatable(smt)
-        if type(smt) ~= "function" then return end
-        local oldSM
-        oldSM = hookfunction(smt, newcclosure(function(Table, MetaTable)
-            if type(MetaTable) == "table" and rawget(MetaTable, "__mode") then
-                local mode = rawget(MetaTable, "__mode")
-                if mode == "kv" or mode == "v" or mode == "k" then
+    -- 2) Players service kick / ban helpers
+    pcall(function()
+        if typeof(Players.Kick) == "function" then
+            Players.Kick = function(...) end
+        end
+    end)
+
+    -- 3) setmetatable anti-detection (kv weak tables from AC)
+    if getrenv and getrenv().setmetatable and hookfunction and newcclosure then
+        local _stbl
+        _stbl = hookfunction(getrenv().setmetatable, newcclosure(function(tbl, mt)
+            if mt and typeof(mt) == "table" and rawget(mt, "__mode") == "kv" then
+                local tr = debug.traceback()
+                if tr and (
+                    tr:find("MiscellaneousController")
+                    or tr:find("anticheat") or tr:find("AntiCheat")
+                    or tr:find("Detection") or tr:find("Security")
+                    or tr:find("AntiExploit") or tr:find("Integrity")
+                    or tr:find("KickHook") or tr:find("Watchdog")
+                    or tr:find("Sentinel") or tr:find("Moderation")
+                    or tr:find("CameraSecurity")
+                ) then
+                    return _stbl({1, 2, 3}, {})
+                end
+            end
+            return _stbl(tbl, mt)
+        end))
+    end
+    pcall(function()
+        if hookfunction and newcclosure and setmetatable then
+            local oldSM
+            oldSM = hookfunction(setmetatable, newcclosure(function(Table, MetaTable)
+                if type(MetaTable) == "table" and rawget(MetaTable, "__mode") == "kv" then
+                    local Caller = getcallingscript and getcallingscript()
                     local tr = ""
                     pcall(function() tr = debug.traceback() or "" end)
-                    local callerOk, caller = pcall(function()
-                        if getcallingscript then return getcallingscript() end
-                    end)
-                    local cname = ""
-                    if callerOk and caller then pcall(function() cname = string.lower(tostring(caller.Name or "")) end) end
-                    if (tr and (
-                        tr:find("MiscellaneousController", 1, true)
-                        or tr:find("CameraSecurity", 1, true)
-                        or tr:find("anticheat", 1, true) or tr:find("AntiCheat", 1, true)
-                        or tr:find("Detection", 1, true) or tr:find("Security", 1, true)
-                        or tr:find("Watchdog", 1, true) or tr:find("Sentinel", 1, true)
-                        or tr:find("Integrity", 1, true) or tr:find("AntiExploit", 1, true)
-                    )) or (cname ~= "" and (
-                        cname:find("miscellaneous", 1, true)
-                        or cname:find("camerasecurity", 1, true)
-                        or cname:find("anticheat", 1, true)
-                    )) then
-                        return oldSM({1, 2, 3}, {})
+                    if (Caller and Caller.Name == "MiscellaneousController")
+                        or (tr and (tr:find("MiscellaneousController") or tr:find("CameraSecurity") or tr:find("anticheat"))) then
+                        return oldSM(Table, {})
+                    end
+                end
+                return oldSM(Table, MetaTable)
+            end))
+        end
+    end)
+
+    -- 4) namecall: block Kick + suspicious FireServer / InvokeServer
+    if hookmetamethod and getnamecallmethod and newcclosure then
+        local bannedRemoteNames = {
+            kick=true, ban=true, punish=true, anticheat=true, detect=true,
+            report=true, flag=true, crash=true, log=true, screenshot=true,
+            security=true, mod=true, admin=true, watchdog=true, sentinel=true,
+            integrity=true, exploit=true, cheater=true, violation=true,
+            teleportkick=true, softkick=true, hardkick=true, takethel=true,
+        }
+        local oldNamecall
+        oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            local args = {...}
+
+            if method == "Kick" or method == "kick" then
+                return
+            end
+
+            if (method == "FireServer" or method == "InvokeServer" or method == "Fire" or method == "Invoke") and self then
+                local sName = ""
+                pcall(function() sName = string.lower(tostring(self.Name or "")) end)
+                for k, _ in pairs(bannedRemoteNames) do
+                    if sName ~= "" and string.find(sName, k, 1, true) then
+                        return
+                    end
+                end
+                if type(args[1]) == "string" then
+                    local a = string.lower(args[1])
+                    if string.find(a, "kick", 1, true) or string.find(a, "ban", 1, true)
+                        or string.find(a, "anticheat", 1, true) or string.find(a, "exploit", 1, true)
+                        or string.find(a, "takethel", 1, true) then
+                        return
                     end
                 end
             end
-            return oldSM(Table, MetaTable)
+
+            return oldNamecall(self, ...)
         end))
     end
-    pcall(function() harden_setmetatable(setmetatable) end)
+
+    -- 5) ScriptContext error silence
     pcall(function()
-        if getrenv and getrenv().setmetatable then
-            harden_setmetatable(getrenv().setmetatable)
+        local ScriptContext = game:GetService("ScriptContext")
+        if ScriptContext and ScriptContext.Error then
+            ScriptContext.Error:Connect(function() end)
+        end
+    end)
+
+    -- 6) Cloak known cheat GUI names
+    pcall(function()
+        local function cloak(inst)
+            if not inst then return end
+            pcall(function()
+                inst.Name = tostring(math.random(100000, 999999))
+            end)
+        end
+        task.defer(function()
+            task.wait(1.2)
+            local names = {
+                "HalmuESP", "HalmuFOV", "HalmuIndicators", "ExecutorToggleUI",
+                "CustomCursorGui", "multvallkHalmuUI", "multvallkHitLogUI",
+                "multvallkRageUI", "multvallkIntroUI", "nexlib",
+                "dva_hook_toggle", "DvAHookMobileToggle"
+            }
+            for _, n in ipairs(names) do
+                local o = CoreGui:FindFirstChild(n)
+                if o then cloak(o) end
+                if LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui") then
+                    local o2 = LocalPlayer.PlayerGui:FindFirstChild(n)
+                    if o2 then cloak(o2) end
+                end
+                if gethui then
+                    local ok, hui = pcall(gethui)
+                    if ok and hui then
+                        local o3 = hui:FindFirstChild(n)
+                        if o3 then cloak(o3) end
+                    end
+                end
+            end
+        end)
+    end)
+
+    -- 7) Network owner re-claim
+    pcall(function()
+        local last = 0
+        RunService.Heartbeat:Connect(function()
+            if tick() - last < 2.5 then return end
+            last = tick()
+            local char = LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp and hrp.SetNetworkOwner then
+                pcall(function() hrp:SetNetworkOwner(LocalPlayer) end)
+            end
+        end)
+    end)
+
+    -- 8) Optional FFlag soften
+    pcall(function()
+        if setfflag then
+            pcall(setfflag, "DebugRunServiceHumanoidCheck", "False")
+            pcall(setfflag, "HumanoidParallelRemoveNoPhysics", "False")
         end
     end)
 end)
 
--- 3) rawlen spoof for AC weak-table probes
+-- rawlen spoof for AC probes
 pcall(function()
     if not (hookfunction and newcclosure and getcallingscript) then return end
     local oldRawlen
@@ -100,53 +208,7 @@ pcall(function()
     end))
 end)
 
--- 4) namecall: block Kick / ban remotes / suspicious FireServer
-pcall(function()
-    if not (hookmetamethod and getnamecallmethod and newcclosure) then return end
-    local banned = {
-        kick=true, ban=true, punish=true, anticheat=true, detect=true,
-        report=true, flag=true, crash=true, log=true, screenshot=true,
-        security=true, mod=true, admin=true, watchdog=true, sentinel=true,
-        integrity=true, exploit=true, cheater=true, violation=true,
-        teleportkick=true, softkick=true, hardkick=true, takethel=true,
-    }
-    local oldNC
-    oldNC = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-        local method = getnamecallmethod()
-        local args = {...}
-        if method == "Kick" or method == "kick" then
-            return
-        end
-        if (method == "FireServer" or method == "InvokeServer" or method == "Fire" or method == "Invoke") and self then
-            local sName = ""
-            pcall(function() sName = string.lower(tostring(self.Name or "")) end)
-            for k, _ in pairs(banned) do
-                if sName ~= "" and string.find(sName, k, 1, true) then
-                    return
-                end
-            end
-            if type(args[1]) == "string" then
-                local a = string.lower(args[1])
-                if string.find(a, "kick", 1, true) or string.find(a, "ban", 1, true)
-                    or string.find(a, "anticheat", 1, true) or string.find(a, "exploit", 1, true)
-                    or string.find(a, "takethel", 1, true) then
-                    return
-                end
-            end
-        end
-        return oldNC(self, ...)
-    end))
-end)
-
--- 5) ScriptContext error silence
-pcall(function()
-    local ScriptContext = game:GetService("ScriptContext")
-    if ScriptContext and ScriptContext.Error then
-        ScriptContext.Error:Connect(function() end)
-    end
-end)
-
--- 6) Disable AC-named Local/ModuleScripts + NetworkClient probes
+-- Disable AC-named scripts + NetworkClient
 task.spawn(function()
     pcall(function()
         local acWords = {"anticheat","ac","detection","ban","kick","security","moderation","watchdog","sentinel","integrity","camerasecurity"}
@@ -185,7 +247,7 @@ task.spawn(function()
     end)
 end)
 
--- 7) LocalScript3 / LoadingScreen ban-kick constant hooks
+-- LocalScript3 / LoadingScreen hooks
 task.spawn(function()
     pcall(function()
         if type(getgc) ~= "function" then return end
@@ -219,7 +281,7 @@ task.spawn(function()
     end)
 end)
 
--- 8) Name/Text hide from AC scanners
+-- Name/Text hide from AC scanners
 local antidetect = true
 local detecteds = {
     ["localscript3"] = true,
@@ -252,39 +314,19 @@ getgenv().dva_hook_set_antidetect = function(v)
     antidetect = v and true or false
 end
 
--- 9) Network owner reclaim (reduces authority kicks)
-task.spawn(function()
-    local last = 0
-    RunService.Heartbeat:Connect(function()
-        if tick() - last < 2.5 then return end
-        last = tick()
-        local char = LocalPlayer.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if hrp and hrp.SetNetworkOwner then
-            pcall(function() hrp:SetNetworkOwner(LocalPlayer) end)
-        end
-    end)
-end)
-
--- 10) Soft FFlag / decoy remote
-pcall(function()
-    if setfflag then
-        pcall(setfflag, "DebugRunServiceHumanoidCheck", "False")
-        pcall(setfflag, "HumanoidParallelRemoveNoPhysics", "False")
-    end
-end)
 pcall(function()
     local fake = Instance.new("RemoteEvent")
     fake.Name = "ClientAlert"
     fake.Parent = LocalPlayer
 end)
 
-print("[Dv.a hook] AC bypass stack loaded")
+print("[Dv.a hook Premium v3 (beta)] vallkmult AC bypass stack loaded")
 task.wait(0.35)
 
 repeat task.wait() until not game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild("LoadingScreen")
 
 getgenv().silent_load = false;
+
 
 
 local Library = (function()
@@ -7093,7 +7135,7 @@ task.spawn(function()
     while task.wait(0.5) do
         if Library.Watermark and Library.Watermark.Visible then
             local wm = getgenv().dva_hook_wm or {};
-            local parts = { "Dv.a hook.lol" };
+            local parts = { "Dv.a hook Premium v3 (beta)" };
             if wm.fps ~= false then
                 parts[#parts + 1] = string.format("%d fps", math.floor(fps + 0.5));
             end;
@@ -7619,7 +7661,7 @@ function Library:CreateWindow(...)
     local AccentPart = Config.AccentPart or '.lol';
 
     local function UpdateTitle()
-        local rawTitle = Config.Title or "Dv.a hook.lol";
+        local rawTitle = Config.Title or "Dv.a hook Premium v3 (beta)";
         Library:SetAccentTitle(WindowLabel, rawTitle, AccentPart);
     end;
 
@@ -9257,10 +9299,10 @@ local Toggles = Library.Toggles;
 getgenv().silent_load = getgenv().silent_load or false;
 getgenv().auto_load_enable = getgenv().auto_load_enable or false;
 local Window = Library:CreateWindow({
-    Title = 'Dv.a hook.lol - https://dva_hook.lol/ [KEYLESS]',
+    Title = 'Dv.a hook Premium v3 (beta)',
     AutoShow = false,
     BackgroundImage = "",
-    SubTitle = "Dv.a hook",
+    SubTitle = "Dv.a hook Premium v3 (beta)",
     Center = true,
     Resizable = true,
     Draggable = true,
