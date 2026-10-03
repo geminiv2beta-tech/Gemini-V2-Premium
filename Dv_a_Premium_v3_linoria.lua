@@ -1,239 +1,41 @@
 -- ============================================================================
--- Dv.a Premium v3 | Obsidian UI + Elisium feature core
--- Silent Aim + FOV, Aimbot, Ragebot, ESP, AA, Widgets, Config
--- No Key / No HWID | Toggle: "Dv.a premium" + Locker | Hit notify: right
--- UI: Obsidian (deividcomsono) | Anti-Cheat bypass pack applied
+-- Dv.a Premium v3 | Yokai Sense (gamesense-style) UI
+-- UI source: Yokai Sense open-source | Rebranded Dv.a
+-- Toggle: "Dv.a premium" + Lock | AC bypass | Insert close bind
+-- No Key / No HWID
 -- ============================================================================
 
-loadstring([[
-    function LPH_NO_VIRTUALIZE(f) return f end
-    function LPH_JIT_MAX(f) return f end
-    function LPH_JIT(f) return f end
-    function LPH_ENCFUNC(f) return f end
-]])();
-
-eli_inext = function(t, i)
-    i = i + 1;
-    local v = t[i];
-    if v ~= nil then return i, v end;
-end;
-eli_ipairs = function(t) return eli_inext, t, 0 end;
-eli_pairs = function(t) return next, t, nil end;
-if not cloneref then cloneref = function(ref) return ref end end
-
-do
-    if hookfunction and newcclosure and getcallingscript then
-        pcall(function()
-            local Old1 = nil; Old1 = hookfunction(setmetatable, newcclosure(function(Table, MetaTable)
-                if type(MetaTable) == "table" and rawget(MetaTable, "__mode") == "kv" then
-                    local Caller = getcallingscript();
-                    if Caller and Caller.Name == "MiscellaneousController" then
-                        return Old1(Table, { });
-                    end;
-                end;
-
-                return Old1(Table, MetaTable);
-            end));
-        end);
-
-        pcall(function()
-            local Ol2 = nil; Ol2 = hookfunction(rawlen, newcclosure(function(Table)
-                if type(Table) == "table" then
-                    local Caller = getcallingscript();
-                    if Caller and Caller.Name == "MiscellaneousController" then
-                        return 3;
-                    end;
-                end;
-
-                return Ol2(Table);
-            end));
-        end);
-    end;
-end;
-print("-");
-task.wait(1);
-
-pcall(function()
-    if not (hookfunction and newcclosure and getrenv) then return end;
-    local oldtable; oldtable = hookfunction(getrenv().setmetatable, newcclosure(function(Table, Metatable)
-        if Metatable and typeof(Metatable) == "table" and rawget(Metatable, "__mode") == "kv" then
-            local trace = debug.traceback();
-            if trace:find("MiscellaneousController") then
-                return oldtable({1, 2, 3}, {});
-            end;
-        end;
-        return oldtable(Table, Metatable);
-    end));
-end);
-
-coroutine.wrap(function()
-    pcall(function()
-        local acWords = {"anticheat", "ac", "detection", "ban", "kick", "security", "moderation"};
-        local function disableScript(obj)
-            obj.Disabled = true;
-        end;
-        local function checkScript(obj)
-            if obj:IsA("LocalScript") or obj:IsA("ModuleScript") then
-                local n = string.lower(obj.Name);
-                for _, ac in eli_ipairs(acWords) do
-                    if string.find(n, ac, 1, true) then
-                        pcall(disableScript, obj);
-                        break;
-                    end;
-                end;
-            end;
-        end;
-        local function blockScript(obj)
-            pcall(checkScript, obj);
-        end;
-
-        pcall(function()
-            game.DescendantAdded:Connect(blockScript);
-        end);
-
-        pcall(function()
-            local descendants = game:GetDescendants();
-            for index = 1, #descendants do
-                blockScript(descendants[index]);
-                if index % 4000 == 0 then
-                    task.wait();
-                end;
-            end;
-        end);
-    end);
-
-    pcall(function()
-        local networkClient = game:GetService("NetworkClient");
-        if networkClient then
-            networkClient.ChildAdded:Connect(function(child)
-                pcall(function()
-                    local ok, n = pcall(function() return child.Name:lower() end);
-                    if ok and n then
-                        if n:find("anticheat") or n:find("detection") then
-                            pcall(function() child:Destroy() end);
-                        end;
-                    end;
-                end);
-            end);
-        end;
-    end);
-end)();
-
-pcall(function()
-    local LP = game:GetService("Players").LocalPlayer
-    if not LP then return end
-    local fake = Instance.new("RemoteEvent");
-    fake.Name = "ClientAlert";
-    fake.Parent = LP;
-end);
-
-task.spawn(function()
-    pcall(LPH_NO_VIRTUALIZE(function()
-        if type(getgc) ~= "function" then return end;
-        local rf = game:GetService("ReplicatedFirst");
-        local ls3 = rf:WaitForChild("LocalScript3", 10);
-
-        local gc = getgc(false);
-        for index = 1, #gc do
-            local f = gc[index];
-            if type(f) == "function" and (type(islclosure) ~= "function" or islclosure(f)) then
-                local ok, e = pcall(getfenv, f);
-                if ok and type(e) == "table" then
-                    local ok2, scr = pcall(function() return rawget(e, "script") end);
-                    if ok2 and scr and typeof(scr) == "Instance" then
-                        local ok3, scrStr = pcall(tostring, scr);
-
-                        if ok3 and (scr == ls3 or (type(scrStr) == "string" and scrStr:find("LoadingScreen"))) then
-                            local ok4, cs = pcall(debug.getconstants, f);
-                            if ok4 and type(cs) == "table" then
-                                for _, k in eli_ipairs(cs) do
-                                    if type(k) == "string" and (k:find("TakeTheL") or k:find("ban") or k:find("kick")) then
-                                        pcall(function()
-                                            hookfunction(f, function() end);
-                                        end);
-                                        break;
-                                    end;
-                                end;
-                            end;
-                        end;
-                    end;
-                end;
-            end;
-            if index % 1500 == 0 then
-                task.wait();
-            end;
-        end;
-    end));
-end);
-
-local antidetect = true;
-local detecteds = {
-    ["localscript3"] = true,
-    ["miscellaneouscontroller"] = true
-};
-local callerVerdicts = setmetatable({}, { __mode = "k" });
-local original;
-pcall(function()
-    if not (hookmetamethod and newcclosure and getcallingscript) then return end;
-    original = hookmetamethod(game, "__index", newcclosure(LPH_NO_VIRTUALIZE(function(self, key)
-        if antidetect and (key == "Name" or key == "Text") then
-            local caller = getcallingscript();
-            if caller then
-                local blocked = callerVerdicts[caller];
-                if blocked == nil then
-                    local ok, result = pcall(function()
-                        return detecteds[string.lower(original(caller, "Name"))] == true;
-                    end);
-                    blocked = ok and result or false;
-                    callerVerdicts[caller] = blocked;
-                end;
-                if blocked then
-                    return "";
-                end;
-            end;
-        end;
-        return original(self, key);
-    end)));
-end);
-getgenv().elisium_set_antidetect = function(v)
-    antidetect = v and true or false;
-end;
-
-repeat task.wait() until not game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild("LoadingScreen");
-
-
-getgenv().silent_load = false;
 
 -- ============================================================================
--- SECTION: Anti-Kick / Security / Anti-Cheat Bypass (Dv.a pack)
+-- Anti-Cheat / Kick bypass
 -- ============================================================================
 pcall(function()
-    local Players = game:GetService('Players');
-    local RunService = game:GetService('RunService');
-    local CoreGui = game:GetService('CoreGui');
-    local LocalPlayer = Players.LocalPlayer;
+    local Players = game:GetService('Players')
+    local RunService = game:GetService('RunService')
+    local CoreGui = game:GetService('CoreGui')
+    local LocalPlayer = Players.LocalPlayer
 
     if LocalPlayer and typeof(LocalPlayer.Kick) == 'function' then
-        local oldKick = LocalPlayer.Kick;
-        LocalPlayer.Kick = function(...) end;
+        local oldKick = LocalPlayer.Kick
+        LocalPlayer.Kick = function(...) end
         pcall(function()
             if hookfunction then
-                hookfunction(oldKick, newcclosure(function(...) end));
-            end;
-        end);
-    end;
+                hookfunction(oldKick, newcclosure(function(...) end))
+            end
+        end)
+    end
 
     pcall(function()
         if typeof(Players.Kick) == 'function' then
-            Players.Kick = function(...) end;
-        end;
-    end);
+            Players.Kick = function(...) end
+        end
+    end)
 
     if getrenv and getrenv().setmetatable and hookfunction then
-        local _stbl;
+        local _stbl
         _stbl = hookfunction(getrenv().setmetatable, newcclosure(function(tbl, mt)
             if mt and typeof(mt) == 'table' and rawget(mt, '__mode') == 'kv' then
-                local tr = debug.traceback();
+                local tr = debug.traceback()
                 if tr and (
                     tr:find('MiscellaneousController')
                     or tr:find('anticheat') or tr:find('AntiCheat')
@@ -242,12621 +44,7567 @@ pcall(function()
                     or tr:find('KickHook') or tr:find('Watchdog')
                     or tr:find('Sentinel') or tr:find('Moderation')
                 ) then
-                    return _stbl({1, 2, 3}, {});
-                end;
-            end;
-            return _stbl(tbl, mt);
-        end));
-    end;
+                    return _stbl({1, 2, 3}, {})
+                end
+            end
+            return _stbl(tbl, mt)
+        end))
+    end
 
     if hookmetamethod and getnamecallmethod then
-        local bannedRemoteNames = {
+        local banned = {
             kick=true, ban=true, punish=true, anticheat=true, detect=true,
-            report=true, flag=true, crash=true, log=true, screenshot=true,
-            security=true, mod=true, admin=true, watchdog=true, sentinel=true,
-            integrity=true, exploit=true, cheater=true, violation=true,
-            teleportkick=true, softkick=true, hardkick=true,
-        };
-        local oldNamecall;
-        oldNamecall = hookmetamethod(game, '__namecall', newcclosure(function(self, ...)
-            local method = getnamecallmethod();
-            local args = {...};
-
-            if method == 'Kick' or method == 'kick' then
-                return;
-            end;
-
-            if (method == 'FireServer' or method == 'InvokeServer' or method == 'Fire' or method == 'Invoke') and self then
-                local sName = '';
-                pcall(function() sName = string.lower(tostring(self.Name or '')) end);
-                for k, _ in pairs(bannedRemoteNames) do
-                    if sName ~= '' and string.find(sName, k, 1, true) then
-                        return;
-                    end;
-                end;
-                if type(args[1]) == 'string' then
-                    local a = string.lower(args[1]);
-                    if string.find(a, 'kick', 1, true) or string.find(a, 'ban', 1, true)
-                        or string.find(a, 'anticheat', 1, true) or string.find(a, 'exploit', 1, true) then
-                        return;
-                    end;
-                end;
-            end;
-
-            return oldNamecall(self, ...);
-        end));
-    end;
-
-    pcall(function()
-        local ScriptContext = game:GetService('ScriptContext');
-        if ScriptContext and ScriptContext.Error then
-            ScriptContext.Error:Connect(function() end);
-        end;
-    end);
-
-    pcall(function()
-        local function cloak(inst)
-            if not inst then return end;
-            pcall(function()
-                inst.Name = tostring(math.random(100000, 999999));
-            end);
-        end;
-        task.defer(function()
-            task.wait(1.2);
-            local names = {
-                'HalmuESP', 'HalmuFOV', 'HalmuIndicators', 'ExecutorToggleUI',
-                'CustomCursorGui', 'multvallkHalmuUI', 'multvallkHitLogUI',
-                'multvallkRageUI', 'multvallkIntroUI', 'nexlib', 'DvA_MenuToggle',
-            };
-            for _, n in ipairs(names) do
-                local o = CoreGui:FindFirstChild(n);
-                if o then cloak(o) end;
-                if LocalPlayer and LocalPlayer:FindFirstChild('PlayerGui') then
-                    local o2 = LocalPlayer.PlayerGui:FindFirstChild(n);
-                    if o2 then cloak(o2) end;
-                end;
-                if gethui then
-                    local ok, hui = pcall(gethui);
-                    if ok and hui then
-                        local o3 = hui:FindFirstChild(n);
-                        if o3 then cloak(o3) end;
-                    end;
-                end;
-            end;
-        end);
-    end);
-
-    pcall(function()
-        local last = 0;
-        RunService.Heartbeat:Connect(function()
-            if tick() - last < 2.5 then return end;
-            last = tick();
-            local char = LocalPlayer and LocalPlayer.Character;
-            local hrp = char and char:FindFirstChild('HumanoidRootPart');
-            if hrp and hrp.SetNetworkOwner then
-                pcall(function() hrp:SetNetworkOwner(LocalPlayer) end);
-            end;
-        end);
-    end);
-
-    pcall(function()
-        if setfflag then
-            pcall(setfflag, 'DebugRunServiceHumanoidCheck', 'False');
-            pcall(setfflag, 'HumanoidParallelRemoveNoPhysics', 'False');
-        end;
-    end);
-
-    -- spawn time tracker
-    pcall(function()
-        Players.PlayerAdded:Connect(function(player)
-            player.CharacterAdded:Connect(function()
-                player:SetAttribute('SpawnTime', tick());
-            end);
-        end);
-        for _, player in ipairs(Players:GetPlayers()) do
-            player.CharacterAdded:Connect(function()
-                player:SetAttribute('SpawnTime', tick());
-            end);
-            if player.Character then
-                player:SetAttribute('SpawnTime', tick());
-            end;
-        end;
-    end);
-end);
-
-
-
--- ============================================================================
--- Obsidian UI Library (external) — replaces embedded Linoria
--- https://github.com/deividcomsono/Obsidian
--- ============================================================================
-local function loadObsidian()
-    local repos = {
-        'https://raw.githubusercontent.com/deividcomsono/Obsidian/main/',
-        'https://raw.githubusercontent.com/deividcomsono/Obsidian/refs/heads/main/',
-    };
-    local lastErr;
-    for _, repo in ipairs(repos) do
-        local okLib, lib = pcall(function()
-            return loadstring(game:HttpGet(repo .. 'Library.lua'))();
-        end);
-        if okLib and type(lib) == 'table' then
-            local theme, save;
-            pcall(function()
-                theme = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))();
-            end);
-            pcall(function()
-                save = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))();
-            end);
-            return lib, theme, save, repo;
-        end;
-        lastErr = lib;
-    end;
-    error('Failed to load Obsidian UI: ' .. tostring(lastErr));
-end;
-
-local Library, ThemeManager, SaveManager, _obsidianRepo = loadObsidian();
-getgenv().Library = Library;
-getgenv().Toggles = Library.Toggles or getgenv().Toggles or {};
-getgenv().Options = Library.Options or getgenv().Options or {};
-Toggles = Library.Toggles;
-Options = Library.Options;
-
--- Soft shims for APIs the Elisium feature layer expects
-Library.MenuOpen = Library.MenuOpen ~= false;
-if type(Library.SetNotificationSpot) ~= 'function' then
-    function Library:SetNotificationSpot(spot)
-        self.NotificationSpot = spot;
-        if self.NotifySide ~= nil then
-            self.NotifySide = (spot and tostring(spot):find('Left')) and 'Left' or 'Right';
-        end;
-    end;
-end;
-if type(Library.UpdateNotificationArea) ~= 'function' then
-    function Library:UpdateNotificationArea() end;
-end;
-if type(Library.SetWatermarkVisibility) ~= 'function' then
-    function Library:SetWatermarkVisibility(v)
-        pcall(function()
-            if self.Watermark then
-                if self.Watermark.Visible ~= nil then self.Watermark.Visible = v and true or false end;
-                if self.Watermark.Outer then self.Watermark.Outer.Visible = v and true or false end;
-            end;
-        end);
-    end;
-end;
-if type(Library.UpdateOverlayGlow) ~= 'function' then
-    function Library:UpdateOverlayGlow() end;
-end;
-if type(Library.SetOverlayGlowColor) ~= 'function' then
-    function Library:SetOverlayGlowColor() end;
-end;
-if type(Library.UpdateColorsUsingRegistry) ~= 'function' then
-    function Library:UpdateColorsUsingRegistry() end;
-end;
-if type(Library.AddToRegistry) ~= 'function' then
-    function Library:AddToRegistry() end;
-end;
-if type(Library.MakeDraggable) ~= 'function' then
-    function Library:MakeDraggable(inst)
-        -- Obsidian windows are natively draggable; respect lock flag
-        if not inst then return end;
-        pcall(function()
-            local UIS = game:GetService('UserInputService');
-            local dragging, start, startPos;
-            inst.InputBegan:Connect(function(input)
-                if getgenv().__DvA_MenuLocked then return end;
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    dragging = true;
-                    start = input.Position;
-                    startPos = inst.Position;
-                    input.Changed:Connect(function()
-                        if input.UserInputState == Enum.UserInputState.End then dragging = false end;
-                    end);
-                end;
-            end);
-            UIS.InputChanged:Connect(function(input)
-                if not dragging or getgenv().__DvA_MenuLocked then return end;
-                if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-                    local d = input.Position - start;
-                    inst.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y);
-                end;
-            end);
-        end);
-    end;
-end;
-if type(Library.Create) ~= 'function' then
-    function Library:Create(class, props)
-        local obj = Instance.new(class);
-        if props then
-            for k, v in pairs(props) do
-                pcall(function() obj[k] = v end);
-            end;
-        end;
-        return obj;
-    end;
-end;
-if type(Library.CreateLabel) ~= 'function' then
-    function Library:CreateLabel(props)
-        props = props or {};
-        props.BackgroundTransparency = props.BackgroundTransparency or 1;
-        return Library:Create('TextLabel', props);
-    end;
-end;
-
--- Fallback ThemeManager / SaveManager if addon load failed
-if type(ThemeManager) ~= 'table' then
-    ThemeManager = setmetatable({}, { __index = function() return function() end end });
-end;
-if type(SaveManager) ~= 'table' then
-    SaveManager = setmetatable({}, { __index = function() return function() end end });
-end;
-if type(ThemeManager.SetLibrary) ~= 'function' then
-    function ThemeManager:SetLibrary(lib) self.Library = lib end;
-end;
-if type(ThemeManager.SetFolder) ~= 'function' then
-    function ThemeManager:SetFolder(f) self.Folder = f end;
-end;
-if type(ThemeManager.ApplyToTab) ~= 'function' then
-    function ThemeManager:ApplyToTab() end;
-end;
-if type(SaveManager.SetLibrary) ~= 'function' then
-    function SaveManager:SetLibrary(lib) self.Library = lib end;
-end;
-if type(SaveManager.SetFolder) ~= 'function' then
-    function SaveManager:SetFolder(f) self.Folder = f end;
-end;
-if type(SaveManager.IgnoreThemeSettings) ~= 'function' then
-    function SaveManager:IgnoreThemeSettings() end;
-end;
-if type(SaveManager.SetIgnoreIndexes) ~= 'function' then
-    function SaveManager:SetIgnoreIndexes() end;
-end;
-if type(SaveManager.BuildConfigSection) ~= 'function' then
-    function SaveManager:BuildConfigSection() end;
-end;
-if type(SaveManager.LoadAutoloadConfig) ~= 'function' then
-    function SaveManager:LoadAutoloadConfig() end;
-end;
-
-print('[Dv.a] Obsidian UI loaded from ' .. tostring(_obsidianRepo));
-
-
-local Trove = (function()
-    local Trove = {};
-    Trove.__index = Trove;
-
-    function Trove.new()
-        return setmetatable({ _objects = {} }, Trove);
-    end;
-
-    function Trove:Add(object)
-        self._objects[#self._objects + 1] = object;
-        return object;
-    end;
-
-    function Trove:Destroy()
-        local objects = self._objects;
-        self._objects = {};
-        for i = #objects, 1, -1 do
-            local object = objects[i];
-            local objectType = typeof(object);
-            pcall(function()
-                if objectType == 'RBXScriptConnection' then
-                    object:Disconnect();
-                elseif objectType == 'Instance' then
-                    object:Destroy();
-                elseif objectType == 'thread' then
-                    task.cancel(object);
-                elseif objectType == 'function' then
-                    object();
-                elseif objectType == 'table' then
-                    if object.Destroy then
-                        object:Destroy();
-                    elseif object.Disconnect then
-                        object:Disconnect();
-                    end;
-                end;
-            end);
-        end;
-    end;
-
-    Trove.Clean = Trove.Destroy;
-
-    return Trove;
-end)();
-
-if not (type(Library) == "table" and Library.Options) then
-    Library = getgenv().Library or Library;
-end;
-getgenv().Library = Library;
-local Options = Library.Options;
-local Toggles = Library.Toggles;
-getgenv().silent_load = getgenv().silent_load or false;
-getgenv().auto_load_enable = getgenv().auto_load_enable or false;
-local Window = Library:CreateWindow({
-    Title = 'Dv.a Premium v3',
-    Footer = 'Obsidian UI · Premium v3',
-    Icon = 95816097006870,
-    NotifySide = 'Right',
-    ShowCustomCursor = false,
-    ToggleKeybind = Enum.KeyCode.RightControl,
-    Center = true,
-    AutoShow = true,
-    Resizable = true,
-    Size = ((game:GetService('UserInputService').TouchEnabled and not game:GetService('UserInputService').MouseEnabled) and UDim2.fromOffset(420, 360)) or UDim2.fromOffset(700, 620),
-});
-
-if GLOBAL_TROVE then
-    pcall(function()
-        GLOBAL_TROVE:Destroy();
-    end);
-end;
-local trove = Trove.new();
-getgenv().GLOBAL_TROVE = trove;
-
-Library:OnUnload(function()
-    pcall(function()
-        GLOBAL_TROVE:Destroy();
-    end);
-    getgenv().elisium_loaded = false;
-    getgenv().Library.Unloaded = true;
-    getgenv().Library = nil;
-end);
-
-local font_indexes = {"ProggyClean", "Tahoma", "Verdana", "SmallestPixel", "ProggyTiny", "Minecraftia", "Tahoma Bold"};
-
-local font_files = {
-    ["ProggyClean"] = "ProggyClean.ttf",
-    ["Tahoma"] = "fs-tahoma-8px.ttf",
-    ["Verdana"] = "Verdana-Font.ttf",
-    ["SmallestPixel"] = "smallest_pixel-7.ttf",
-    ["ProggyTiny"] = "ProggyTiny.ttf",
-    ["Minecraftia"] = "Minecraftia-Regular.ttf",
-    ["Tahoma Bold"] = "tahoma_bold.ttf",
-};
-
-getgenv().fonts = {};
-local fonts = getgenv().fonts;
-
-task.spawn(function()
-    for name, suffix in font_files do
-        local ttf_path = "elisium/rivals/fonts/" .. suffix;
-        local font_path = "elisium/rivals/fonts/" .. name .. ".font";
-
-        if not isfile(ttf_path) then
-            local okFont, font_data = pcall(game.HttpGet, game, "https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/" .. suffix);
-            if okFont and type(font_data) == "string" and #font_data > 0 then
-                writefile(ttf_path, font_data);
-            else
-                continue;
-            end;
-        end;
-
-        local data = {
-            name = name,
-            faces = {{
-                name = "Normal",
-                weight = 400,
-                style = "Normal",
-                assetId = getcustomasset(ttf_path),
-            }},
-        };
-
-        writefile(font_path, game:GetService("HttpService"):JSONEncode(data));
-
-        fonts[name] = Font.new(getcustomasset(font_path), Enum.FontWeight.Regular, Enum.FontStyle.Normal);
-    end;
-end);
-
-local replicated_storage = cloneref(game:GetService("ReplicatedStorage"));
-local players = cloneref(game:GetService("Players"));
-local run_service = cloneref(game:GetService('RunService'));
-local tween_service = cloneref(game:GetService('TweenService'));
-local uis = cloneref(game:GetService("UserInputService"));
-local http_service = cloneref(game:GetService("HttpService"));
-local core_gui = cloneref(game:GetService("CoreGui"));
-local lighting = cloneref(game:GetService("Lighting"));
-
-local gethui = gethui or get_hui or get_hidden_gui or function()
-    return core_gui;
-end;
-
-local local_player = players.LocalPlayer;
-local camera = workspace.CurrentCamera;
-local mouse = cloneref(local_player:GetMouse());
-local modules = replicated_storage.Modules;
-local first_person = workspace.ViewModels.FirstPerson;
-local utility = require(modules.Utility);
-local enum_lib = require(modules.EnumLibrary);
-local item_lib = require(modules.ItemLibrary);
-local cosmetic_lib = require(modules.CosmeticLibrary);
-local data_ctrl = require(local_player.PlayerScripts.Controllers.PlayerDataController);
-local rep_class = require(replicated_storage.Modules.ReplicatedClass);
-local equip_remote = replicated_storage.Remotes.Data.EquipCosmetic;
-local fav_remote = replicated_storage.Remotes.Data.FavoriteCosmetic;
-local finishers = replicated_storage.Modules.Finishers;
-local gun = require(local_player.PlayerScripts.Modules.ItemTypes.Gun);
-local katana = require(local_player.PlayerScripts.Modules.Items.Katana);
-local fighter_controller = require(local_player.PlayerScripts.Controllers.FighterController);
-local camera_controller = require(local_player.PlayerScripts.Controllers.CameraController);
-local mechanics_controller = require(local_player.PlayerScripts.Controllers.MechanicsController);
-local tracer_effect = require(local_player.PlayerScripts.Modules.TracerEffect);
-local pages = require(local_player.PlayerScripts.Modules.UserInterface.Pages);
-local client_entity = require(local_player.PlayerScripts.Modules.ClientReplicatedClasses.ClientEntity);
-local client_viewmodel = require(local_player.PlayerScripts.Modules.ClientReplicatedClasses.ClientFighter.ClientItem.ClientViewModel);
-local duel_controller = require(local_player.PlayerScripts.Controllers.DuelController);
-local client_item = require(local_player.PlayerScripts.Modules.ClientReplicatedClasses.ClientFighter.ClientItem);
-local controls_controller = require(local_player.PlayerScripts.Controllers.ControlsController);
-local player_data_controller = require(local_player.PlayerScripts.Controllers.PlayerDataController);
-local equipment_state = require(local_player.PlayerScripts.Modules.UserInterface.Equipment.Interface.Customize.Options);
-local cosmetic_state = require(local_player.PlayerScripts.Modules.UserInterface.Equipment.Interface.Customize.Cosmetics);
-local cosmetic_inventory = player_data_controller:Get('CosmeticInventory');
-local finisher = require(local_player.PlayerScripts.Modules.UserInterface.Equipment.Scene.FinisherPlayer);
-local local_fighter = fighter_controller.LocalFighter;
-local in_match = local_fighter:Get("IsInDuel") == true;
-local trove = GLOBAL_TROVE;
-local new_drawing = Drawing.new;
-local old_force_auto = {};
-local old_jump_fist = mechanics_controller._original_jump_power;
-local oldoffsets = {};
-local clickedontheremote = false;
-local was_i_in_a_match = false;
-local thisisforsubspace = {
-    ['Subspace Tripmine'] = 'SubspaceTripmineHitbox'
-};
-
-local Tabs = {
-    Main = Window:AddTab('combat', 'crosshair'),
-    visualstab = Window:AddTab('visuals', 'eye'),
-    esptab = Window:AddTab('esp', 'scan-eye'),
-    worldtab = Window:AddTab('world', 'globe'),
-    character_tab = Window:AddTab('character', 'user'),
-    misc_tab = Window:AddTab('misc', 'wrench'),
-    optimizations = Window:AddTab('optimizations', 'gauge'),
-    lua = Window:AddTab('lua', 'code'),
-    ['UI Settings'] = Window:AddTab('settings', 'settings'),
-};
-
-getgenv().elisium = {
-    optimizations = {
-        no_particles = false,
-        no_shadows = false,
-        low_quality = false,
-        no_postfx = false,
-        no_textures = false,
-        no_atmosphere = false,
-        fps_cap_enable = false,
-        fps_cap = 60,
-    },
-    silent_aim = {
-        enable = false,
-        visualize = false,
-        visualize_color = Color3.fromRGB(120, 81, 166),
-        closest_part = false,
-        show_fov = false,
-        show_fill = false,
-        fov_radius = 180,
-        lerp = 0,
-        follow_target = false,
-        follow_gunpoint = false,
-        fov_color = Color3.fromRGB(120, 81, 166),
-        fov_fill_color = Color3.fromRGB(120, 81, 166),
-        fov_fill_color2 = Color3.fromRGB(255, 255, 255),
-        fov_fill_transparency = 0.6,
-        fov_outline_transparency = 0.2,
-        fov_thickness = 2,
-        fov_color2 = Color3.fromRGB(255, 255, 255),
-        fov_rotation_speed = 90,
-        hit_chance = 100,
-        riot_shield = false,
-    },
-    ragebot = {
-        enable = false,
-        ffa_mode = false,
-        x = 0,
-        y = 2,
-        z = 0,
-        prediction = true,
-        prediction_amount = 1,
-    },
-    chams = {
-        enable = false,
-        team_check = false,
-        mode = "highlight",
-        fill_color = Color3.fromRGB(0, 170, 255),
-        fill_transparency = 0.5,
-        outline_color = Color3.fromRGB(255, 255, 255),
-        outline_transparency = 0,
-        material = "Neon",
-        strip_textures = false,
-        ghost = false,
-    },
-    crosshair = {
-        enable = false,
-        style = "cross",
-        lines = true,
-        top_line = true,
-        bottom_line = true,
-        left_line = true,
-        right_line = true,
-        rotation = 0,
-        length = 6,
-        thickness = 1,
-        gap = 3,
-        color = Color3.fromRGB(0, 255, 170),
-        outline = false,
-        outline_color = Color3.fromRGB(0, 0, 0),
-        dot = false,
-        rotating = false,
-        rotating_speed = 120,
-        spread = false,
-        spread_scale = 1,
-        animation = false,
-        animation_mode = "pulse",
-        animation_speed = 3,
-        fade = false,
-        fade_color = Color3.fromRGB(255, 0, 170),
-        follow_target = false,
-        follow_source = "target",
-        shimmer = false,
-        shimmer_speed = 4,
-        text_enable = false,
-        text_content = "elisium",
-        text_font = "Plex",
-        text_size = 16,
-        text_offset = 18,
-        text_color = Color3.fromRGB(255, 255, 255),
-        text_outline = true,
-        text_animation = false,
-    },
-    aimbot = {
-        enable = false,
-        show_fov = false,
-        follow_target = false,
-        show_fill = false,
-        fov_color = Color3.fromRGB(120, 81, 166),
-        follow_gunpoint = false,
-        fov_fill_color = Color3.fromRGB(120, 81, 166),
-        fov_fill_color2 = Color3.fromRGB(255, 255, 255),
-        fov_radius = 180,
-        lerp = 0,
-        fov_fill_transparency = 0.6,
-        fov_outline_transparency = 0.2,
-        fov_thickness = 2,
-        fov_color2 = Color3.fromRGB(255, 255, 255),
-        fov_rotation_speed = 90,
-        smoothing = 1,
-        closest_part = false,
-    },
-
-    auto_vote_map = {
-        enable = false,
-        map = "",
-    },
-    animation = {
-        enable = false,
-        select_animation = "",
-        speed = 2,
-    },
-
-    triggerbot = {
-        enable = false,
-        team_check = false,
-        reaction_time = 0.05,
-        shoot_delay = 0.1,
-        max_distance = 500,
-    },
-    weather = {
-        enable = false,
-        color = Color3.fromRGB(255, 255, 255),
-        rate = 100,
-        type = "snow",
-    },
-    esp = {
-        enable = false,
-        team_check = true,
-        box = {
-            enable = false,
-            color = Color3.new(1, 1, 1),
-            outline = Color3.new(0, 0, 0),
-            inline = Color3.new(0, 0, 0),
-            thickness = 1,
-        },
-        glow = {
-            enable = false,
-            color_start = Color3.new(1, 1, 1),
-            color_end = Color3.new(1, 1, 1),
-            transparency = 1,
-            rotation = 90,
-            speed = 2,
-            animated = false,
-        },
-        filled = {
-            enable = false,
-            color_start = Color3.new(1, 1, 1),
-            color_end = Color3.new(1, 1, 1),
-            transparency = 0.75,
-            rotation = 90,
-            speed = 2,
-            animated = false,
-            hit_flash = false,
-            hit_color = Color3.fromRGB(255, 40, 40),
-            hit_time = 0.3,
-        },
-        visible = {
-            enable = false,
-            color = Color3.fromRGB(60, 255, 90),
-        },
-        highlight = {
-            enable = false,
-            fill_color = Color3.fromRGB(120, 81, 166),
-            outline_color = Color3.fromRGB(255, 255, 255),
-            fill_transparency = 0.55,
-            outline_transparency = 0,
-        },
-        health = {
-            enable = false,
-            color_high = Color3.fromRGB(0, 255, 0),
-            color_mid = Color3.fromRGB(255, 255, 0),
-            color_low = Color3.fromRGB(255, 0, 0),
-            width = 3,
-            gap = 5,
-        },
-        text = {
-            name = { enable = false, color = Color3.new(1, 1, 1) },
-            studs = { enable = false, color = Color3.new(1, 1, 1) },
-            tool = { enable = false, color = Color3.new(1, 1, 1), position = "right" },
-            size = 9,
-            gradient = false,
-            gradient_color1 = Color3.fromRGB(120, 81, 166),
-            gradient_color2 = Color3.fromRGB(255, 255, 255),
-            flow = false,
-            flow_speed = 1,
-        },
-        max_dist = 25000,
-    },
-    death_effects = {
-        enable = false,
-        type = "Explosion",
-        color = Color3.fromRGB(120, 81, 166),
-    },
-    damage_numbers = {
-        enable = false,
-        remove_ingame = false,
-        color_type = "Gradient",
-        color1 = Color3.fromRGB(255, 80, 80),
-        color2 = Color3.fromRGB(255, 210, 90),
-        font = "GothamBold",
-        duration = 0.8,
-        rise = 42,
-        text_size = 18,
-    },
-    trajectory = {
-        enable = false,
-        all_weapons = false,
-        speed = 90,
-        arc_up = 10,
-        color = Color3.fromRGB(120, 81, 166),
-    },
-    target_hud = {
-        enable = false,
-        target_method = "",
-        position_mode = "static",
-        offset_x = 0,
-        offset_y = 0,
-        scale = 1,
-    },
-
-    world = {
-        fog = false,
-        fog_color = Color3.fromRGB(255, 255, 255),
-        fog_start = 150,
-        fog_end = 550,
-        ambient = false,
-        ambient_color = Color3.fromRGB(255, 255, 255),
-        clock = false,
-        clock_time = 14,
-        brightness = false,
-        brightness_level = 1,
-        exposure = false,
-        exposure_level = 0,
-        color_shift_top = false,
-        color_shift_top_color = Color3.fromRGB(255, 255, 255),
-        color_shift_bottom = false,
-        color_shift_bottom_color = Color3.fromRGB(255, 255, 255),
-        skybox = false,
-        skybox_selected = 'Deep Space',
-        skybox_rotate = false,
-        skybox_rotate_speed = 1,
-        skybox_rotate_direction = 'Horizontal',
-        skybox_rotate_method = 'Spin',
-        skybox_remove_sun = false,
-        skybox_remove_moon = false,
-        skybox_remove_stars = false,
-        atmosphere = false,
-        atmosphere_glare = 1.5,
-        atmosphere_haze = 10,
-        atmosphere_offset = 0.4,
-        atmosphere_density = 0.5,
-        atmosphere_color = Color3.fromRGB(255, 255, 255),
-        atmosphere_decay = Color3.fromRGB(90, 60, 30),
-        blur = false,
-        blur_size = 12,
-        bloom = false,
-        bloom_intensity = 1,
-        bloom_size = 24,
-        bloom_threshold = 0.9,
-        depth_of_field = false,
-        dof_focus = 25,
-        dof_intensity = 0.15,
-        sun_rays = false,
-        sun_rays_intensity = 0.25,
-        sun_rays_spread = 1,
-        saturation = false,
-        saturation_level = 0,
-        contrast_level = 0,
-        tint_color = Color3.fromRGB(255, 255, 255),
-        lighting_technology = false,
-        lighting_technology_mode = 'Future',
-        global_shadows = true,
-        env_diffuse = false,
-        env_diffuse_scale = 1,
-        env_specular = false,
-        env_specular_scale = 1,
-        outdoor_ambient = false,
-        outdoor_ambient_color = Color3.fromRGB(70, 70, 70),
-    },
-    disable_anims = {
-        enable = false,
-        select = {},
-    },
-    fov_changer = {
-        enable = false,
-        fov = 80,
-    },
-    auto_slide = {
-        enable = false,
-    },
-    guns = {
-        no_muzzle_flash = false,
-        no_spread = false,
-        force_modifier_enable = false,
-        force_modifier_v = 0,
-    },
-    targeting = {
-        max_distance = 100,
-        part = "Head",
-        visible_only = false,
-        anti_katana = false,
-        riot_shield = false,
-        auto_shoot = false,
-    },
-    device_spoof = {
-        enable = false,
-        type = "MouseKeyboard",
-    },
-    textures = {
-        enable = false,
-        material = "Brick",
-        color = Color3.fromRGB(244, 244, 244),
-        apply_to_viewmodel = false,
-    },
-    rage = {
-        enable = false,
-        auto = false,
-        silent = false,
-        hitpart = "HitboxHead",
-        prediction = false,
-        prediction_mult = 1.2,
-        orbit_speed = 12,
-        orbit_height = 2,
-        orbit_radius = 0,
-    },
-    phase_spam = {
-        enable = false,
-        shoot_time = 1,
-        hide_time = 1,
-    },
-    phase_hide = {
-        enable = false,
-    },
-    profile = {
-        spoof_local = false,
-        spoof_local_name = "",
-        spoof_other = false,
-        spoof_other_name = "",
-    },
-    infinite_double_jump = {
-        enable = false,
-    },
-    double_jump_height = {
-        enable = false,
-        height = 50,
-    },
-    sound_spammer = {
-        enable = false,
-        type = "DoubleJump",
-    },
-    auto_loadout = {
-        enable = false,
-        loadout = {
-            'Assault Rifle', 'Handgun', 'Fists', 'Grenade'
+            report=true, flag=true, crash=true, security=true, watchdog=true,
+            sentinel=true, integrity=true, exploit=true, cheater=true,
         }
-    },
-    third_person = {
-        enable = false,
-    },
-    arcade_server = {
-        grab_drops = false,
-        auto_respawn = false,
-    },
-    removals = {
-        no_freeze_effect = false,
-        no_burn_effect = false,
-        no_flash_effect = false,
-    },
-    viewmodel_chams = {
-        weapon_chams = {
-            enable = false,
-            color = Color3.fromRGB(255, 255, 255),
-            material = "Neon",
-            transparency = 0,
-        },
-        arm_chams = {
-            enable = false,
-            color = Color3.fromRGB(255, 255, 255),
-            material = "Neon",
-            transparency = 0,
-            invisible = false,
-        },
-        weapon_highlight = {
-            enable = false,
-            color = Color3.fromRGB(255, 255, 255),
-            transparency = 0.5,
-            outline_color = Color3.fromRGB(255, 255, 255),
-            outline_transparency = 0,
-        },
-        arm_highlight = {
-            enable = false,
-            color = Color3.fromRGB(255, 255, 255),
-            transparency = 0.5,
-            outline_color = Color3.fromRGB(255, 255, 255),
-            outline_transparency = 0,
-        },
-    },
-    viewmodel_offsets = {
-        enable = false,
-        x = 0,
-        y = 0,
-        z = 0,
-    },
-    viewmodel_custom = {
-        enable = false,
-        appearance = false,
-        body = {
-            color_enable = false,
-            color = Color3.fromRGB(255, 255, 255),
-            material_enable = false,
-            material = "ForceField",
-            disable_clothes = false,
-            transparency = 0,
-        },
-        item = {
-            color_enable = false,
-            color = Color3.fromRGB(255, 255, 255),
-            material_enable = false,
-            material = "ForceField",
-            transparency = 0,
-        },
-    },
-    stretched_res = {
-        enable = false,
-        stretched_res_amount = 0.20
-    },
-    hit_notify = {
-        enable = false,
-        duration = 2,
-        msg = "Hit {target} for {damage}"
-    },
-    custom_hitsounds = {
-        enable = false,
-        remove_default_hitsound = false,
-        volume = 3,
-        pitch = 1,
-        selected = nil,
-    },
-    custom_hiteffects = {
-        enable = false,
-        color = Color3.fromRGB(255, 0, 0),
-    },
-    bullet_tracers = {
-        enable = false,
-        color_start = Color3.fromRGB(255, 255, 255),
-        color_end = Color3.fromRGB(255, 255, 255),
-        texture = "lightning",
-        position_lerp_speed = 0,
-        life_time = 1.5,
-        glow = 4,
-        width0 = 0.35,
-        width1 = 0.15,
-        speed = 3,
-        spring_expand = false,
-        expand_speed = 12,
-        expand_damper = 0.6,
-        curve_around = false,
-        curve_height = 14,
-        through_walls = false,
-    },
-    auto_queue = {
-        enable = false,
-        queue_mode = "",
-    },
-    thrower_esp = {
-        enable = false,
-        name = false,
-        image = false,
-        name_color = Color3.fromRGB(255, 255, 255),
-        name_size = 14,
-        distance = false,
-        distance_color = Color3.fromRGB(255, 255, 255),
-        distance_size = 12,
-        thrower_select = "",
-        font = "ProggyTiny",
-    },
-    fly = {
-        enable = false,
-        speed = 50,
-    },
-    walkspeed = {
-        enable = false,
-        multiplier = 1.5,
-    },
-    motion_blur = {
-        enable = false,
-        intensity = 0.5,
-        sensitivity = 1,
-    },
-    slide_boost = {
-        enable = false,
-        speed = 60,
-    },
-    spoof = {
-        level = {
-            enable = false,
-            value = 9,
-        },
-        streak = {
-            enable = false,
-            value = 9,
-        },
-    },
-    player_status_spoof = {
-        enable = false,
-        select = "",
-    },
-    rank_spoof = {
-        enable = false,
-        rank = "Arch Nemesis",
-    },
-    elo_spoof = {
-        enable = false,
-        value = 60000,
-    },
-    name_spoof = {
-        enable = false,
-        display = "",
-        username = "",
-    },
-};
-local ELI = getgenv().elisium;
-
-local spoof_old = {
-    level = local_player:GetAttribute("Level") ,
-    streak = local_player:GetAttribute("StatisticDuelsWinStreak"),
-    playerstatus = local_player:GetAttribute("PlayerStatus"),
-    elo = local_player:GetAttribute("DisplayELO"),
-};
-
-run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-    if ELI.spoof.level.enable then
-        local_player:SetAttribute("Level", ELI.spoof.level.value);
-    end;
-    if ELI.spoof.streak.enable then
-        local_player:SetAttribute("StatisticDuelsWinStreak", ELI.spoof.streak.value);
-    end;
-    if ELI.player_status_spoof.enable then
-        local_player:SetAttribute("PlayerStatus", ELI.player_status_spoof.select);
-    end;
-    if ELI.elo_spoof.enable then
-        local_player:SetAttribute("DisplayELO", ELI.elo_spoof.value);
-    end;
-end));
-
-do
-    local RANK_ICONS = {
-        ["Bronze"]       = "rbxassetid://111599878354131",
-        ["Silver"]       = "rbxassetid://82834564754747",
-        ["Gold"]         = "rbxassetid://80716950169934",
-        ["Diamond"]      = "rbxassetid://131795064007344",
-        ["Onyx"]         = "rbxassetid://114166096331502",
-        ["Nemesis"]      = "rbxassetid://133903971285645",
-        ["Arch Nemesis"] = "rbxassetid://134520747948636",
-    };
-    local function commas(n)
-        local s = tostring(n);
-        while true do
-            local r;
-            s, r = string.gsub(s, "^(-?%d+)(%d%d%d)", "%1,%2");
-            if r == 0 then break end;
-        end;
-        return s;
-    end;
-    local function rankIconFor(rank)
-        if RANK_ICONS[rank] then return RANK_ICONS[rank] end;
-        local base = rank:gsub("%s*%d+%s*$", ""):gsub("^%s+", ""):gsub("%s+$", "");
-        return RANK_ICONS[base] or "";
-    end;
-
-    local held = setmetatable({}, { __mode = "k" });
-    local function anySpoofOn()
-        return ELI.rank_spoof.enable or ELI.elo_spoof.enable or ELI.name_spoof.enable;
-    end;
-    local function lockText(label, value)
-        if not label or not label:IsA("TextLabel") then return end;
-        if label.Text ~= value then label.Text = value end;
-        if held[label] then return end;
-        held[label] = true;
-        label:GetPropertyChangedSignal("Text"):Connect(function()
-            if not anySpoofOn() then return end;
-            if label.Text ~= value then label.Text = value end;
-        end);
-    end;
-    local function lockImage(img, value)
-        if not img or not (img:IsA("ImageLabel") or img:IsA("ImageButton")) then return end;
-        if img.Image ~= value then img.Image = value end;
-        if held[img] then return end;
-        held[img] = true;
-        img:GetPropertyChangedSignal("Image"):Connect(function()
-            if not ELI.rank_spoof.enable then return end;
-            if img.Image ~= value then img.Image = value end;
-        end);
-    end;
-
-    local function nameMatches()
-        local real = local_player.Name;
-        local disp = local_player.DisplayName;
-        return {
-            [disp] = "display",
-            [real] = "name",
-            ["@" .. real] = "atname",
-        };
-    end;
-
-    local function spoofNameLabel(label)
-        if not ELI.name_spoof.enable then return end;
-        local t = label.Text;
-        if t == "" then return end;
-        local disp = ELI.name_spoof.display ~= "" and ELI.name_spoof.display or local_player.DisplayName;
-        local user = ELI.name_spoof.username ~= "" and ELI.name_spoof.username or local_player.Name;
-        local m = nameMatches();
-        local kind = m[t];
-        if kind == "display" then
-            lockText(label, disp);
-        elseif kind == "name" then
-            lockText(label, user);
-        elseif kind == "atname" then
-            lockText(label, "@" .. user);
-        end;
-    end;
-
-    local function isMyRow(slot)
-        local playerFrame = slot:FindFirstChild("Player");
-        if not playerFrame then return false end;
-        local m = nameMatches();
-        for _, node in eli_ipairs(playerFrame:GetDescendants()) do
-            if node:IsA("TextLabel") and m[node.Text] then
-                return true;
-            end;
-        end;
-        return false;
-    end;
-
-    local scan = LPH_NO_VIRTUALIZE(function()
-        if not anySpoofOn() then return end;
-        local gui = local_player:FindFirstChild("PlayerGui");
-        if not gui then return end;
-        local mainGui = gui:FindFirstChild("MainGui");
-        local rankOn = ELI.rank_spoof.enable;
-        local eloOn = ELI.elo_spoof.enable;
-        local nameOn = ELI.name_spoof.enable;
-        local rankText = ELI.rank_spoof.rank or "";
-        local rankIcon = rankOn and rankIconFor(rankText) or "";
-        local eloText = eloOn and commas(ELI.elo_spoof.value) or nil;
-
-        local roots = { mainGui, gui:FindFirstChild("PlayerList") };
-        for _, root in eli_ipairs(roots) do
-            if root then
-                for _, d in eli_ipairs(root:GetDescendants()) do
-                    if d:IsA("TextLabel") then
-                        if nameOn then spoofNameLabel(d); end;
-                        if d.Name == "CurrentELO" and eloText and d:FindFirstAncestor("ELOBar") then
-                            lockText(d, eloText);
-                        elseif (d.Name == "LeftRank" or d.Name == "RightRank") and rankOn and rankText ~= "" and d:FindFirstAncestor("ELOBar") then
-                            lockText(d, rankText);
-                        end;
-                    end;
-                end;
-            end;
-        end;
-
-        if rankOn and rankIcon ~= "" then
-            local list = gui:FindFirstChild("PlayerList") or (mainGui and mainGui:FindFirstChild("PlayerList"));
-            if list then
-                for _, slot in eli_ipairs(list:GetDescendants()) do
-                    if slot.Name == "PlayerListSlot" and isMyRow(slot) then
-                        local stat = slot:FindFirstChild("Leaderstat");
-                        local container = stat and stat:FindFirstChild("RankContainer");
-                        if container then
-                            for _, ic in eli_ipairs(container:GetDescendants()) do
-                                if ic.Name == "Icon" and (ic:IsA("ImageLabel") or ic:IsA("ImageButton")) then
-                                    lockImage(ic, rankIcon);
-                                end;
-                            end;
-                        end;
-                    end;
-                end;
-            end;
-        end;
-    end);
-
-    task.spawn(function()
-        while true do
-            pcall(scan);
-            task.wait(0.5);
-        end;
-    end);
-end;
-
-do
-    local opt = ELI.optimizations;
-    local lighting = game:GetService("Lighting");
-    local particle_classes = {
-        ParticleEmitter = true, Trail = true, Smoke = true, Fire = true, Sparkles = true,
-    };
-    local post_classes = {
-        BloomEffect = true, BlurEffect = true, ColorCorrectionEffect = true,
-        SunRaysEffect = true, DepthOfFieldEffect = true,
-    };
-    local particle_saved = setmetatable({}, { __mode = "k" });
-    local texture_saved = setmetatable({}, { __mode = "k" });
-    local post_saved = setmetatable({}, { __mode = "k" });
-    local orig_shadows, orig_quality, orig_atmo_density;
-    local shadows_saved, quality_saved, atmo_saved = false, false, false;
-
-    local function applyParticle(inst, on)
-        if not particle_classes[inst.ClassName] then return end;
-        if on then
-            if particle_saved[inst] == nil then particle_saved[inst] = inst.Enabled end;
-            pcall(function() inst.Enabled = false end);
-        elseif particle_saved[inst] ~= nil then
-            pcall(function() inst.Enabled = particle_saved[inst] end);
-            particle_saved[inst] = nil;
-        end;
-    end;
-
-    local function applyTexture(inst, on)
-        if not (inst:IsA("Decal") or inst:IsA("Texture")) then return end;
-        if on then
-            if texture_saved[inst] == nil then texture_saved[inst] = inst.Transparency end;
-            pcall(function() inst.Transparency = 1 end);
-        elseif texture_saved[inst] ~= nil then
-            pcall(function() inst.Transparency = texture_saved[inst] end);
-            texture_saved[inst] = nil;
-        end;
-    end;
-
-    local function applyPost(inst, on)
-        if not post_classes[inst.ClassName] then return end;
-        if on then
-            if post_saved[inst] == nil then post_saved[inst] = inst.Enabled end;
-            pcall(function() inst.Enabled = false end);
-        elseif post_saved[inst] ~= nil then
-            pcall(function() inst.Enabled = post_saved[inst] end);
-            post_saved[inst] = nil;
-        end;
-    end;
-
-    local scanning = false;
-    local function scanWorkspace()
-        if scanning then return end;
-        scanning = true;
-        task.spawn(function()
-            local list = workspace:GetDescendants();
-            for i = 1, #list do
-                local inst = list[i];
-                applyParticle(inst, opt.no_particles);
-                applyTexture(inst, opt.no_textures);
-                if i % 800 == 0 then task.wait() end;
-            end;
-            scanning = false;
-        end);
-    end;
-
-    local function scanLighting()
-        for _, inst in eli_ipairs(lighting:GetDescendants()) do
-            applyPost(inst, opt.no_postfx);
-        end;
-    end;
-
-    local function applyShadows()
-        if opt.no_shadows then
-            if not shadows_saved then orig_shadows = lighting.GlobalShadows; shadows_saved = true end;
-            pcall(function() lighting.GlobalShadows = false end);
-        elseif shadows_saved then
-            pcall(function() lighting.GlobalShadows = orig_shadows end);
-            shadows_saved = false;
-        end;
-    end;
-
-    local function applyQuality()
-        pcall(function()
-            local render = settings().Rendering;
-            if opt.low_quality then
-                if not quality_saved then orig_quality = render.QualityLevel; quality_saved = true end;
-                render.QualityLevel = Enum.QualityLevel.Level01;
-            elseif quality_saved then
-                render.QualityLevel = orig_quality;
-                quality_saved = false;
-            end;
-        end);
-    end;
-
-    local function applyAtmosphere()
-        local atmo = lighting:FindFirstChildOfClass("Atmosphere");
-        if opt.no_atmosphere then
-            if atmo then
-                if not atmo_saved then orig_atmo_density = atmo.Density; atmo_saved = true end;
-                pcall(function() atmo.Density = 0 end);
-            end;
-            local clouds = workspace:FindFirstChild("Terrain") and workspace.Terrain:FindFirstChildOfClass("Clouds");
-            if clouds then pcall(function() clouds.Enabled = false end) end;
-        else
-            if atmo and atmo_saved then
-                pcall(function() atmo.Density = orig_atmo_density end);
-                atmo_saved = false;
-            end;
-            local clouds = workspace:FindFirstChild("Terrain") and workspace.Terrain:FindFirstChildOfClass("Clouds");
-            if clouds then pcall(function() clouds.Enabled = true end) end;
-        end;
-    end;
-
-    local function applyFpsCap()
-        if not setfpscap then return end;
-        if opt.fps_cap_enable then
-            pcall(setfpscap, opt.fps_cap);
-        else
-            pcall(setfpscap, 1000);
-        end;
-    end;
-
-    trove:Add(workspace.DescendantAdded:Connect(function(inst)
-        if opt.no_particles then applyParticle(inst, true) end;
-        if opt.no_textures then applyTexture(inst, true) end;
-    end));
-    trove:Add(lighting.DescendantAdded:Connect(function(inst)
-        if opt.no_postfx then applyPost(inst, true) end;
-    end));
-
-    getgenv().elisium_apply_opt = function(kind)
-        if kind == "particles" or kind == "textures" then scanWorkspace();
-        elseif kind == "postfx" then scanLighting();
-        elseif kind == "shadows" then applyShadows();
-        elseif kind == "quality" then applyQuality();
-        elseif kind == "atmosphere" then applyAtmosphere();
-        elseif kind == "fpscap" then applyFpsCap();
-        end;
-    end;
-end
-
-do
-    local FFLAG_PRESET = [==[
-{
-  "FFlagDebugGraphicsPreferVulkan": "True",
-  "FFlagDebugGraphicsDisableDirect3D11": "True",
-  "FFlagDisablePostFx": "True",
-  "FIntDebugForceMSAASamples": "1",
-  "DFIntDebugFRMQualityLevelOverride": "1",
-  "DFFlagTextureQualityOverrideEnabled": "True",
-  "DFIntTextureQualityOverride": "0",
-  "FIntRenderShadowIntensity": "0",
-  "FIntRenderShadowmapBias": "0",
-  "FFlagRenderShadowSkipHugeCulling": "True",
-  "FIntRenderLocalLightUpdatesMax": "1",
-  "FIntRenderLocalLightUpdatesMin": "1",
-  "FIntRenderLocalLightFadeInMs": "0",
-  "FFlagGlobalWindActivated": "False",
-  "FFlagGlobalWindRendering": "False",
-  "FIntFRMMinGrassDistance": "0",
-  "FIntFRMMaxGrassDistance": "0",
-  "FIntRenderGrassDetailStrands": "0",
-  "FIntRenderGrassHeightScaler": "0",
-  "FIntGrassMovementReducedMotionFactor": "0",
-  "FIntTerrainArraySliceSize": "0",
-  "FIntSSAOMipLevels": "1",
-  "FFlagDebugSSAOForce": "False",
-  "FIntRobloxGuiBlurIntensity": "0",
-  "FIntBloomFrmCutoff": "-1",
-  "FFlagRenderNoLowFrmBloom": "False",
-  "DFIntMaxFrameBufferSize": "4",
-  "FFlagFastGPULightCulling3": "True",
-  "FFlagDebugForceFSMCPULightCulling": "True",
-  "FFlagRenderEnableGlobalInstancingD3D11": "True",
-  "FFlagCommitToGraphicsQualityFix": "True",
-  "DFIntTaskSchedulerTargetFps": "10000",
-  "FFlagTaskSchedulerLimitTargetFpsTo2402": "False",
-  "FFlagHandleAltEnterFullscreenManually": "False",
-  "FIntTargetRefreshRate": "144",
-  "FIntRefreshRateLowerBound": "120",
-  "DFIntTextureCompositorActiveJobs": "0",
-  "FIntTextureCompositorLowResFactor": "4",
-  "DFIntDebugLimitMinTextureResolutionWhenSkipMips": "0",
-  "FIntTextureCompositorMaxTextureSize": "256",
-  "FIntDebugTextureManagerSkipMips": "-1",
-  "DFIntDebugAdditionalNumberOfMipsToSkipForNonAlbedoTextures": "0",
-  "FFlagDontRerenderForBadTexture": "True",
-  "FFlagDontRenderInGameAds": "True",
-  "FIntCameraMaxZoomDistance": "999999",
-  "FFlagRenderTestEnableDistanceCulling": "True",
-  "FFlagOcclusionCullingBetaFeature": "True",
-  "FIntOcclusionCullingBetaFeatureRolloutPercent": "100",
-  "FFlagEnableCullableScene2OptimizeStep": "True",
-  "FIntEnableCullableScene2HundredthPercent3": "100"
-}
-]==];
-    local http = game:GetService("HttpService");
-    local function get_setter()
-        return setfflag or set_fflag or (syn and syn.set_fflag) or (getgenv() and getgenv().setfflag);
-    end;
-    getgenv().elisium_fflag_preset = FFLAG_PRESET;
-    getgenv().elisium_inject_fflags = function(json_str)
-        if type(json_str) ~= "string" or json_str:gsub("%s", "") == "" then
-            json_str = FFLAG_PRESET;
-        end;
-        local ok, decoded = pcall(function() return http:JSONDecode(json_str) end);
-        if not ok or type(decoded) ~= "table" then
-            return { ok = false, reason = "invalid json" };
-        end;
-        local setter = get_setter();
-        local applied, total = 0, 0;
-        if setter then
-            for name, value in eli_pairs(decoded) do
-                total = total + 1;
-                if pcall(setter, name, tostring(value)) then applied = applied + 1 end;
-            end;
-        end;
-        local saved = false;
-        if writefile then
-            pcall(function()
-                if makefolder and isfolder and not isfolder("Dv.a") then makefolder("Dv.a") end;
-                writefile("Dv.a/fflags.json", json_str);
-                saved = true;
-            end);
-        end;
-        return { ok = true, live = setter ~= nil, applied = applied, total = total, saved = saved };
-    end;
-end;
-
-local hitsound_dir = {
-    ["windows xp"] = "rbxassetid://108009100115241",
-    ["minecraft bow"] = "rbxassetid://3442683707",
-    ["neverlose"] = "rbxassetid://97643101798871",
-    ["steve"] = "rbxassetid://132883456216684",
-    ["among us"] = "rbxassetid://93866204681438",
-    ["bonk"] = "rbxassetid://5766898159",
-    ["rust"] = "rbxassetid://1255040462",
-    ["fatality"] = "rbxassetid://6534947869",
-    ["hitmarker"] = "rbxassetid://133749572213659",
-    ["csgo"] = "rbxassetid://5764885315",
-    ["minecraft success bow hit"] = "rbxassetid://131197435969853",
-};
-
-local texture_id = {
-    ["beam"] = "rbxassetid://12781852245",
-    ["lightning"] = "rbxassetid://446111271",
-    ["heartrate"] = "rbxassetid://5830549480",
-    ["chain"] = "rbxassetid://9632168658",
-    ["glitch"] = "rbxassetid://8089467613",
-    ["swirl"] = "rbxassetid://5638168605",
-    ["neon"] = "rbxassetid://6361963422",
-    ["arrow1"] = "rbxassetid://17476697388",
-    ["bullets1"] = "rbxassetid://9841273413",
-    ["bullets2"] = "rbxassetid://1858602290",
-    ["curve1"] = "rbxassetid://117681058875712",
-    ["curve2"] = "rbxassetid://16616706916",
-    ["curve3"] = "http://www.roblox.com/asset/?id=15253421443",
-    ["curve4"] = "http://www.roblox.com/asset/?id=4537267850",
-    ["curve5"] = "rbxassetid://1263079249",
-    ["curve6"] = "rbxassetid://12781806168",
-    ["dna"] = "http://www.roblox.com/asset/?id=7071778278",
-    ["dna2"] = "rbxassetid://15881443696",
-    ["dna3"] = "rbxassetid://123918947552219",
-    ["dna4"] = "http://www.roblox.com/asset/?id=5259529792",
-    ["dna5"] = "rbxassetid://76346066683743",
-    ["dna6"] = "rbxassetid://14339578398",
-    ["dna7"] = "rbxassetid://6479047126",
-    ["glow1"] = "http://www.roblox.com/asset/?id=2382169232",
-    ["laser1"] = "rbxassetid://6091329339",
-    ["laser2"] = "rbxassetid://116093865393953",
-    ["laser3"] = "rbxassetid://1277456789",
-    ["laser4"] = "rbxassetid://6091329339",
-    ["laser5"] = "rbxassetid://88990578414815",
-    ["laser6"] = "rbxassetid://12781750620",
-    ["line1"] = "rbxassetid://16726866463",
-    ["line2"] = "http://www.roblox.com/asset/?id=18804963960",
-    ["line3"] = "http://www.roblox.com/asset/?id=14987385912",
-    ["line4"] = "rbxassetid://80526693693402",
-    ["line5"] = "rbxassetid://88341572922411",
-    ["none (solid)"] = "",
-    ["pattern1"] = "rbxassetid://16892453445",
-    ["pattern2"] = "rbxassetid://9632168313",
-    ["pattern3"] = "rbxassetid://12781812529",
-    ["pattern4"] = "rbxassetid://12781850191",
-    ["ray1"] = "rbxassetid://14715282464",
-    ["ray2"] = "http://www.roblox.com/asset/?id=446111271",
-    ["ray3"] = "rbxassetid://16892384522",
-};
-
-getgenv().elisium_materials = {
-    presets = {
-        ["Neon"]       = { material = Enum.Material.Neon },
-        ["ForceField"] = { material = Enum.Material.ForceField },
-        ["Glass"]      = { material = Enum.Material.Glass, reflectance = 0.10, transparency = 0.20 },
-        ["Chrome"]     = { material = Enum.Material.Metal, reflectance = 1.00 },
-        ["Ice"]        = { material = Enum.Material.Ice, reflectance = 0.35 },
-        ["Diamond"]    = { material = Enum.Material.Glass, reflectance = 0.65, transparency = 0.10 },
-        ["Hologram"]   = { material = Enum.Material.ForceField, transparency = 0.35 },
-        ["Ghost"]      = { material = Enum.Material.Neon, transparency = 0.55 },
-        ["Obsidian"]   = { material = Enum.Material.Glass, reflectance = 0.25 },
-        ["Gold Foil"]  = { material = Enum.Material.Foil, reflectance = 0.50 },
-        ["Frostbite"]  = { material = Enum.Material.Glacier, reflectance = 0.20 },
-        ["Plasma"]     = { material = Enum.Material.Neon },
-        ["Molten"]     = { material = Enum.Material.CorrodedMetal, reflectance = 0.05 },
-        ["Prism"]      = { material = Enum.Material.Glass, reflectance = 0.40, transparency = 0.15 },
-    },
-    names = {
-        "Neon", "ForceField", "Glass", "Chrome", "Ice", "Diamond", "Hologram",
-        "Ghost", "Obsidian", "Gold Foil", "Frostbite", "Plasma", "Molten", "Prism",
-    },
-};
-
-local theanimationsd = {
-    ["Meditate"] = "96579993895076",
-    ["Orbit"] = "133811691098518",
-    ["Floss"] = "72174079036035",
-    ["OJ"] = "110064349530772",
-    ["Kicking Feet"] = "131879764029003",
-    ["Take the L"] = "112884830175040",
-    ["Hype"] = "80055417516516",
-};
-
-local world = {
-    fog_color = lighting.FogColor,
-    fog_start = lighting.FogStart,
-    fog_end = lighting.FogEnd,
-    ambient = lighting.Ambient,
-    clock_time = lighting.ClockTime,
-    brightness = lighting.Brightness,
-    exposure = lighting.ExposureCompensation,
-    color_shift_top = lighting.ColorShift_Top,
-    color_shift_bottom = lighting.ColorShift_Bottom,
-};
-
-trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-    if ELI.world.fog then
-        lighting.FogColor = ELI.world.fog_color;
-        lighting.FogStart = ELI.world.fog_start;
-        lighting.FogEnd = ELI.world.fog_end;
-    end;
-    if ELI.world.ambient then
-        lighting.Ambient = ELI.world.ambient_color;
-    end;
-    if ELI.world.clock then
-        lighting.ClockTime = ELI.world.clock_time;
-    end;
-    if ELI.world.brightness then
-        lighting.Brightness = ELI.world.brightness_level;
-    end;
-    if ELI.world.exposure then
-        lighting.ExposureCompensation = ELI.world.exposure_level;
-    end;
-    if ELI.world.color_shift_top then
-        lighting.ColorShift_Top = ELI.world.color_shift_top_color;
-    end;
-    if ELI.world.color_shift_bottom then
-        lighting.ColorShift_Bottom = ELI.world.color_shift_bottom_color;
-    end;
-end)));
-
-trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-    if ELI.double_jump_height.enable then
-        mechanics_controller._original_jump_power = ELI.double_jump_height.height;
-    end;
-end)));
-
-trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-    if ELI.auto_slide.enable then
-        if mechanics_controller.IsSprinting then
-            mechanics_controller:Slide();
-        end;
-    end;
-end)));
-
-trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-    if ELI.fly.enable and local_player.Character and local_player.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = local_player.Character.HumanoidRootPart;
-        local move_vector = Vector3.new(0, 0, 0);
-        if uis:IsKeyDown(Enum.KeyCode.W) then
-            move_vector += camera.CFrame.LookVector;
-        end;
-        if uis:IsKeyDown(Enum.KeyCode.S) then
-            move_vector -= camera.CFrame.LookVector;
-        end;
-        if uis:IsKeyDown(Enum.KeyCode.A) then
-            move_vector -= camera.CFrame.RightVector;
-        end;
-        if uis:IsKeyDown(Enum.KeyCode.D) then
-            move_vector += camera.CFrame.RightVector;
-        end;
-        if uis:IsKeyDown(Enum.KeyCode.Space) then
-            move_vector += Vector3.new(0, 1, 0);
-        end;
-        if uis:IsKeyDown(Enum.KeyCode.LeftShift) then
-            move_vector -= Vector3.new(0, 1, 0);
-        end;
-        if move_vector.Magnitude > 0 then
-            hrp.CFrame += move_vector.Unit * ELI.fly.speed * run_service.Heartbeat:Wait();
-        else
-            hrp.CFrame = CFrame.new(hrp.Position) * (hrp.CFrame - hrp.CFrame.Position);
-        end;
-        hrp.AssemblyLinearVelocity = Vector3.zero;
-        hrp.AssemblyAngularVelocity = Vector3.zero;
-    end;
-end)))
-
-do
-    local motion_blur = Instance.new("BlurEffect");
-    motion_blur.Name = "elisium_motion_blur";
-    motion_blur.Size = 0;
-    motion_blur.Enabled = false;
-    motion_blur.Parent = lighting;
-    trove:Add(motion_blur);
-
-    local motion_blur_look = camera.CFrame.LookVector;
-    trove:Add(run_service.RenderStepped:Connect(LPH_NO_VIRTUALIZE(function(dt)
-        local cfg = ELI.motion_blur;
-        if not cfg.enable then
-            if motion_blur.Enabled then
-                motion_blur.Enabled = false;
-                motion_blur.Size = 0;
-            end;
-            motion_blur_look = camera.CFrame.LookVector;
-            return
-        end;
-        motion_blur.Enabled = true;
-        local look = camera.CFrame.LookVector;
-        local delta = (look - motion_blur_look).Magnitude;
-        motion_blur_look = look;
-        local target = math.clamp(delta / math.max(dt, 1 / 240) * cfg.sensitivity * cfg.intensity * 0.35, 0, 56 * cfg.intensity);
-        motion_blur.Size = motion_blur.Size + (target - motion_blur.Size) * math.min(dt * 20, 1);
-    end)));
-
-    local walkspeed_base = 16;
-    local walkspeed_applying = false;
-    local walkspeed_conn = nil;
-
-    local function walkspeed_apply(humanoid)
-        if not ELI.walkspeed.enable then return end;
-        walkspeed_applying = true;
-        humanoid.WalkSpeed = walkspeed_base * ELI.walkspeed.multiplier;
-        walkspeed_applying = false;
-    end;
-
-    local function walkspeed_bind(humanoid)
-        if walkspeed_conn then
-            walkspeed_conn:Disconnect();
-            walkspeed_conn = nil;
-        end;
-        walkspeed_base = humanoid.WalkSpeed;
-        walkspeed_conn = humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(LPH_NO_VIRTUALIZE(function()
-            if walkspeed_applying then return end;
-            walkspeed_base = humanoid.WalkSpeed;
-            walkspeed_apply(humanoid);
-        end));
-        trove:Add(walkspeed_conn);
-        walkspeed_apply(humanoid);
-    end;
-
-    local function walkspeed_on_character(character)
-        local humanoid = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid", 5);
-        if humanoid then walkspeed_bind(humanoid) end;
-    end;
-
-    if local_player.Character then
-        walkspeed_on_character(local_player.Character);
-    end;
-    trove:Add(local_player.CharacterAdded:Connect(walkspeed_on_character));
-
-    local walkspeed_active = false;
-    trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-        local character = local_player.Character;
-        local humanoid = character and character:FindFirstChildOfClass("Humanoid");
-        if not humanoid then return end;
-        if ELI.walkspeed.enable then
-            walkspeed_active = true;
-            local desired = walkspeed_base * ELI.walkspeed.multiplier;
-            if math.abs(humanoid.WalkSpeed - desired) > 0.05 then
-                walkspeed_applying = true;
-                humanoid.WalkSpeed = desired;
-                walkspeed_applying = false;
-            end;
-        elseif walkspeed_active then
-            walkspeed_active = false;
-            walkspeed_applying = true;
-            humanoid.WalkSpeed = walkspeed_base;
-            walkspeed_applying = false;
-        end;
-    end)));
-end
-
-do
-    local forced = false;
-    if not Library.__ElisiumDragHooked and type(Library.MouseIsOverFrame) == "function" then
-        Library.__ElisiumDragHooked = true;
-        local old_mouse_over = Library.MouseIsOverFrame;
-        Library.MouseIsOverFrame = function(self, frame, input)
-            if not Library.MenuOpen and frame == Library.KeybindFrame then
-                return false;
-            end;
-            return old_mouse_over(self, frame, input);
-        end;
-    end;
-    trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-        if not Library.MenuOpen then
-            Library.CantDragForced = true;
-            forced = true;
-        elseif forced then
-            Library.CantDragForced = false;
-            forced = false;
-        end;
-    end)));
-end;
-
-local accent_color      = Library.AccentColor;
-local accent_color_dark = Color3.fromRGB(55, 58, 72);
-local main_color        = Library.MainColor;
-local background_color  = Library.BackgroundColor;
-local outline_color     = Library.OutlineColor;
-local font_color        = Library.FontColor;
-local dim_color         = Library.FontColor;
-local white_color       = Color3.new(1, 1, 1);
-local hud_font          = Font.new("rbxasset://fonts/families/Code.json");
-
-local device_map = {
-    ["MouseKeyboard"] = "pc",
-    ["Touch"]         = "mobile",
-    ["Gamepad"]       = "console",
-    ["VR"]            = "vr",
-};
-
-local G2L = {};
-
-G2L["1"] = Instance.new("ScreenGui");
-G2L["1"]["Name"] = "elisiumdatargethud";
-G2L["1"]["ZIndexBehavior"] = Enum.ZIndexBehavior.Global;
-G2L["1"]["DisplayOrder"] = 998;
-G2L["1"]["ResetOnSpawn"] = false;
-G2L["1"]["Parent"] = local_player:WaitForChild("PlayerGui");
-
-G2L["2"] = Instance.new("Frame", G2L["1"]);
-G2L["2"]["BackgroundColor3"] = Color3.new(0, 0, 0);
-G2L["2"]["BorderSizePixel"] = 0;
-G2L["2"]["Position"] = UDim2.fromOffset(14, 100);
-G2L["2"]["Size"] = UDim2.fromOffset(480, 160);
-G2L["2"]["Visible"] = false;
-G2L["2"]["ZIndex"] = 1;
-G2L["2"]["Active"] = true;
-
-G2L["3"] = Instance.new("Frame", G2L["2"]);
-G2L["3"]["BackgroundColor3"] = main_color;
-G2L["3"]["BorderSizePixel"] = 0;
-G2L["3"]["Position"] = UDim2.fromOffset(1, 1);
-G2L["3"]["Size"] = UDim2.new(1, -2, 1, -2);
-G2L["3"]["ZIndex"] = 1;
-
-local hud_stroke = Instance.new("UIStroke", G2L["3"]);
-hud_stroke.Color = accent_color;
-hud_stroke.Thickness = 1;
-hud_stroke.Transparency = 0;
-
-G2L["4"] = Instance.new("Frame", G2L["3"]);
-G2L["4"]["BackgroundColor3"] = background_color;
-G2L["4"]["BorderColor3"] = outline_color;
-G2L["4"]["Position"] = UDim2.fromOffset(8, 8);
-G2L["4"]["Size"] = UDim2.new(1, -16, 1, -16);
-G2L["4"]["ZIndex"] = 1;
-
-G2L["5"] = Instance.new("Frame", G2L["4"]);
-G2L["5"]["BackgroundColor3"] = background_color;
-G2L["5"]["BorderColor3"] = Color3.new(0, 0, 0);
-G2L["5"]["BorderMode"] = Enum.BorderMode.Inset;
-G2L["5"]["Size"] = UDim2.fromScale(1, 1);
-G2L["5"]["ZIndex"] = 1;
-
-G2L["6"] = Instance.new("Frame", G2L["5"]);
-G2L["6"]["BackgroundColor3"] = main_color;
-G2L["6"]["BorderColor3"] = outline_color;
-G2L["6"]["Position"] = UDim2.fromOffset(8, 8);
-G2L["6"]["Size"] = UDim2.new(1, -16, 1, -16);
-G2L["6"]["ZIndex"] = 2;
-
-G2L["7"] = Instance.new("Frame", G2L["6"]);
-G2L["7"]["BackgroundColor3"] = Color3.new(0, 0, 0);
-G2L["7"]["BorderSizePixel"] = 0;
-G2L["7"]["Position"] = UDim2.new(1, -54, 0, 4);
-G2L["7"]["Size"] = UDim2.fromOffset(48, 48);
-G2L["7"]["ZIndex"] = 3;
-
-G2L["8"] = Instance.new("Frame", G2L["7"]);
-G2L["8"]["BackgroundColor3"] = background_color;
-G2L["8"]["BorderColor3"] = outline_color;
-G2L["8"]["BorderMode"] = Enum.BorderMode.Inset;
-G2L["8"]["Size"] = UDim2.fromScale(1, 1);
-G2L["8"]["ZIndex"] = 4;
-
-local weapon_highlight = Instance.new("Frame", G2L["7"]);
-weapon_highlight.BackgroundTransparency = 1;
-weapon_highlight.BorderSizePixel = 0;
-weapon_highlight.Size = UDim2.fromScale(1, 1);
-weapon_highlight.ZIndex = 6;
-weapon_highlight.Visible = false;
-
-local wh_stroke = Instance.new("UIStroke", weapon_highlight);
-wh_stroke.Color = Library.AccentColor;
-wh_stroke.Thickness = 1;
-wh_stroke.Transparency = 0;
-
-G2L["9"] = Instance.new("ImageLabel", G2L["8"]);
-G2L["9"]["BackgroundTransparency"] = 1;
-G2L["9"]["Size"] = UDim2.fromScale(1, 1);
-G2L["9"]["Image"] = "";
-G2L["9"]["ScaleType"] = Enum.ScaleType.Fit;
-G2L["9"]["ZIndex"] = 5;
-
-G2L["10"] = Instance.new("TextLabel", G2L["8"]);
-G2L["10"]["BackgroundTransparency"] = 1;
-G2L["10"]["Size"] = UDim2.fromScale(1, 1);
-G2L["10"]["FontFace"] = hud_font;
-G2L["10"]["TextColor3"] = Color3.fromRGB(70, 72, 95);
-G2L["10"]["TextSize"] = 18;
-G2L["10"]["Text"] = "?";
-G2L["10"]["ZIndex"] = 5;
-G2L["10"]["Visible"] = true;
-
-G2L["11"] = Instance.new("TextLabel", G2L["6"]);
-G2L["11"]["BackgroundTransparency"] = 1;
-G2L["11"]["Position"] = UDim2.fromOffset(7, 6);
-G2L["11"]["Size"] = UDim2.new(1, -68, 0, 18);
-G2L["11"]["FontFace"] = hud_font;
-G2L["11"]["TextColor3"] = white_color;
-G2L["11"]["TextSize"] = 16;
-G2L["11"]["TextXAlignment"] = Enum.TextXAlignment.Left;
-G2L["11"]["TextStrokeTransparency"] = 0;
-G2L["11"]["RichText"] = true;
-G2L["11"]["Text"] = "";
-G2L["11"]["ZIndex"] = 3;
-
-G2L["12"] = Instance.new("TextLabel", G2L["6"]);
-G2L["12"]["BackgroundTransparency"] = 1;
-G2L["12"]["Position"] = UDim2.fromOffset(7, 24);
-G2L["12"]["Size"] = UDim2.new(1, -68, 0, 11);
-G2L["12"]["FontFace"] = hud_font;
-G2L["12"]["TextColor3"] = dim_color;
-G2L["12"]["TextSize"] = 11;
-G2L["12"]["TextXAlignment"] = Enum.TextXAlignment.Left;
-G2L["12"]["TextStrokeTransparency"] = 0;
-G2L["12"]["RichText"] = true;
-G2L["12"]["Text"] = "";
-G2L["12"]["ZIndex"] = 3;
-
-G2L["13"] = Instance.new("Frame", G2L["6"]);
-G2L["13"]["BackgroundColor3"] = outline_color;
-G2L["13"]["BorderSizePixel"] = 0;
-G2L["13"]["Position"] = UDim2.fromOffset(7, 40);
-G2L["13"]["Size"] = UDim2.new(1, -68, 0, 1);
-G2L["13"]["ZIndex"] = 3;
-
-G2L["14"] = Instance.new("TextLabel", G2L["6"]);
-G2L["14"]["BackgroundTransparency"] = 1;
-G2L["14"]["Position"] = UDim2.fromOffset(7, 46);
-G2L["14"]["Size"] = UDim2.new(1, -68, 0, 12);
-G2L["14"]["FontFace"] = hud_font;
-G2L["14"]["TextColor3"] = font_color;
-G2L["14"]["TextSize"] = 11;
-G2L["14"]["TextXAlignment"] = Enum.TextXAlignment.Left;
-G2L["14"]["TextStrokeTransparency"] = 0;
-G2L["14"]["RichText"] = true;
-G2L["14"]["Text"] = "health";
-G2L["14"]["ZIndex"] = 3;
-
-G2L["15"] = Instance.new("TextLabel", G2L["6"]);
-G2L["15"]["BackgroundTransparency"] = 1;
-G2L["15"]["Position"] = UDim2.fromOffset(7, 46);
-G2L["15"]["Size"] = UDim2.new(1, -68, 0, 12);
-G2L["15"]["FontFace"] = hud_font;
-G2L["15"]["TextColor3"] = white_color;
-G2L["15"]["TextSize"] = 11;
-G2L["15"]["TextXAlignment"] = Enum.TextXAlignment.Right;
-G2L["15"]["TextStrokeTransparency"] = 0;
-G2L["15"]["Text"] = "";
-G2L["15"]["ZIndex"] = 3;
-
-G2L["16"] = Instance.new("Frame", G2L["6"]);
-G2L["16"]["BackgroundColor3"] = Color3.fromRGB(20, 20, 20);
-G2L["16"]["BorderSizePixel"] = 0;
-G2L["16"]["Position"] = UDim2.fromOffset(7, 61);
-G2L["16"]["Size"] = UDim2.new(1, -68, 0, 2);
-G2L["16"]["ZIndex"] = 3;
-
-G2L["17"] = Instance.new("Frame", G2L["16"]);
-G2L["17"]["BackgroundColor3"] = Color3.fromRGB(20, 20, 20);
-G2L["17"]["BorderSizePixel"] = 0;
-G2L["17"]["Size"] = UDim2.fromScale(1, 1);
-G2L["17"]["ZIndex"] = 4;
-
-G2L["18"] = Instance.new("Frame", G2L["17"]);
-G2L["18"]["BackgroundColor3"] = accent_color;
-G2L["18"]["BorderSizePixel"] = 0;
-G2L["18"]["Size"] = UDim2.fromScale(1, 1);
-G2L["18"]["ZIndex"] = 5;
-
-G2L["19"] = Instance.new("Frame", G2L["18"]);
-G2L["19"]["BackgroundColor3"] = accent_color;
-G2L["19"]["BorderSizePixel"] = 0;
-G2L["19"]["Position"] = UDim2.new(1, 0, 0, 0);
-G2L["19"]["Size"] = UDim2.new(0, 1, 1, 0);
-G2L["19"]["ZIndex"] = 6;
-
-G2L["20"] = Instance.new("TextLabel", G2L["6"]);
-G2L["20"]["BackgroundTransparency"] = 1;
-G2L["20"]["Position"] = UDim2.fromOffset(7, 68);
-G2L["20"]["Size"] = UDim2.new(1, -68, 0, 13);
-G2L["20"]["FontFace"] = hud_font;
-G2L["20"]["TextColor3"] = dim_color;
-G2L["20"]["TextSize"] = 11;
-G2L["20"]["TextXAlignment"] = Enum.TextXAlignment.Left;
-G2L["20"]["TextStrokeTransparency"] = 0;
-G2L["20"]["Text"] = "weapon";
-G2L["20"]["ZIndex"] = 3;
-
-G2L["21"] = Instance.new("TextLabel", G2L["6"]);
-G2L["21"]["BackgroundTransparency"] = 1;
-G2L["21"]["Position"] = UDim2.fromOffset(7, 68);
-G2L["21"]["Size"] = UDim2.new(1, -68, 0, 13);
-G2L["21"]["FontFace"] = hud_font;
-G2L["21"]["TextColor3"] = dim_color;
-G2L["21"]["TextSize"] = 11;
-G2L["21"]["TextXAlignment"] = Enum.TextXAlignment.Right;
-G2L["21"]["TextStrokeTransparency"] = 0;
-G2L["21"]["Text"] = "";
-G2L["21"]["ZIndex"] = 3;
-
-G2L["22"] = Instance.new("TextLabel", G2L["6"]);
-G2L["22"]["BackgroundTransparency"] = 1;
-G2L["22"]["Position"] = UDim2.fromOffset(7, 83);
-G2L["22"]["Size"] = UDim2.new(1, -68, 0, 13);
-G2L["22"]["FontFace"] = hud_font;
-G2L["22"]["TextColor3"] = dim_color;
-G2L["22"]["TextSize"] = 11;
-G2L["22"]["TextXAlignment"] = Enum.TextXAlignment.Left;
-G2L["22"]["TextStrokeTransparency"] = 0;
-G2L["22"]["Text"] = "ammo";
-G2L["22"]["ZIndex"] = 3;
-
-G2L["23"] = Instance.new("TextLabel", G2L["6"]);
-G2L["23"]["BackgroundTransparency"] = 1;
-G2L["23"]["Position"] = UDim2.fromOffset(7, 83);
-G2L["23"]["Size"] = UDim2.new(1, -68, 0, 13);
-G2L["23"]["FontFace"] = hud_font;
-G2L["23"]["TextColor3"] = dim_color;
-G2L["23"]["TextSize"] = 10;
-G2L["23"]["TextXAlignment"] = Enum.TextXAlignment.Right;
-G2L["23"]["TextStrokeTransparency"] = 0;
-G2L["23"]["Text"] = "";
-G2L["23"]["ZIndex"] = 3;
-
-G2L["24"] = Instance.new("TextLabel", G2L["6"]);
-G2L["24"]["BackgroundTransparency"] = 1;
-G2L["24"]["Position"] = UDim2.fromOffset(7, 98);
-G2L["24"]["Size"] = UDim2.new(1, -68, 0, 13);
-G2L["24"]["FontFace"] = hud_font;
-G2L["24"]["TextColor3"] = dim_color;
-G2L["24"]["TextSize"] = 11;
-G2L["24"]["TextXAlignment"] = Enum.TextXAlignment.Left;
-G2L["24"]["TextStrokeTransparency"] = 0;
-G2L["24"]["Text"] = "studs";
-G2L["24"]["ZIndex"] = 3;
-
-G2L["25"] = Instance.new("TextLabel", G2L["6"]);
-G2L["25"]["BackgroundTransparency"] = 1;
-G2L["25"]["Position"] = UDim2.fromOffset(7, 98);
-G2L["25"]["Size"] = UDim2.new(1, -68, 0, 13);
-G2L["25"]["FontFace"] = hud_font;
-G2L["25"]["TextColor3"] = dim_color;
-G2L["25"]["TextSize"] = 11;
-G2L["25"]["TextXAlignment"] = Enum.TextXAlignment.Right;
-G2L["25"]["TextStrokeTransparency"] = 0;
-G2L["25"]["Text"] = "";
-G2L["25"]["ZIndex"] = 3;
-
-local dragging = false;
-local drag_start = nil;
-local start_pos = nil;
-
-local dragcolor2 = Instance.new("Frame", G2L["1"]);
-dragcolor2.BackgroundColor3 = Library.AccentColor;
-dragcolor2.BackgroundTransparency = 0.7;
-dragcolor2.BorderSizePixel = 0;
-dragcolor2.Size = G2L["2"].Size;
-dragcolor2.Position = G2L["2"].Position;
-dragcolor2.ZIndex = 200;
-dragcolor2.Visible = false;
-
-G2L["2"].InputBegan:Connect(function(input)
-    if not (Library.MenuOpen and G2L["2"].Visible) then return end;
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true;
-        drag_start = input.Position;
-        start_pos = Vector2.new(G2L["2"].Position.X.Offset, G2L["2"].Position.Y.Offset);
-        dragcolor2.Position = G2L["2"].Position;
-        dragcolor2.Visible = true;
-    end;
-end);
-
-uis.InputChanged:Connect(LPH_NO_VIRTUALIZE(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        if dragging then
-            local delta = input.Position - drag_start;
-            dragcolor2.Position = UDim2.fromOffset(start_pos.X + delta.X,start_pos.Y + delta.Y);
-        end;
-    end;
-end));
-
-uis.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        if dragging then
-            dragging = false;
-            G2L["2"].Position = dragcolor2.Position;
-            dragcolor2.Visible = false;
-        end;
-    end;
-end);
-
-local hud_sa_hp = 1;
-
-trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function(dt)
-    if not ELI.target_hud.enable then
-        if G2L["2"]["Visible"] then
-            G2L["2"]["Visible"] = false;
-        end;
-        dragging = false;
-        if dragcolor2.Visible then
-            dragcolor2.Visible = false;
-        end;
-        return;
-    end;
-
-    G2L["3"]["BackgroundColor3"] = Library.MainColor;
-    G2L["4"]["BackgroundColor3"] = Library.BackgroundColor;
-    G2L["4"]["BorderColor3"] = Library.OutlineColor;
-    G2L["5"]["BackgroundColor3"] = Library.BackgroundColor;
-    G2L["6"]["BackgroundColor3"] = Library.MainColor;
-    G2L["6"]["BorderColor3"] = Library.OutlineColor;
-    G2L["13"]["BackgroundColor3"] = Library.OutlineColor;
-    G2L["16"]["BackgroundColor3"] = Color3.fromRGB(20, 20, 20);
-    G2L["17"]["BackgroundColor3"] = Color3.fromRGB(20, 20, 20);
-    G2L["18"]["BackgroundColor3"] = Library.AccentColor;
-    G2L["19"]["BackgroundColor3"] = Library.AccentColor;
-    dragcolor2.BackgroundColor3 = Library.AccentColor;
-    wh_stroke.Color = Library.AccentColor;
-    hud_stroke.Color = Library.AccentColor;
-    G2L["12"]["TextColor3"] = Library.FontColor;
-    G2L["14"]["TextColor3"] = Library.FontColor;
-    G2L["20"]["TextColor3"] = Library.FontColor;
-    G2L["21"]["TextColor3"] = Library.FontColor;
-    G2L["22"]["TextColor3"] = Library.FontColor;
-    G2L["23"]["TextColor3"] = Library.FontColor;
-    G2L["24"]["TextColor3"] = Library.FontColor;
-    G2L["25"]["TextColor3"] = Library.FontColor;
-
-    if not dragging or not Library.MenuOpen then
-        dragging = false;
-        dragcolor2.Visible = false;
-    end;
-
-    local method = ELI.target_hud.target_method;
-    local plr;
-
-    if method == "silent aim" and ELI.silent_aim.enable then
-        plr = getclosest();
-    elseif method == "aimbot" and ELI.aimbot.enable then
-        plr = getclosest2();
-    end;
-
-    if not plr or not fighter_controller:GetFighter(plr) then
-        G2L["2"]["Visible"] = false;
-        return;
-    end;
-
-    G2L["2"]["Visible"] = true;
-
-    do
-        local scaler = G2L["2"]:FindFirstChildOfClass("UIScale");
-        if not scaler then
-            scaler = Instance.new("UIScale", G2L["2"]);
-        end;
-        scaler.Scale = ELI.target_hud.scale or 1;
-    end;
-
-    do
-        local hud = ELI.target_hud;
-        local mode = hud.position_mode or "static";
-        local ox = hud.offset_x or 0;
-        local oy = hud.offset_y or 0;
-        if mode == "static" then
-            G2L["2"]["Position"] = UDim2.fromOffset(14 + ox, 100 + oy);
-        else
-            local anchor;
-            if mode == "gunpoint" and GetMuzzlePos then
-                anchor = GetMuzzlePos();
-            elseif mode == "target" then
-                local ent = fighter_controller:GetFighter(plr).Entity;
-                local model = ent and ent.Model;
-                local root = model and model:FindFirstChild("HumanoidRootPart");
-                if root then
-                    local sp = camera:WorldToViewportPoint(root.Position);
-                    anchor = Vector2.new(sp.X, sp.Y);
-                end;
-            end;
-            if not anchor then
-                local vp = camera.ViewportSize;
-                anchor = Vector2.new(vp.X / 2, vp.Y / 2);
-            end;
-            local sz = G2L["2"]["AbsoluteSize"];
-            G2L["2"]["Position"] = UDim2.fromOffset(anchor.X - sz.X / 2 + ox, anchor.Y - sz.Y / 2 + oy);
-        end;
-    end;
-    G2L["11"]["Text"] = fighter_controller:GetFighter(plr).Player.Name;
-    G2L["12"]["Text"] = "level:  <font color='" .. string.format("#%02x%02x%02x", math.floor(Library.AccentColor.R * 255), math.floor(Library.AccentColor.G * 255), math.floor(Library.AccentColor.B * 255)) .. "'>" .. tostring(fighter_controller:GetFighter(plr).Player:GetAttribute("Level")) .. "</font>  device:  <font color='" .. string.format("#%02x%02x%02x", math.floor(Library.AccentColor.R * 255), math.floor(Library.AccentColor.G * 255), math.floor(Library.AccentColor.B * 255)) .. "'>" .. tostring(device_map[fighter_controller:GetFighter(plr):Get("Controls")] or "???") .. "</font>";
-
-    if fighter_controller:GetFighter(plr).Entity and fighter_controller:GetFighter(plr).Entity.Model and fighter_controller:GetFighter(plr).Entity.Model:FindFirstChildOfClass("Humanoid") then
-        local hum = fighter_controller:GetFighter(plr).Entity.Model:FindFirstChildOfClass("Humanoid");
-        local hp = math.floor(hum.Health or 0);
-        local max_hp = math.floor(hum.MaxHealth or 100);
-
-        if max_hp > 0 then
-            hud_sa_hp = hud_sa_hp + (hp / max_hp - hud_sa_hp) * math.min(dt * 8, 1);
-        end;
-
-        G2L["18"]["Size"] = UDim2.fromScale(hud_sa_hp, 1);
-        G2L["15"]["Text"] = hp .. " / " .. max_hp;
-    end;
-
-    local equipped = fighter_controller:GetFighter(plr).EquippedItem;
-    local weapon_name = equipped and ((equipped.Info and equipped.Info.Name) or equipped.Name) or "none";
-
-    G2L["21"]["Text"] = weapon_name;
-
-    local entry = item_lib.ViewModels and (item_lib.ViewModels[weapon_name] or (item_lib.ViewModels.Bundles and item_lib.ViewModels.Bundles[weapon_name]));
-    local thumb = entry and (entry.ImageHighResolution or entry.Image or entry.Thumbnail) or "";
-
-    if thumb ~= "" then
-        G2L["9"]["Image"] = thumb;
-        G2L["9"]["Visible"] = true;
-        G2L["10"]["Visible"] = false;
-    else
-        G2L["9"]["Image"] = "";
-        G2L["9"]["Visible"] = false;
-        G2L["10"]["Visible"] = true;
-    end;
-
-    weapon_highlight.Visible = equipped and weapon_name ~= "none";
-
-    if equipped then
-        local ammo = equipped:Get("Ammo");
-
-        if ammo == nil then
-            for k, v in next, equipped do
-                if tostring(k):lower() == "ammo" or tostring(k):lower() == "currentammo" then
-                    ammo = v;
-                    break;
-                end;
-            end;
-        end;
-
-        if ammo ~= nil and equipped.Info and equipped.Info.MaxAmmo then
-            G2L["23"]["Text"] = tostring(ammo) .. "/" .. tostring(equipped.Info.MaxAmmo);
-        elseif ammo ~= nil then
-            G2L["23"]["Text"] = "???";
-        else
-            G2L["23"]["Text"] = "???";
-        end;
-    end;
-
-    if fighter_controller:GetFighter(plr).Entity and local_player.Character and local_player.Character:FindFirstChild("HumanoidRootPart") then
-        G2L["25"]["Text"] = math.floor((fighter_controller:GetFighter(plr).Entity.Model:FindFirstChild("HumanoidRootPart").Position - local_player.Character:FindFirstChild("HumanoidRootPart").Position).Magnitude) .. " studs";
-    end;
-end)));
-
-trove:Add(function()
-    G2L["1"]:Destroy();
-end);
-
-local esp = {};
-local cache = {};
-
-local espgui = Instance.new("ScreenGui");
-espgui.Name = "ESP";
-espgui.DisplayOrder = 9e9;
-espgui.ResetOnSpawn = false;
-espgui.IgnoreGuiInset = true;
-espgui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling;
-espgui.Parent = gethui();
-
-local mainfont = Font.fromEnum(Enum.Font.Code);
-local fontid = "esp_font.ttf";
-pcall(function()
-	if not isfile(fontid) then
-		writefile(fontid, game:HttpGet("https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/smallest_pixel-7.ttf"));
-	end;
-	if isfile("esp_font.font") then delfile("esp_font.font") end;
-	local fontdata = {
-		name  = "ESPFont",
-		faces = {{ name = "Regular", weight = 400, style = "normal", assetId = getcustomasset(fontid) }}
-	};
-	writefile("esp_font.font", http_service:JSONEncode(fontdata));
-	mainfont = Font.new(getcustomasset("esp_font.font"));
-end);
-
-local aligncenter = Enum.TextXAlignment.Center;
-local alignleft   = Enum.TextXAlignment.Left;
-local alignmid    = Enum.TextYAlignment.Center;
-local udim2offset = UDim2.fromOffset;
-local v2new       = Vector2.new;
-local v3new       = Vector3.new;
-local csnew       = ColorSequence.new;
-local cskp        = ColorSequenceKeypoint.new;
-local nsnew       = NumberSequence.new;
-local nskp        = NumberSequenceKeypoint.new;
-local mfloor      = math.floor;
-local mceil       = math.ceil;
-local mclamp      = math.clamp;
-local msin        = math.sin;
-local mmax        = math.max;
-local sfmt        = string.format;
-
-local function makelabel(xalign)
-	local lbl = Instance.new("TextLabel");
-	lbl.BackgroundTransparency = 1;
-	lbl.TextColor3 = Color3.new(1, 1, 1);
-	lbl.TextStrokeTransparency = 0;
-	lbl.TextStrokeColor3 = Color3.new(0, 0, 0);
-	lbl.TextScaled = false;
-	lbl.TextSize = 9;
-	lbl.FontFace = mainfont;
-	lbl.TextXAlignment = xalign or aligncenter;
-	lbl.TextYAlignment = alignmid;
-	lbl.Size = udim2offset(60, 12);
-	lbl.Visible = false;
-	lbl.Parent = espgui;
-	local grad = Instance.new("UIGradient");
-	grad.Enabled = false;
-	grad.Parent = lbl;
-	return lbl;
-end;
-
-applyTextGrad = function(lbl, seq, offset)
-	local g = lbl:FindFirstChildOfClass("UIGradient");
-	if not g then return end;
-	if seq then
-		g.Color = seq;
-		g.Offset = offset;
-		g.Enabled = true;
-	else
-		if g.Enabled then g.Enabled = false end;
-	end;
-end;
-
-esp.getweapon = function(player)
-	local viewmodels = workspace:FindFirstChild("ViewModels");
-	if not viewmodels then return "None" end;
-
-	local pname = player.Name;
-
-	for _, child in viewmodels:GetChildren() do
-		local parts = {};
-		for part in child.Name:gmatch("[^-]+") do
-			parts[#parts + 1] = part:match("^%s*(.-)%s*$");
-		end;
-		if #parts >= 2 and parts[1] == pname then
-			return parts[2];
-		end;
-	end;
-
-	local firstperson = viewmodels:FindFirstChild("FirstPerson");
-	if firstperson then
-		for _, child in firstperson:GetChildren() do
-			local parts = {};
-			for part in child.Name:gmatch("[^-]+") do
-				parts[#parts + 1] = part:match("^%s*(.-)%s*$");
-			end;
-			if #parts >= 2 and parts[1] == pname then
-				return parts[2];
-			end;
-		end;
-	end;
-
-	return "none";
-end;
-
-esp.getbounds = LPH_NO_VIRTUALIZE(function(root, dist)
-	local hrp2d    = camera:WorldToViewportPoint(root.Position);
-	local clamped  = math.min(dist, 535);
-	local refpos   = root.Position + (camera.CFrame.Position - root.Position).Unit * (dist - clamped);
-	local rootpos  = root.Position;
-
-	local chartop    = camera:WorldToViewportPoint(refpos + v3new(0, 3, 0));
-	local charbottom = camera:WorldToViewportPoint(refpos - v3new(0, 1, 0));
-	local charsize   = (charbottom.Y - chartop.Y) / 2;
-
-	local w = mfloor(charsize * 1.5);
-	local h = mfloor(charsize * 3.2);
-
-	local actualtop = camera:WorldToViewportPoint(rootpos + v3new(0, 3, 0));
-	local left = mfloor(hrp2d.X - charsize * 0.75);
-	local top  = mfloor(actualtop.Y);
-
-	if w < 4 or h < 4 then return nil end;
-
-	return left, top, w, h;
-end);
-
-esp.add = function(player)
-	local cfg = ELI.esp;
-	cache[player] = { box = {}, text = {}, bars = {} };
-	local c = cache[player];
-
-	c.box.filled = Instance.new("Frame");
-	c.box.filled.BackgroundColor3 = Color3.new(1, 1, 1);
-	c.box.filled.BackgroundTransparency = cfg.filled.transparency;
-	c.box.filled.BorderSizePixel = 0;
-	c.box.filled.Visible = false;
-	c.box.filled.ZIndex = 2;
-	c.box.filled.Parent = espgui;
-
-	c.box.filledgradient = Instance.new("UIGradient");
-	c.box.filledgradient.Color = csnew({ cskp(0, cfg.filled.color_start), cskp(1, cfg.filled.color_end) });
-	c.box.filledgradient.Rotation = cfg.filled.rotation;
-	c.box.filledgradient.Parent = c.box.filled;
-
-	c.highlight = Instance.new("Highlight");
-	c.highlight.Name = "\0";
-	c.highlight.Enabled = false;
-	c.highlight.Adornee = nil;
-	pcall(function() c.highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop end);
-	c.highlight.FillColor = cfg.highlight.fill_color;
-	c.highlight.OutlineColor = cfg.highlight.outline_color;
-	c.highlight.FillTransparency = cfg.highlight.fill_transparency;
-	c.highlight.OutlineTransparency = cfg.highlight.outline_transparency;
-	pcall(function() c.highlight.Parent = core_gui end);
-
-	c.box.outline = Drawing.new("Square");
-	c.box.outline.Color = cfg.box.outline;
-	c.box.outline.Thickness = 1;
-	c.box.outline.Filled = false;
-	c.box.outline.Visible = false;
-
-	c.box.square = Drawing.new("Square");
-	c.box.square.Color = cfg.box.color;
-	c.box.square.Thickness = cfg.box.thickness;
-	c.box.square.Filled = false;
-	c.box.square.Visible = false;
-
-	c.box.inline = Drawing.new("Square");
-	c.box.inline.Color = cfg.box.inline;
-	c.box.inline.Thickness = 1;
-	c.box.inline.Filled = false;
-	c.box.inline.Visible = false;
-
-	c.box.glow = Instance.new("ImageLabel");
-	c.box.glow.Image = "rbxassetid://110204605000367";
-	c.box.glow.ScaleType = Enum.ScaleType.Slice;
-	c.box.glow.SliceCenter = Rect.new(v2new(21, 21), v2new(79, 79));
-	c.box.glow.AutomaticSize = Enum.AutomaticSize.XY;
-	c.box.glow.ImageTransparency = cfg.glow.transparency;
-	c.box.glow.ResampleMode = Enum.ResamplerMode.Pixelated;
-	c.box.glow.Visible = false;
-	c.box.glow.BackgroundTransparency = 1;
-	c.box.glow.Position = udim2offset(-21, -21);
-	c.box.glow.BorderColor3 = Color3.fromRGB(0, 0, 0);
-	c.box.glow.Size = udim2offset(0, 0);
-	c.box.glow.BorderSizePixel = 0;
-	c.box.glow.BackgroundColor3 = Color3.fromRGB(255, 255, 255);
-	c.box.glow.ZIndex = 1;
-	c.box.glow.Parent = espgui;
-
-	c.box.glowgradient = Instance.new("UIGradient");
-	c.box.glowgradient.Rotation = cfg.glow.rotation;
-	c.box.glowgradient.Color = csnew({ cskp(0, cfg.glow.color_start), cskp(1, cfg.glow.color_end) });
-	c.box.glowgradient.Transparency = nsnew({ nskp(0, 0), nskp(1, 0) });
-	c.box.glowgradient.Parent = c.box.glow;
-
-	local glowpad = Instance.new("UIPadding");
-	glowpad.PaddingTop    = UDim.new(0, 21);
-	glowpad.PaddingBottom = UDim.new(0, 20);
-	glowpad.PaddingLeft   = UDim.new(0, 21);
-	glowpad.PaddingRight  = UDim.new(0, 20);
-	glowpad.Parent = c.box.glow;
-
-	c.text.name  = makelabel(aligncenter);
-	c.text.studs = makelabel(aligncenter);
-	c.text.tool  = makelabel(alignleft);
-
-	c.bars.hp = {};
-	c.bars.hp.lasthp = 1;
-	c.bars.hp.lastdist = -1;
-	c.bars.hp.lastdiststr = "";
-
-	c.bars.hp.bg = Instance.new("Frame");
-	c.bars.hp.bg.BackgroundColor3 = Color3.fromRGB(20, 20, 20);
-	c.bars.hp.bg.BackgroundTransparency = 0.3;
-	c.bars.hp.bg.BorderSizePixel = 0;
-	c.bars.hp.bg.Visible = false;
-	c.bars.hp.bg.ZIndex = 3;
-	c.bars.hp.bg.Parent = espgui;
-
-	local hpcorner = Instance.new("UICorner");
-	hpcorner.CornerRadius = UDim.new(0, 2);
-	hpcorner.Parent = c.bars.hp.bg;
-
-	local hpstroke = Instance.new("UIStroke");
-	hpstroke.Color = Color3.new(0, 0, 0);
-	hpstroke.Thickness = 1;
-	hpstroke.LineJoinMode = Enum.LineJoinMode.Round;
-	hpstroke.Parent = c.bars.hp.bg;
-
-	c.bars.hp.fill = Instance.new("Frame");
-	c.bars.hp.fill.BackgroundColor3 = Color3.new(1, 1, 1);
-	c.bars.hp.fill.BackgroundTransparency = 0;
-	c.bars.hp.fill.BorderSizePixel = 0;
-	c.bars.hp.fill.ZIndex = 4;
-	c.bars.hp.fill.Parent = espgui;
-
-	local hpfillcorner = Instance.new("UICorner");
-	hpfillcorner.CornerRadius = UDim.new(0, 2);
-	hpfillcorner.Parent = c.bars.hp.fill;
-
-	c.bars.hp.gradient = Instance.new("UIGradient");
-	c.bars.hp.gradient.Color = csnew({
-		cskp(0,   cfg.health.color_high),
-		cskp(0.5, cfg.health.color_mid),
-		cskp(1,   cfg.health.color_low)
-	});
-	c.bars.hp.gradient.Rotation = 90;
-	c.bars.hp.gradient.Parent = c.bars.hp.fill;
-end;
-
-esp.remove = function(player)
-	if not cache[player] then return end;
-	local c = cache[player];
-
-	if c.box then
-		if c.box.filled   then c.box.filled:Destroy()   end;
-		if c.box.square   then c.box.square:Remove()    end;
-		if c.box.outline  then c.box.outline:Remove()   end;
-		if c.box.inline   then c.box.inline:Remove()    end;
-		if c.box.glow     then c.box.glow:Destroy()     end;
-	end;
-
-	if c.text then
-		if c.text.name  then c.text.name:Destroy()  end;
-		if c.text.studs then c.text.studs:Destroy() end;
-		if c.text.tool  then c.text.tool:Destroy()  end;
-	end;
-
-	if c.bars and c.bars.hp then
-		if c.bars.hp.bg   then c.bars.hp.bg:Destroy()   end;
-		if c.bars.hp.fill then c.bars.hp.fill:Destroy() end;
-	end;
-
-	if c.highlight then pcall(function() c.highlight:Destroy() end) end;
-
-	cache[player] = nil;
-end;
-
-esp.hide = function(player)
-	if not cache[player] then return end;
-	local c = cache[player];
-
-	if c.box then
-		if c.box.filled  then c.box.filled.Visible  = false end;
-		if c.box.square  then c.box.square.Visible  = false end;
-		if c.box.outline then c.box.outline.Visible = false end;
-		if c.box.inline  then c.box.inline.Visible  = false end;
-		if c.box.glow    then c.box.glow.Visible    = false end;
-	end;
-
-	if c.text then
-		if c.text.name  then c.text.name.Visible  = false end;
-		if c.text.studs then c.text.studs.Visible = false end;
-		if c.text.tool  then c.text.tool.Visible  = false end;
-	end;
-
-	if c.bars and c.bars.hp then
-		if c.bars.hp.bg   then c.bars.hp.bg.Visible   = false end;
-		if c.bars.hp.fill then c.bars.hp.fill.Visible = false end;
-	end;
-
-	if c.highlight and c.highlight.Enabled then c.highlight.Enabled = false end;
-end;
-
-local tickval = 0;
-
-esp.update = LPH_NO_VIRTUALIZE(function(player)
-	if not cache[player] then return end;
-
-	local character = player.Character;
-	if not character or not character.Parent then esp.hide(player) return end;
-
-	local root = character:FindFirstChild("HumanoidRootPart");
-	local hum  = character:FindFirstChildWhichIsA("Humanoid");
-
-	if not root or not hum          then esp.hide(player) return end;
-	if hum.Health <= 0              then esp.hide(player) return end;
-
-	local cfg = ELI.esp;
-
-	if cfg.team_check and player:GetAttribute("TeamID") ~= nil
-		and player:GetAttribute("TeamID") == local_player:GetAttribute("TeamID") then
-		esp.hide(player);
-		return
-	end;
-
-	local rootpos = root.Position;
-	local camcf   = camera.CFrame.Position;
-	local dist    = (camcf - rootpos).Magnitude;
-
-	if dist > cfg.max_dist then esp.hide(player) return end;
-
-	local _, onscreen = camera:WorldToViewportPoint(rootpos);
-	if not onscreen then esp.hide(player) return end;
-
-	local left, top, w, h = esp.getbounds(root, dist);
-	if not left then esp.hide(player) return end;
-
-	local c        = cache[player];
-	local cbox     = c.box;
-	local ctext    = c.text;
-	local chp      = c.bars.hp;
-
-	local espVisible = false;
-	if cfg.visible.enable then
-		if (tickval - (c.visT or 0)) >= 0.05 then
-			local ok, seen = pcall(check_wall, root);
-			c.vis = ok and seen == true;
-			c.visT = tickval;
-		end;
-		espVisible = c.vis == true;
-	end;
-	local flashing = cfg.filled.hit_flash and (tickval - (c.hitFlash or 0)) < (cfg.filled.hit_time or 0.3);
-
-	local cfgfill  = cfg.filled;
-	local cfgbox   = cfg.box;
-	local cfgglow  = cfg.glow;
-	local cfghp    = cfg.health;
-	local cfgtxt   = cfg.text;
-
-	if cfgfill.enable then
-		local fb = cbox.filled;
-		fb.Visible = true;
-		fb.BackgroundTransparency = cfgfill.transparency;
-		fb.Position = udim2offset(left, top);
-		fb.Size = udim2offset(w, h);
-		local fc1, fc2;
-		if flashing then
-			fc1, fc2 = cfg.filled.hit_color, cfg.filled.hit_color;
-		elseif espVisible then
-			fc1, fc2 = cfg.visible.color, cfg.visible.color;
-		else
-			fc1, fc2 = cfgfill.color_start, cfgfill.color_end;
-		end;
-		if cbox.fillC1 ~= fc1 or cbox.fillC2 ~= fc2 then
-			cbox.fillC1, cbox.fillC2 = fc1, fc2;
-			cbox.filledgradient.Color = csnew({ cskp(0, fc1), cskp(1, fc2) });
-		end;
-		cbox.filledgradient.Rotation = cfgfill.animated and (msin(tickval * cfgfill.speed) * 90) + cfgfill.rotation or cfgfill.rotation;
-	else
-		cbox.filled.Visible = false;
-	end;
-
-	if cfg.highlight.enable and c.highlight then
-		local hl = c.highlight;
-		if hl.Adornee ~= character then hl.Adornee = character end;
-		local hfill;
-		if flashing then
-			hfill = cfg.filled.hit_color;
-		elseif espVisible then
-			hfill = cfg.visible.color;
-		else
-			hfill = cfg.highlight.fill_color;
-		end;
-		if hl.FillColor ~= hfill then hl.FillColor = hfill end;
-		if hl.OutlineColor ~= cfg.highlight.outline_color then hl.OutlineColor = cfg.highlight.outline_color end;
-		hl.FillTransparency = cfg.highlight.fill_transparency;
-		hl.OutlineTransparency = cfg.highlight.outline_transparency;
-		if not hl.Enabled then hl.Enabled = true end;
-	elseif c.highlight and c.highlight.Enabled then
-		c.highlight.Enabled = false;
-	end;
-
-	if cfgbox.enable then
-		local sq  = cbox.square;
-		local ol  = cbox.outline;
-		local il  = cbox.inline;
-
-		ol.Visible   = true;
-		ol.Color     = cfgbox.outline;
-		ol.Position  = v2new(left - 1, top - 1);
-		ol.Size      = v2new(w + 2, h + 2);
-
-		sq.Visible   = true;
-		sq.Color     = espVisible and cfg.visible.color or cfgbox.color;
-		sq.Thickness = cfgbox.thickness;
-		sq.Position  = v2new(left, top);
-		sq.Size      = v2new(w, h);
-
-		il.Visible   = true;
-		il.Color     = cfgbox.inline;
-		il.Position  = v2new(left + 1, top + 1);
-		il.Size      = v2new(w - 2, h - 2);
-	else
-		cbox.outline.Visible = false;
-		cbox.square.Visible  = false;
-		cbox.inline.Visible  = false;
-	end;
-
-	if cfgglow.enable and cfgbox.enable then
-		local gl = cbox.glow;
-		gl.Visible          = true;
-		gl.ImageTransparency = cfgglow.transparency;
-		gl.ImageColor3      = cfgglow.color_start;
-		gl.Position         = udim2offset(left - 21, top - 21);
-		gl.Size             = udim2offset(w + 42, h + 42);
-		if cbox.glowC1 ~= cfgglow.color_start or cbox.glowC2 ~= cfgglow.color_end then
-			cbox.glowC1, cbox.glowC2 = cfgglow.color_start, cfgglow.color_end;
-			cbox.glowgradient.Color = csnew({ cskp(0, cfgglow.color_start), cskp(1, cfgglow.color_end) });
-		end;
-	else
-		cbox.glow.Visible = false;
-	end;
-
-	if cfghp.enable then
-		local hptarget = mclamp(hum.Health / mmax(hum.MaxHealth, 1), 0, 1);
-		local hplerp   = chp.lasthp + (hptarget - chp.lasthp) * 0.1;
-
-		if math.abs(hplerp - chp.lasthp) > 0.001 then
-			chp.lasthp = hplerp;
-		end;
-
-		local fillh = mceil(h * chp.lasthp);
-		local barx  = left - cfghp.width - cfghp.gap;
-
-		local bg   = chp.bg;
-		local fill = chp.fill;
-
-		bg.Visible  = true;
-		bg.Position = udim2offset(barx, top);
-		bg.Size     = udim2offset(cfghp.width, h);
-
-		fill.Visible  = true;
-		fill.Position = udim2offset(barx, top + h - fillh);
-		fill.Size     = udim2offset(cfghp.width, fillh);
-
-		chp.gradient.Color = csnew({
-			cskp(0,   cfghp.color_high),
-			cskp(0.5, cfghp.color_mid),
-			cskp(1,   cfghp.color_low)
-		});
-	else
-		chp.bg.Visible   = false;
-		chp.fill.Visible = false;
-	end;
-
-	local txtsize = cfgtxt.size;
-
-	local textGradSeq, textFlow;
-	if cfgtxt.gradient then
-		textGradSeq = csnew({ cskp(0, cfgtxt.gradient_color1), cskp(0.5, cfgtxt.gradient_color2), cskp(1, cfgtxt.gradient_color1) });
-		textFlow = cfgtxt.flow and v2new((tickval * (cfgtxt.flow_speed or 1)) % 2 - 1, 0) or v2new(0, 0);
-	end;
-
-	local lname = ctext.name;
-	lname.Visible    = cfgtxt.name.enable;
-	lname.Text       = player.Name;
-	lname.TextColor3 = textGradSeq and Color3.new(1, 1, 1) or cfgtxt.name.color;
-	lname.TextSize   = txtsize;
-	lname.Position   = udim2offset(left, top - 13);
-	lname.Size       = udim2offset(w, 12);
-	applyTextGrad(lname, textGradSeq, textFlow);
-
-	local distm = mfloor(dist * 0.28);
-	if distm ~= chp.lastdist then
-		chp.lastdist    = distm;
-		chp.lastdiststr = sfmt("%dM", distm);
-	end;
-
-	local lstuds = ctext.studs;
-	lstuds.Visible    = cfgtxt.studs.enable;
-	lstuds.Text       = chp.lastdiststr;
-	lstuds.TextColor3 = textGradSeq and Color3.new(1, 1, 1) or cfgtxt.studs.color;
-	lstuds.TextSize   = txtsize;
-	lstuds.Position   = udim2offset(left, top + h + 2);
-	lstuds.Size       = udim2offset(w, 12);
-	applyTextGrad(lstuds, textGradSeq, textFlow);
-
-	local ltool = ctext.tool;
-	if cfgtxt.tool.enable then
-		ltool.Visible    = true;
-		ltool.Text       = esp.getweapon(player);
-		ltool.TextColor3 = textGradSeq and Color3.new(1, 1, 1) or cfgtxt.tool.color;
-		applyTextGrad(ltool, textGradSeq, textFlow);
-				ltool.TextSize   = txtsize;
-		local tpos = cfgtxt.tool.position;
-		if tpos == "top" then
-			local ty = cfgtxt.name.enable and (top - 26) or (top - 13);
-			ltool.TextXAlignment = aligncenter;
-			ltool.Position = udim2offset(left, ty);
-			ltool.Size     = udim2offset(w, 12);
-		elseif tpos == "bottom" then
-			local ty = top + h + 2;
-			if cfgtxt.studs.enable then ty = ty + 13 end;
-			ltool.TextXAlignment = aligncenter;
-			ltool.Position = udim2offset(left, ty);
-			ltool.Size     = udim2offset(w, 12);
-		else
-			ltool.TextXAlignment = alignleft;
-			ltool.Position = udim2offset(left + w + cfghp.width + cfghp.gap + 2, top);
-			ltool.Size     = udim2offset(50, 12);
-		end;
-	else
-		ltool.Visible = false;
-	end;
-end);
-
-for _, player in players:GetPlayers() do
-	if player ~= local_player then esp.add(player) end;
-end;
-
-players.PlayerAdded:Connect(function(player)
-	if player ~= local_player then esp.add(player) end;
-end);
-
-players.PlayerRemoving:Connect(function(player)
-	esp.remove(player);
-end);
-
-local elisium_state = { esp_hidden = false, vm_chams_last = 0 };
-
-trove:Add(run_service.RenderStepped:Connect(LPH_NO_VIRTUALIZE(function()
-	tickval = tick();
-
-	if not ELI.esp.enable then
-		if not elisium_state.esp_hidden then
-			elisium_state.esp_hidden = true;
-			for _, player in players:GetPlayers() do
-				if player ~= local_player then esp.hide(player) end;
-			end;
-		end;
-		return
-	end;
-
-	elisium_state.esp_hidden = false;
-	for _, player in players:GetPlayers() do
-		if player ~= local_player then esp.update(player) end;
-	end;
-end)));
-
-trove:Add(function()
-	for _, player in players:GetPlayers() do esp.remove(player) end;
-	espgui:Destroy();
-end)
-
-do
-    elisium_state.dmgCallbacks = {};
-    elisium_state.dmgQueue = {};
-    elisium_state.onDamage = function(fn) elisium_state.dmgCallbacks[#elisium_state.dmgCallbacks + 1] = fn end;
-    elisium_state.fireDamage = function(plr, amount, worldpos)
-        local q = elisium_state.dmgQueue;
-        q[#q + 1] = { plr, amount, worldpos };
-    end;
-    trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-        local q = elisium_state.dmgQueue;
-        local n = #q;
-        if n == 0 then return end;
-        elisium_state.dmgQueue = {};
-        for i = 1, n do
-            local d = q[i];
-            for _, cb in ipairs(elisium_state.dmgCallbacks) do
-                pcall(cb, d[1], d[2], d[3]);
-            end;
-        end;
-    end)));
-end
-
-do
-    local dgui = Instance.new("ScreenGui");
-    dgui.Name = "\0";
-    dgui.ResetOnSpawn = false;
-    dgui.IgnoreGuiInset = true;
-    dgui.DisplayOrder = 500;
-    pcall(function() dgui.Parent = gethui() end);
-    if not dgui.Parent then pcall(function() dgui.Parent = game:GetService("CoreGui") end) end;
-    if not dgui.Parent then pcall(function() dgui.Parent = local_player:FindFirstChildOfClass("PlayerGui") end) end;
-    trove:Add(function() pcall(function() dgui:Destroy() end) end);
-    local function fontOf(name)
-        local ok, f = pcall(function() return Enum.Font[name] end);
-        return (ok and f) or Enum.Font.GothamBold;
-    end;
-    elisium_state.onDamage(function(plr, amount, worldpos)
-        local cfg = ELI.damage_numbers;
-        if not cfg.enable or not worldpos then return end;
-        local sp, onscreen = camera:WorldToViewportPoint(worldpos);
-        if not onscreen then return end;
-        local lbl = Instance.new("TextLabel");
-        lbl.BackgroundTransparency = 1;
-        lbl.Size = UDim2.fromOffset(140, 26);
-        lbl.AnchorPoint = Vector2.new(0.5, 0.5);
-        lbl.Position = UDim2.fromOffset(sp.X, sp.Y);
-        lbl.Font = fontOf(cfg.font);
-        lbl.TextSize = cfg.text_size or 18;
-        lbl.Text = "-" .. tostring(math.floor(amount + 0.5));
-        lbl.TextStrokeTransparency = 1;
-        lbl.TextColor3 = cfg.color1;
-        lbl.ZIndex = 10;
-        lbl.Parent = dgui;
-
-        local stroke = Instance.new("UIStroke", lbl);
-        stroke.Thickness = 1.5;
-        stroke.Color = Color3.new(0, 0, 0);
-        stroke.Transparency = 0.15;
-        stroke.LineJoinMode = Enum.LineJoinMode.Round;
-
-        local scale = Instance.new("UIScale", lbl);
-        scale.Scale = 0.5;
-
-        if cfg.color_type == "Gradient" then
-            local grad = Instance.new("UIGradient", lbl);
-            grad.Color = csnew({ cskp(0, cfg.color1), cskp(1, cfg.color2) });
-            grad.Rotation = 90;
-            lbl.TextColor3 = Color3.new(1, 1, 1);
-        end;
-
-        local startX, startY = sp.X, sp.Y;
-        local jitter = math.random(-14, 14);
-        local start = tick();
-        local dur = cfg.duration or 0.8;
-        local rise = cfg.rise or 42;
-        local conn;
-        conn = run_service.RenderStepped:Connect(LPH_NO_VIRTUALIZE(function()
-            local t = (tick() - start) / dur;
-            if t >= 1 then conn:Disconnect(); pcall(function() lbl:Destroy() end); return end;
-            local ease = 1 - (1 - t) * (1 - t) * (1 - t);
-            if cfg.color_type == "Rainbow" then
-                lbl.TextColor3 = Color3.fromHSV((tick() * 0.6) % 1, 0.75, 1);
-            end;
-            local s;
-            if t < 0.16 then
-                s = 0.5 + (t / 0.16) * 0.62;
-            else
-                s = 1.12 - ((t - 0.16) / 0.84) * 0.12;
-            end;
-            scale.Scale = s;
-            local fade = t < 0.55 and 0 or (t - 0.55) / 0.45;
-            lbl.Position = UDim2.fromOffset(startX + jitter * ease, startY - rise * ease);
-            lbl.TextTransparency = fade;
-            stroke.Transparency = 0.15 + 0.85 * fade;
-        end));
-    end);
-end;
-
-local thrower = {};
-
-workspace.ChildRemoved:Connect(function(obj)
-    if not thrower[obj] then return end;
-    thrower[obj].name:Destroy();
-    thrower[obj].dist:Destroy();
-    thrower[obj].icon:Destroy();
-    thrower[obj] = nil;
-end);
-
-function get_skin_thumb(weapon_name)
-    if weapon_name == "SubspaceTripmineHitbox" then
-        local viewmodel_data = item_lib.ViewModels["Subspace Tripmine"];
-        return viewmodel_data and (viewmodel_data.ImageHighResolution or viewmodel_data.Image) or "";
-    end;
-
-    local cosmetic_data = cosmetic_lib.Cosmetics[weapon_name];
-    if cosmetic_data then
-        return cosmetic_data.ImageHighResolution or cosmetic_data.Image or "";
-    end;
-
-    local viewmodel_data = item_lib.ViewModels[weapon_name];
-    if viewmodel_data then
-        return viewmodel_data.ImageHighResolution or viewmodel_data.Image or "";
-    end;
-
-    return "";
-end;
-
-trove:Add(run_service.RenderStepped:Connect(LPH_NO_VIRTUALIZE(function()
-    local active = {};
-    local current_font = getgenv().fonts[ELI.thrower_esp.font];
-
-    if not current_font then return end;
-
-    if not ELI.thrower_esp.enable then
-        for _, v in next, thrower do
-            v.name.Visible = false;
-            v.dist.Visible = false;
-            v.icon.Visible = false;
-        end;
-        return;
-    end;
-
-    for _, v in next, workspace:GetChildren() do
-        local sel = ELI.thrower_esp.thrower_select;
-        if type(sel) ~= "table" then continue end;
-
-        local selected = false;
-        local display_name = v.Name;
-
-        for display, enabled in next, sel do
-            if not enabled then continue end;
-
-            local target_name = thisisforsubspace[display] or display;
-            local actual_weapon = v.Name;
-
-            local cosmetic_data = cosmetic_lib.Cosmetics[v.Name];
-            if cosmetic_data and cosmetic_data.ItemName then
-                actual_weapon = cosmetic_data.ItemName;
-            end;
-
-            if target_name == v.Name or target_name == actual_weapon then
-                selected = true;
-                display_name = display;
-                break;
-            end;
-        end;
-
-        if not selected then
-            if thrower[v] then
-                thrower[v].name:Destroy();
-                thrower[v].dist:Destroy();
-                thrower[v].icon:Destroy();
-                thrower[v] = nil;
-            end;
-            continue;
-        end;
-
-        local root = v:FindFirstChildWhichIsA("BasePart");
-        if not root then continue end;
-
-        active[v] = true;
-
-        if not thrower[v] then
-            local thumb = get_skin_thumb(v.Name);
-
-            local icon_label = Instance.new("ImageLabel");
-            icon_label.BackgroundTransparency = 1;
-            icon_label.Size = UDim2.fromOffset(140, 140);
-            icon_label.Image = thumb;
-            icon_label.Visible = false;
-            icon_label.Parent = espgui;
-
-            local name_label = Instance.new("TextLabel");
-            name_label.BackgroundTransparency = 1;
-            name_label.TextStrokeTransparency = 0;
-            name_label.TextStrokeColor3 = Color3.new(0, 0, 0);
-            name_label.TextScaled = false;
-            name_label.FontFace = current_font;
-            name_label.TextXAlignment = Enum.TextXAlignment.Center;
-            name_label.Size = UDim2.fromOffset(80, 14);
-            name_label.Visible = false;
-            name_label.Parent = espgui;
-
-            local dist_label = Instance.new("TextLabel");
-            dist_label.BackgroundTransparency = 1;
-            dist_label.TextStrokeTransparency = 0;
-            dist_label.TextStrokeColor3 = Color3.new(0, 0, 0);
-            dist_label.TextScaled = false;
-            dist_label.FontFace = current_font;
-            dist_label.TextXAlignment = Enum.TextXAlignment.Center;
-            dist_label.Size = UDim2.fromOffset(80, 12);
-            dist_label.Visible = false;
-            dist_label.Parent = espgui;
-
-            thrower[v] = { name = name_label, dist = dist_label, icon = icon_label };
-        end;
-
-        thrower[v].name.FontFace = current_font;
-        thrower[v].dist.FontFace = current_font;
-        thrower[v].icon.Image = get_skin_thumb(v.Name);
-
-        local pos, on_screen = camera:WorldToViewportPoint(root.Position);
-
-        thrower[v].icon.Visible = on_screen and ELI.thrower_esp.image == true;
-        thrower[v].name.Visible = on_screen and ELI.thrower_esp.name == true;
-        thrower[v].name.TextColor3 = ELI.thrower_esp.name_color;
-        thrower[v].name.TextSize = ELI.thrower_esp.name_size;
-        thrower[v].dist.Visible = on_screen and ELI.thrower_esp.distance == true;
-        thrower[v].dist.TextColor3 = ELI.thrower_esp.distance_color;
-        thrower[v].dist.TextSize = ELI.thrower_esp.distance_size;
-
-        if on_screen then
-            thrower[v].icon.Position = UDim2.fromOffset(pos.X - 70, pos.Y - 110);
-            thrower[v].name.Position = UDim2.fromOffset(pos.X - 40, pos.Y - 7);
-            thrower[v].name.Text = display_name;
-            thrower[v].dist.Position = UDim2.fromOffset(pos.X - 40, pos.Y + 7);
-            thrower[v].dist.Text = string.format("%.0fm", (camera.CFrame.Position - root.Position).Magnitude * 0.28);
-        end;
-    end;
-
-    for obj, labels in next, thrower do
-        if not active[obj] then
-            labels.name:Destroy();
-            labels.dist:Destroy();
-            labels.icon:Destroy();
-            thrower[obj] = nil;
-        end;
-    end;
-end)));
-local weather_types = {
-    ["snow"] = {
-        Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.7374999523162842), NumberSequenceKeypoint.new(0.973, 0.768750011920929), NumberSequenceKeypoint.new(1, 1) }),
-        Texture = "http://www.roblox.com/asset/?id=99851851",
-        SpreadAngle = Vector2.new(50, 50),
-        Speed = NumberRange.new(30, 30),
-        LightEmission = 10,
-        Rate = 1000,
-        EmissionDirection = Enum.NormalId.Bottom,
-        Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.33096909523010254), NumberSequenceKeypoint.new(0.551, 0.40189146995544434), NumberSequenceKeypoint.new(1, 0.33096909523010254) }),
-    },
-    ["rain"] = {
-        Speed = NumberRange.new(60, 60),
-        LockedToPart = true,
-        Rate = 600,
-        Texture = "rbxassetid://1822883048",
-        EmissionDirection = Enum.NormalId.Bottom,
-        Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.25, 0.7842668294906616), NumberSequenceKeypoint.new(0.75, 0.7842668294906616), NumberSequenceKeypoint.new(1, 1) }),
-        Lifetime = NumberRange.new(0.800000011920929, 0.800000011920929),
-        LightEmission = 0.05000000074505806,
-        LightInfluence = 0.8999999761581421,
-        Orientation = Enum.ParticleOrientation.FacingCameraWorldUp,
-        Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 10), NumberSequenceKeypoint.new(1, 10) }),
-    },
-    ["light rain"] = {
-        LockedToPart = true,
-        Rate = 500,
-        Squash = NumberSequence.new({ NumberSequenceKeypoint.new(0, 3), NumberSequenceKeypoint.new(1, 3) }),
-        LightInfluence = 0.30000001192092896,
-        Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.435, 0), NumberSequenceKeypoint.new(1, 0) }),
-        Texture = "rbxasset://textures/particles/sparkles_main.dds",
-        Speed = NumberRange.new(30, 50),
-        Lifetime = NumberRange.new(9, 9),
-        LightEmission = 0.5,
-        Brightness = 2,
-        EmissionDirection = Enum.NormalId.Bottom,
-        Orientation = Enum.ParticleOrientation.FacingCameraWorldUp,
-        Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.20000000298023224), NumberSequenceKeypoint.new(1, 0.20000000298023224) }),
-    },
-};
-
-local weather = {} do
-    local part = Instance.new("Part");
-    part.Size = Vector3.new(40, 40, 85);
-    part.CanCollide = false;
-    part.Massless = true;
-    part.CastShadow = false;
-    part.Transparency = 1;
-    part.Anchored = true;
-    part.Name = "weather";
-    part.Parent = workspace;
-
-    local emitter = Instance.new("ParticleEmitter");
-    for prop, val in next, weather_types[ELI.weather.type] do
-        emitter[prop] = val;
-    end;
-    emitter.Color = ColorSequence.new(ELI.weather.color);
-    emitter.Enabled = false;
-    emitter.Parent = part;
-
-    weather.part = part;
-    weather.emitter = emitter;
-    weather.last_type = ELI.weather.type;
-
-    trove:Add(part);
-end;
-
-function rebuild_emitter()
-    weather.emitter:Destroy();
-
-    local emitter = Instance.new("ParticleEmitter");
-    for prop,val in next, weather_types[ELI.weather.type] do
-        emitter[prop] = val;
-    end;
-    emitter.Color = ColorSequence.new(ELI.weather.color);
-    emitter.Enabled = true;
-    emitter.Parent = weather.part;
-
-    weather.emitter = emitter;
-    weather.last_type = ELI.weather.type;
-end;
-
-trove:Add(run_service.RenderStepped:Connect(LPH_NO_VIRTUALIZE(function()
-    if not ELI.weather.enable then
-        weather.emitter.Enabled = false;
-        return;
-    end;
-
-    if weather.last_type ~= ELI.weather.type then
-        rebuild_emitter();
-    end;
-
-    weather.emitter.Enabled = true;
-    weather.emitter.Rate = ELI.weather.rate;
-    weather.emitter.Color = ColorSequence.new(ELI.weather.color);
-    weather.part.CFrame = CFrame.new(camera.CFrame.Position + Vector3.new(0, 20, 0));
-end)));
-
-run_service.RenderStepped:Connect(LPH_NO_VIRTUALIZE(function()
-    if ELI.stretched_res.enable then
-    camera.CFrame = camera.CFrame * CFrame.new(0, 0, 0, 1, 0, 0, 0, ELI.stretched_res.stretched_res_amount, 0, 0, 0, 1);
-    end;
-end));
-
-trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-    if ELI.infinite_double_jump.enable then
-    mechanics_controller._double_jumps_used = {};
-    end;
-end)));
-
-do
-local active_tracers = 0;
-local MAX_ACTIVE_TRACERS = 48;
-
-function create_beam(from, to, lerp_override)
-    if active_tracers >= MAX_ACTIVE_TRACERS then
-        return;
-    end;
-    active_tracers += 1;
-    local total_time = 0;
-    local tween;
-    local fade_duration = ELI.bullet_tracers.life_time;
-    local direction = (to - from);
-    local total_distance = direction.Magnitude;
-    local unit = direction.Unit;
-    local lerp_speed = lerp_override or ELI.bullet_tracers.position_lerp_speed;
-
-    local origin_hold = Instance.new('Part');
-    origin_hold.Anchored = true;
-    origin_hold.CanCollide = false;
-    origin_hold.CanTouch = false;
-    origin_hold.CanQuery = false;
-    origin_hold.Transparency = 1;
-    origin_hold.CFrame = CFrame.new(from);
-    origin_hold.Parent = workspace;
-
-    local hit_hold = Instance.new('Part');
-    hit_hold.Anchored = true;
-    hit_hold.CanCollide = false;
-    hit_hold.CanTouch = false;
-    hit_hold.CanQuery = false;
-    hit_hold.Transparency = 1;
-    hit_hold.CFrame = CFrame.new(from);
-    hit_hold.Parent = workspace;
-
-    local origin_att = Instance.new('Attachment');
-    origin_att.Parent = origin_hold;
-    local hit_att = Instance.new('Attachment');
-    hit_att.Parent = hit_hold;
-
-    local tracer = Instance.new('Beam');
-    tracer.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, ELI.bullet_tracers.color_start),
-        ColorSequenceKeypoint.new(0.5, ELI.bullet_tracers.color_end),
-        ColorSequenceKeypoint.new(1, ELI.bullet_tracers.color_start),
-    });
-    tracer.Brightness = ELI.bullet_tracers.glow;
-    tracer.LightEmission = ELI.bullet_tracers.glow;
-    tracer.LightInfluence = 0;
-    tracer.TextureSpeed = ELI.bullet_tracers.speed;
-    tracer.TextureLength = 3;
-    tracer.FaceCamera = true;
-    tracer.Texture = texture_id[ELI.bullet_tracers.texture];
-    tracer.TextureMode = Enum.TextureMode.Wrap;
-    tracer.Attachment0 = origin_att;
-    tracer.Attachment1 = hit_att;
-    local base_width0 = ELI.bullet_tracers.width0;
-    local base_width1 = ELI.bullet_tracers.width1;
-    local spring_expand = ELI.bullet_tracers.spring_expand;
-    local spring_speed = ELI.bullet_tracers.expand_speed;
-    local spring_damper = ELI.bullet_tracers.expand_damper;
-    local spring_pos = spring_expand and 0 or 1;
-    local spring_vel = 0;
-    tracer.Width0 = base_width0 * spring_pos;
-    tracer.Width1 = base_width1 * spring_pos;
-    tracer.Enabled = true;
-    tracer.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0.1),
-        NumberSequenceKeypoint.new(0.5, 0),
-        NumberSequenceKeypoint.new(1, 0.3),
-    });
-
-    pcall(function()
-        local tcfg = ELI.bullet_tracers;
-        if not tcfg.curve_around then
-            return
-        end;
-
-        local params = RaycastParams.new();
-        params.FilterType = Enum.RaycastFilterType.Exclude;
-        params.FilterDescendantsInstances = { local_player.Character, origin_hold, hit_hold };
-
-        local blocked = workspace:Raycast(from, to - from, params);
-        if not (blocked and (blocked.Position - from).Magnitude < (total_distance - 2)) then
-            return
-        end;
-
-        local maxH = tcfg.curve_height or 14;
-        local right = unit:Cross(Vector3.yAxis);
-        right = right.Magnitude > 0.01 and right.Unit or Vector3.xAxis;
-        local upv = right:Cross(unit).Unit;
-        if upv.Y < 0 then upv = -upv end;
-        local mid = (from + to) * 0.5;
-
-        local function pathClear(apex)
-            local a = workspace:Raycast(from, apex - from, params);
-            if a and (a.Position - from).Magnitude < (apex - from).Magnitude - 1 then return false end;
-            local b = workspace:Raycast(apex, to - apex, params);
-            if b and (b.Position - apex).Magnitude < (to - apex).Magnitude - 1 then return false end;
-            return true;
-        end;
-
-        local dirs = {
-            upv,
-            (upv + right * 0.6).Unit,
-            (upv - right * 0.6).Unit,
-            right,
-            -right,
-        };
-        local heights = { maxH * 0.7, maxH, maxH * 1.5 };
-
-        local bestDir, bestH;
-        for _, d in eli_ipairs(dirs) do
-            for _, h in eli_ipairs(heights) do
-                if pathClear(mid + d * h) then
-                    bestDir, bestH = d, h;
-                    break;
-                end;
-            end;
-            if bestDir then break end;
-        end;
-
-        if not bestDir then
-            bestDir = upv;
-            bestH = math.min(maxH * 1.5, total_distance * 0.4);
-        end;
-
-        local ref = math.abs(bestDir.Y) < 0.99 and Vector3.yAxis or Vector3.xAxis;
-        local u0 = bestDir:Cross(ref).Unit;
-        local u1 = (-bestDir):Cross(ref).Unit;
-        origin_att.CFrame = CFrame.fromMatrix(Vector3.zero, bestDir, u0);
-        hit_att.CFrame = CFrame.fromMatrix(Vector3.zero, -bestDir, u1);
-        tracer.CurveSize0 = bestH;
-        tracer.CurveSize1 = bestH;
-    end);
-
-    tracer.Parent = workspace;
-
-    local wallLine;
-    if ELI.bullet_tracers.through_walls then
-        pcall(function()
-            wallLine = Drawing.new("Line");
-            wallLine.Thickness = math.max(base_width0 * 4, 1.5);
-            wallLine.Color = ELI.bullet_tracers.color_start;
-            wallLine.Transparency = 1;
-            wallLine.Visible = false;
-        end);
-    end;
-
-    local elapsed = 0;
-    tween = run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function(delta_time)
-        total_time += delta_time;
-        elapsed += delta_time;
-
-        local lerp_alpha = elapsed / lerp_speed;
-        if lerp_alpha >= 1 then lerp_alpha = 1 end;
-
-        local traveled = total_distance * lerp_alpha;
-        if traveled > total_distance then traveled = total_distance end;
-
-        hit_hold.CFrame = CFrame.new(from + unit * traveled);
-
-        if wallLine then
-            local a = camera:WorldToViewportPoint(from);
-            local b = camera:WorldToViewportPoint(from + unit * traveled);
-            if a.Z > 0 and b.Z > 0 then
-                wallLine.From = Vector2.new(a.X, a.Y);
-                wallLine.To = Vector2.new(b.X, b.Y);
-                wallLine.Color = ELI.bullet_tracers.color_start;
-                wallLine.Visible = true;
-            else
-                wallLine.Visible = false;
-            end;
-        end;
-
-        if spring_expand then
-            local accel = (1 - spring_pos) * spring_speed * spring_speed - 2 * spring_damper * spring_speed * spring_vel;
-            spring_vel += accel * delta_time;
-            spring_pos += spring_vel * delta_time;
-            tracer.Width0 = base_width0 * spring_pos;
-            tracer.Width1 = base_width1 * spring_pos;
-        end;
-
-        local alpha = tween_service:GetValue((total_time / fade_duration), Enum.EasingStyle.Quad, Enum.EasingDirection.In);
-        tracer.Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0.1 + (alpha * 0.9)),
-            NumberSequenceKeypoint.new(0.5, alpha),
-            NumberSequenceKeypoint.new(1, 0.3 + (alpha * 0.7)),
-        });
-
-        if wallLine then
-            wallLine.Transparency = math.clamp(1 - alpha, 0, 1);
-        end;
-    end));
-
-    task.delay(fade_duration, function()
-        if tween then tween:Disconnect(); end;
-        if wallLine then pcall(function() wallLine:Remove() end) end;
-        pcall(function() tracer:Destroy(); end);
-        pcall(function() origin_hold:Destroy(); end);
-        pcall(function() hit_hold:Destroy(); end);
-        active_tracers -= 1;
-        if active_tracers < 0 then active_tracers = 0; end;
-    end);
-end;
-end;
-
-local old_tracer = tracer_effect.Play; tracer_effect.Play = function(...)
-    local args = {...};
-    if ELI.silent_aim.visualize and ELI.silent_aim.enable
-        and args[2] and args[2].IsLocal and args[2].RaycastResults then
-        local st = elisium_state.silentTarget;
-        if st and (tick() - (elisium_state.silentTargetT or 0)) < 0.2 then
-            for _, v in next, args[2].RaycastResults do
-                pcall(function() v.Position = st end);
-            end;
-        end;
-    end;
-    if ELI.bullet_tracers.enable then
-        if args[2] and args[2].IsLocal then
-            local muzzle = args[4] and args[4].MuzzlePosition;
-            if muzzle and args[2].RaycastResults then
-                for i,v in next, args[2].RaycastResults do
-                    if v.Position then
-                        create_beam(muzzle, v.Position, nil);
-                    end;
-                end;
-            end;
-            return;
-        end;
-    end;
-    return old_tracer(...);
-end;
-
-trove:Add(function()
-    tracer_effect.Play = old_tracer;
-end);
-
-function GetMuzzlePos()
-    for M,P in first_person:GetDescendants() do
-        if P.Name == "_muzzle" and P:IsA("Attachment") then
-            local Pos = camera:WorldToViewportPoint(P.WorldPosition);
-            return Vector2.new(Pos.X, Pos.Y);
-        end;
-    end;
-    return Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2);
-end;
-
-local sfov_gui = Instance.new("ScreenGui", gethui());
-sfov_gui.ResetOnSpawn = false;
-sfov_gui.IgnoreGuiInset = true;
-
-local sfov = Instance.new("Frame", sfov_gui);
-sfov.BorderSizePixel = 0;
-sfov.Visible = false;
-sfov.BackgroundTransparency = 1;
-Instance.new("UICorner", sfov).CornerRadius = UDim.new(1, 0);
-
-local sfov_stroke = Instance.new("UIStroke", sfov);
-sfov_stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
-
-local sfov_fill_gradient = Instance.new("UIGradient", sfov);
-local sfov_stroke_gradient = Instance.new("UIGradient", sfov_stroke);
-
-local afov_gui = Instance.new("ScreenGui", gethui());
-afov_gui.ResetOnSpawn = false;
-afov_gui.IgnoreGuiInset = true;
-
-local afov = Instance.new("Frame", afov_gui);
-afov.BorderSizePixel = 0;
-afov.Visible = false;
-afov.BackgroundTransparency = 1;
-Instance.new("UICorner", afov).CornerRadius = UDim.new(1, 0);
-
-local afov_stroke = Instance.new("UIStroke", afov);
-afov_stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border;
-
-local afov_fill_gradient = Instance.new("UIGradient", afov);
-local afov_stroke_gradient = Instance.new("UIGradient", afov_stroke);
-
-local fov_rotation = 0;
-
-local sfov_current_pos = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2);
-local sfov_current_radius = ELI.silent_aim.fov_radius;
-
-local afov_current_pos = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2);
-local afov_current_radius = ELI.aimbot.fov_radius;
-
-trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function(dt)
-    local s_show = ELI.silent_aim.enable and ELI.silent_aim.show_fov;
-    local a_show = ELI.aimbot.enable and ELI.aimbot.show_fov;
-
-    if not s_show and not a_show then
-        if sfov.Visible then sfov.Visible = false end;
-        if afov.Visible then afov.Visible = false end;
-        return
-    end;
-
-    fov_rotation = (fov_rotation + ELI.silent_aim.fov_rotation_speed * dt) % 360;
-
-    local scenter = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2);
-
-    local smuzzle;
-    if ELI.silent_aim.follow_target and ELI.silent_aim.follow_gunpoint then
-        local t = getclosest();
-        if t and t.Character and t.Character:FindFirstChild(ELI.targeting.part) then
-            local pos, onscreen = camera:WorldToViewportPoint(t.Character[ELI.targeting.part].Position);
-            smuzzle = onscreen and Vector2.new(pos.X, pos.Y) or GetMuzzlePos();
-        else
-            smuzzle = GetMuzzlePos();
-        end;
-    elseif ELI.silent_aim.follow_target then
-        local t = getclosest();
-        if t and t.Character and t.Character:FindFirstChild(ELI.targeting.part) then
-            local pos, onscreen = camera:WorldToViewportPoint(t.Character[ELI.targeting.part].Position);
-            smuzzle = onscreen and Vector2.new(pos.X, pos.Y) or scenter;
-        else
-            smuzzle = scenter;
-        end;
-    elseif ELI.silent_aim.follow_gunpoint then
-        smuzzle = GetMuzzlePos();
-    else
-        smuzzle = scenter;
-    end;
-
-    local amuzzle;
-    if ELI.aimbot.follow_target and ELI.aimbot.follow_gunpoint then
-        local t = getclosest2();
-        if t and t.Character and t.Character:FindFirstChild(ELI.targeting.part) then
-            local pos, onscreen = camera:WorldToViewportPoint(t.Character[ELI.targeting.part].Position);
-            amuzzle = onscreen and Vector2.new(pos.X, pos.Y) or GetMuzzlePos();
-        else
-            amuzzle = GetMuzzlePos();
-        end;
-    elseif ELI.aimbot.follow_target then
-        local t = getclosest2();
-        if t and t.Character and t.Character:FindFirstChild(ELI.targeting.part) then
-            local pos, onscreen = camera:WorldToViewportPoint(t.Character[ELI.targeting.part].Position);
-            amuzzle = onscreen and Vector2.new(pos.X, pos.Y) or scenter;
-        else
-            amuzzle = scenter;
-        end;
-    elseif ELI.aimbot.follow_gunpoint then
-        amuzzle = GetMuzzlePos();
-    else
-        amuzzle = scenter;
-    end;
-
-    local st = math.min(dt * (1 / math.max(ELI.silent_aim.lerp, 0.001)), 1);
-    local at = math.min(dt * (1 / math.max(ELI.aimbot.lerp, 0.001)), 1);
-
-    sfov_current_pos = sfov_current_pos:Lerp(smuzzle, st);
-    sfov_current_radius = sfov_current_radius + (ELI.silent_aim.fov_radius - sfov_current_radius) * st;
-
-    afov_current_pos = afov_current_pos:Lerp(amuzzle, at);
-    afov_current_radius = afov_current_radius + (ELI.aimbot.fov_radius - afov_current_radius) * at;
-
-    local s_fill_gradient = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, ELI.silent_aim.fov_fill_color),
-        ColorSequenceKeypoint.new(1, ELI.silent_aim.fov_fill_color2),
-    });
-    local s_stroke_gradient = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, ELI.silent_aim.fov_color),
-        ColorSequenceKeypoint.new(1, ELI.silent_aim.fov_color2 or ELI.silent_aim.fov_color),
-    });
-
-    sfov.Visible = ELI.silent_aim.enable and ELI.silent_aim.show_fov;
-    sfov.BackgroundColor3 = ELI.silent_aim.fov_fill_color;
-    sfov.BackgroundTransparency = ELI.silent_aim.show_fill and ELI.silent_aim.fov_fill_transparency or 1;
-    sfov.Size = UDim2.new(0, sfov_current_radius * 2, 0, sfov_current_radius * 2);
-    sfov.Position = UDim2.new(0, sfov_current_pos.X - sfov_current_radius, 0, sfov_current_pos.Y - sfov_current_radius);
-    sfov.Rotation = fov_rotation;
-    sfov_stroke.Color = ELI.silent_aim.fov_color;
-    sfov_stroke.Transparency = ELI.silent_aim.fov_outline_transparency;
-    sfov_stroke.Thickness = ELI.silent_aim.fov_thickness;
-    sfov_fill_gradient.Enabled = ELI.silent_aim.show_fill;
-    sfov_fill_gradient.Color = s_fill_gradient;
-    sfov_fill_gradient.Rotation = fov_rotation;
-    sfov_stroke_gradient.Color = s_stroke_gradient;
-    sfov_stroke_gradient.Rotation = fov_rotation;
-
-    local a_fill_gradient = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, ELI.aimbot.fov_fill_color),
-        ColorSequenceKeypoint.new(1, ELI.aimbot.fov_fill_color2),
-    });
-    local a_stroke_gradient = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, ELI.aimbot.fov_color),
-        ColorSequenceKeypoint.new(1, ELI.aimbot.fov_fill_color2 or ELI.aimbot.fov_color),
-    });
-
-    afov.Visible = ELI.aimbot.enable and ELI.aimbot.show_fov;
-    afov.BackgroundColor3 = ELI.aimbot.fov_fill_color;
-    afov.BackgroundTransparency = ELI.aimbot.show_fill and ELI.aimbot.fov_fill_transparency or 1;
-    afov.Size = UDim2.new(0, afov_current_radius * 2, 0, afov_current_radius * 2);
-    afov.Position = UDim2.new(0, afov_current_pos.X - afov_current_radius, 0, afov_current_pos.Y - afov_current_radius);
-    afov.Rotation = fov_rotation;
-    afov_stroke.Color = ELI.aimbot.fov_color;
-    afov_stroke.Transparency = ELI.aimbot.fov_outline_transparency;
-    afov_stroke.Thickness = ELI.aimbot.fov_thickness;
-    afov_fill_gradient.Enabled = ELI.aimbot.show_fill;
-    afov_fill_gradient.Color = a_fill_gradient;
-    afov_fill_gradient.Rotation = fov_rotation;
-    afov_stroke_gradient.Color = a_stroke_gradient;
-    afov_stroke_gradient.Rotation = fov_rotation;
-end)));
-
-trove:Add(function()
-    sfov_gui:Destroy();
-end);
-trove:Add(function()
-    afov_gui:Destroy();
-end);
-
-local deflecting = {};
-
-is_deflecting = LPH_NO_VIRTUALIZE(function(plr)
-    return deflecting[plr];
-end);
-
-has_riot = LPH_NO_VIRTUALIZE(function(plr)
-    return workspace.ViewModels:FindFirstChild(plr.Name .. " - Riot Shield - Riot Shield") ~= nil;
-end);
-
-check_wall = LPH_NO_VIRTUALIZE(function(part)
-    local ray = Ray.new(camera.CFrame.Position, part.Position - camera.CFrame.Position);
-    local hit_part = workspace:FindPartOnRayWithIgnoreList(ray, {local_player.Character, part.Parent});
-    return not hit_part;
-end);
-
-closest_part = LPH_NO_VIRTUALIZE(function(plr)
-    local mouse_pos = Vector2.new(mouse.X,mouse.Y);
-    local closest = math.huge;
-    local closestp;
-    for i,v in next, plr.Character:GetChildren() do
-        if v:IsA("BasePart") then
-            local pos,on_screen = camera:WorldToViewportPoint(v.Position);
-            if on_screen then
-                local dist = (mouse_pos - Vector2.new(pos.X,pos.Y)).Magnitude;
-                if dist <= closest then
-                    closest = dist;
-                    closestp = v;
-                end;
-            end;
-        end;
-    end;
-    return closestp;
-end);
-
-getclosest = LPH_NO_VIRTUALIZE(function()
-    local closest = ELI.targeting.max_distance;
-    local player;
-    local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2);
-    for i,v in players:GetPlayers() do
-        if v ~= local_player and v.Character and v.Character:FindFirstChild(ELI.targeting.part) and v.Character.Humanoid.Health > 0 then
-            if is_deflecting(v) then
-                continue;
-            end;
-
-            if v:GetAttribute('TeamID') == local_player:GetAttribute('TeamID') then
-                continue;
-            end;
-            if ELI.targeting.visible_only and not check_wall(v.Character[ELI.targeting.part]) then
-                continue;
-            end;
-            if ELI.targeting.riot_shield and has_riot(v) then
-                continue;
-            end;
-            local pos, on_screen = camera:WorldToViewportPoint(v.Character[ELI.targeting.part].Position);
-            if on_screen then
-                local dist = (center - Vector2.new(pos.X, pos.Y)).Magnitude;
-                if dist < closest and dist <= ELI.silent_aim.fov_radius then
-                    player = v;
-                    closest = dist;
-                end;
-            end;
-        end;
-    end;
-    return player;
-end);
-
-getclosest2 = LPH_NO_VIRTUALIZE(function()
-    local closest = ELI.targeting.max_distance;
-    local player;
-    local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2);
-     for i,v in players:GetPlayers() do
-        if v ~= local_player and v.Character and v.Character:FindFirstChild(ELI.targeting.part) and v.Character.Humanoid.Health > 0 then
-            if v:GetAttribute('TeamID') == local_player:GetAttribute('TeamID') then
-                continue;
-            end;
-            if is_deflecting(v) then
-                continue;
-            end;
-            if ELI.targeting.visible_only and not check_wall(v.Character[ELI.targeting.part]) then
-                continue;
-            end;
-            if ELI.targeting.riot_shield and has_riot(v) then
-                continue;
-            end;
-            local pos, on_screen = camera:WorldToViewportPoint(v.Character[ELI.targeting.part].Position);
-            if on_screen then
-                local dist = (center - Vector2.new(pos.X,pos.Y)).Magnitude;
-                if dist < closest and dist < ELI.aimbot.fov_radius then
-                    player = v;
-                    closest = dist;
-                end;
-            end;
-        end;
-    end;
-    return player;
-end);
-
-trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-    if ELI.aimbot.enable then
-        local closest = getclosest2();
-        if (closest and closest.Character) then
-            local target_pos;
-            if ELI.aimbot.closest_part then
-                local part = closest_part(closest);
-                target_pos = part and part.Position or closest.Character[ELI.targeting.part].Position;
-            else
-                target_pos = closest.Character[ELI.targeting.part].Position;
-            end;
-            camera_controller:MimicRotation(camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, target_pos), ELI.aimbot.smoothing));
-        end;
-    end;
-end)));
-
-trove:Add(run_service.RenderStepped:Connect(LPH_NO_VIRTUALIZE(function()
-    if ELI.slide_boost.enable then
-        if mechanics_controller.IsSliding then
-            mechanics_controller._sliding_velocity.Velocity = mechanics_controller._sliding_velocity.Velocity.Unit * ELI.slide_boost.speed;
-        end;
-    end;
-end)));
-
-trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-    if ELI.third_person.enable then
-        if camera_controller.CameraState:GetPublicState() ~= camera_controller.CameraState.States.ThirdPerson then
-            camera_controller.CameraState:TogglePOV();
-        end;
-    end;
-end)))
-
-do
-local vm_material_presets = getgenv().elisium_materials.presets;
-
-local vm_arm_keywords = { "arm", "hand", "sleeve", "elbow", "wrist", "shoulder", "finger", "thumb", "glove" };
-
-local vm_tracked = {};
-local vm_arm_cache = setmetatable({}, { __mode = "k" });
-
-local function vm_is_arm(part)
-    local cached = vm_arm_cache[part];
-    if cached ~= nil then
-        return cached;
-    end;
-
-    local result = false;
-    local name = string.lower(part.Name);
-    for i = 1, #vm_arm_keywords do
-        if string.find(name, vm_arm_keywords[i], 1, true) then
-            result = true;
-            break;
-        end;
-    end;
-
-    if not result then
-        local ancestor = part.Parent;
-        while ancestor and ancestor ~= first_person do
-            local aname = string.lower(ancestor.Name);
-            if string.find(aname, "arm", 1, true) or string.find(aname, "rig", 1, true) then
-                result = true;
-                break;
-            end;
-            ancestor = ancestor.Parent;
-        end;
-    end;
-
-    vm_arm_cache[part] = result;
-    return result;
-end;
-
-local vm_visible_cache = setmetatable({}, { __mode = "k" });
-local function vm_visible(part)
-    if vm_visible_cache[part] == nil then
-        vm_visible_cache[part] = part.Transparency < 1 and part.Size.Magnitude < 40;
-    end;
-    return vm_visible_cache[part];
-end;
-
-local function vm_store(part)
-    if not vm_tracked[part] then
-        vm_tracked[part] = {
-            Material = part.Material,
-            Color = part.Color,
-            Reflectance = part.Reflectance,
-            Transparency = part.Transparency,
-            LocalTransparencyModifier = part.LocalTransparencyModifier,
-        };
-    end;
-end;
-
-local function vm_restore(part)
-    local saved = vm_tracked[part];
-    if saved then
-        if part.Parent then
-            part.Material = saved.Material;
-            part.Color = saved.Color;
-            part.Reflectance = saved.Reflectance;
-            part.Transparency = saved.Transparency;
-            part.LocalTransparencyModifier = saved.LocalTransparencyModifier;
-        end;
-        vm_tracked[part] = nil;
-    end;
-end;
-
-local function vm_clear()
-    for part in next, vm_tracked do
-        vm_restore(part);
-    end;
-    table.clear(vm_tracked);
-end;
-
-local function vm_paint(part, preset_name, color, transparency)
-    local preset = vm_material_presets[preset_name] or vm_material_presets["Neon"];
-    part.Material = preset.material;
-    part.Reflectance = preset.reflectance or 0;
-    part.Transparency = math.clamp((preset.transparency or 0) + (transparency or 0), 0, 1);
-    part.LocalTransparencyModifier = 0;
-    part.Color = color;
-end;
-
-local function vm_owned()
-    local character = local_player.Character;
-    if not character or character.Parent ~= workspace then
-        return false;
-    end;
-    if not first_person:IsDescendantOf(workspace) then
-        return false;
-    end;
-    local humanoid = character:FindFirstChildOfClass("Humanoid");
-    return humanoid ~= nil and humanoid.Health > 0;
-end;
-
-local vm_highlights = {};
-local function vm_drop_highlight(part)
-    if vm_highlights[part] then
-        vm_highlights[part]:Destroy();
-        vm_highlights[part] = nil;
-    end;
-end;
-local function vm_set_highlight(part, hl_cfg)
-    local hl = vm_highlights[part];
-    if not hl or not hl.Parent then
-        hl = Instance.new("Highlight");
-        hl.Name = "elisium_vm_highlight";
-        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop;
-        hl.Adornee = part;
-        hl.Parent = part;
-        vm_highlights[part] = hl;
-    end;
-    hl.FillColor = hl_cfg.color;
-    hl.FillTransparency = hl_cfg.transparency;
-    hl.OutlineColor = hl_cfg.outline_color;
-    hl.OutlineTransparency = hl_cfg.outline_transparency;
-end;
-local function vm_clear_highlights()
-    for part in eli_pairs(vm_highlights) do vm_drop_highlight(part) end;
-end;
-
-trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-    local cfg = ELI.viewmodel_chams;
-    local wc, ac = cfg.weapon_chams, cfg.arm_chams;
-    local wh, ah = cfg.weapon_highlight, cfg.arm_highlight;
-
-    if not (wc.enable or ac.enable or wh.enable or ah.enable) or not vm_owned() then
-        if next(vm_tracked) then vm_clear() end;
-        if next(vm_highlights) then vm_clear_highlights() end;
-        return
-    end;
-
-    local now = tick();
-    if now - elisium_state.vm_chams_last < 0.1 then return end;
-    elisium_state.vm_chams_last = now;
-
-    for _, part in next, first_person:GetDescendants() do
-        if part:IsA("BasePart") and vm_visible(part) then
-            local is_arm = vm_is_arm(part);
-
-            if is_arm and ac.enable then
-                vm_store(part);
-                if ac.invisible then
-                    part.LocalTransparencyModifier = 1;
-                    part.Transparency = 1;
-                else
-                    vm_paint(part, ac.material, ac.color, ac.transparency);
-                end;
-            elseif not is_arm and wc.enable then
-                vm_store(part);
-                vm_paint(part, wc.material, wc.color, wc.transparency);
-            else
-                vm_restore(part);
-            end;
-
-            if is_arm and ah.enable then
-                vm_set_highlight(part, ah);
-            elseif not is_arm and wh.enable then
-                vm_set_highlight(part, wh);
-            else
-                vm_drop_highlight(part);
-            end;
-        end;
-    end;
-
-    for part in eli_pairs(vm_highlights) do
-        if not part.Parent then vm_drop_highlight(part) end;
-    end;
-end)));
-trove:Add(vm_clear_highlights);
-end
-
-do
-    local base_materials = {
-        ForceField    = Enum.Material.ForceField,
-        Neon          = Enum.Material.Neon,
-        Plastic       = Enum.Material.Plastic,
-        SmoothPlastic = Enum.Material.SmoothPlastic,
-        Wood          = Enum.Material.Wood,
-        WoodPlanks    = Enum.Material.WoodPlanks,
-        Marble        = Enum.Material.Marble,
-        Slate         = Enum.Material.Slate,
-    };
-
-    local body_tracked = {};
-    local item_tracked = {};
-    local clothes_tracked = {};
-
-    local function vmc_store(tracked, part)
-        if not tracked[part] then
-            tracked[part] = { material = part.Material, color = part.Color, transparency = part.Transparency };
-        end;
-    end;
-
-    local function vmc_restore(tracked)
-        for part, saved in eli_pairs(tracked) do
-            if part.Parent then
-                part.Material = saved.material;
-                part.Color = saved.color;
-                part.Transparency = saved.transparency;
-            end;
-            tracked[part] = nil;
-        end;
-    end;
-
-    local function vmc_apply(tracked, part, cfg)
-        vmc_store(tracked, part);
-        if cfg.material_enable then
-            part.Material = base_materials[cfg.material] or Enum.Material.Plastic;
-        else
-            part.Material = tracked[part].material;
-        end;
-        if cfg.color_enable then
-            part.Color = cfg.color;
-        else
-            part.Color = tracked[part].color;
-        end;
-        part.Transparency = math.clamp((cfg.transparency or 0) / 100, 0, 1);
-    end;
-
-    local function vmc_restore_clothes()
-        for inst, template in eli_pairs(clothes_tracked) do
-            if inst.Parent then
-                if inst:IsA("Shirt") then
-                    inst.ShirtTemplate = template;
-                elseif inst:IsA("Pants") then
-                    inst.PantsTemplate = template;
-                elseif inst:IsA("ShirtGraphic") then
-                    inst.Graphic = template;
-                end;
-            end;
-            clothes_tracked[inst] = nil;
-        end;
-    end;
-
-    local function vmc_disable_clothes(character)
-        for _, inst in eli_ipairs(character:GetDescendants()) do
-            if inst:IsA("Shirt") then
-                if clothes_tracked[inst] == nil then clothes_tracked[inst] = inst.ShirtTemplate end;
-                inst.ShirtTemplate = "";
-            elseif inst:IsA("Pants") then
-                if clothes_tracked[inst] == nil then clothes_tracked[inst] = inst.PantsTemplate end;
-                inst.PantsTemplate = "";
-            elseif inst:IsA("ShirtGraphic") then
-                if clothes_tracked[inst] == nil then clothes_tracked[inst] = inst.Graphic end;
-                inst.Graphic = "";
-            end;
-        end;
-    end;
-
-    local function vmc_is_arm(part)
-        local name = string.lower(part.Name);
-        return string.find(name, "arm", 1, true) ~= nil or string.find(name, "hand", 1, true) ~= nil;
-    end;
-
-    local vmc_visible_cache = setmetatable({}, { __mode = "k" });
-    local function vmc_visible(part)
-        if vmc_visible_cache[part] == nil then
-            vmc_visible_cache[part] = part.Transparency < 1 and part.Size.Magnitude < 40;
-        end;
-        return vmc_visible_cache[part];
-    end;
-
-    local vmc_last = 0;
-    trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-        local vc = ELI.viewmodel_custom;
-        local character = local_player.Character;
-
-        if not vc.enable then
-            if next(body_tracked) then vmc_restore(body_tracked) end;
-            if next(item_tracked) then vmc_restore(item_tracked) end;
-            if next(clothes_tracked) then vmc_restore_clothes() end;
-            return
-        end;
-
-        local now = tick();
-        if now - vmc_last < 0.1 then return end;
-        vmc_last = now;
-
-        if vc.appearance and character then
-            for _, part in eli_ipairs(character:GetDescendants()) do
-                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and vmc_visible(part) then
-                    vmc_apply(body_tracked, part, vc.body);
-                end;
-            end;
-            if vc.body.disable_clothes then
-                vmc_disable_clothes(character);
-            elseif next(clothes_tracked) then
-                vmc_restore_clothes();
-            end;
-        else
-            if next(body_tracked) then vmc_restore(body_tracked) end;
-            if next(clothes_tracked) then vmc_restore_clothes() end;
-        end;
-
-        if first_person and first_person:IsDescendantOf(workspace) then
-            for _, part in eli_ipairs(first_person:GetDescendants()) do
-                if part:IsA("BasePart") and not vmc_is_arm(part) and vmc_visible(part) then
-                    vmc_apply(item_tracked, part, vc.item);
-                end;
-            end;
-        elseif next(item_tracked) then
-            vmc_restore(item_tracked);
-        end;
-
-        for part in eli_pairs(body_tracked) do
-            if not part.Parent then body_tracked[part] = nil end;
-        end;
-        for part in eli_pairs(item_tracked) do
-            if not part.Parent then item_tracked[part] = nil end;
-        end;
-    end)));
-    trove:Add(function()
-        vmc_restore(body_tracked);
-        vmc_restore(item_tracked);
-        vmc_restore_clothes();
-    end);
-end;
-
-local skybox_changer = {};
-do
-    function skybox_changer:init()
-        self.sky_object = lighting:FindFirstChildOfClass("Sky");
-        if not self.sky_object then
-            self.sky_object = Instance.new("Sky");
-            self.sky_object.Parent = lighting;
-        end;
-
-        self.default_skybox = lighting:FindFirstChildOfClass("Sky") and lighting:FindFirstChildOfClass("Sky"):Clone() or nil;
-
-        self.list = {
-            ["SpongeBob"] = {
-                SkyboxBk = "http://www.roblox.com/asset/?id=15962101128",
-                SkyboxDn = "http://www.roblox.com/asset/?id=15970246218",
-                SkyboxFt = "http://www.roblox.com/asset/?id=15962101128",
-                SkyboxLf = "http://www.roblox.com/asset/?id=15962101128",
-                SkyboxRt = "http://www.roblox.com/asset/?id=15962101128",
-                SkyboxUp = "http://www.roblox.com/asset/?id=15962901054"
-            },
-            ["Deep Space"] = {
-                SkyboxBk = "http://www.roblox.com/asset/?id=159248188",
-                SkyboxDn = "http://www.roblox.com/asset/?id=159248183",
-                SkyboxFt = "http://www.roblox.com/asset/?id=159248187",
-                SkyboxLf = "http://www.roblox.com/asset/?id=159248173",
-                SkyboxRt = "http://www.roblox.com/asset/?id=159248192",
-                SkyboxUp = "http://www.roblox.com/asset/?id=159248176"
-            },
-            ["Crazy Hello City"] = {
-                SkyboxBk = "http://www.roblox.com/asset/?id=5487778646",
-                SkyboxDn = "http://www.roblox.com/asset/?id=5487764867",
-                SkyboxFt = "http://www.roblox.com/asset/?id=5487778646",
-                SkyboxLf = "http://www.roblox.com/asset/?id=5487778646",
-                SkyboxRt = "http://www.roblox.com/asset/?id=5487778646",
-                SkyboxUp = "http://www.roblox.com/asset/?id=5487762943"
-            },
-            ["One Piece"] = {
-                SkyboxBk = "http://www.roblox.com/asset/?id=158516797",
-                SkyboxDn = "http://www.roblox.com/asset/?id=158516788",
-                SkyboxFt = "http://www.roblox.com/asset/?id=158516797",
-                SkyboxLf = "http://www.roblox.com/asset/?id=158516797",
-                SkyboxRt = "http://www.roblox.com/asset/?id=158516797",
-                SkyboxUp = "http://www.roblox.com/asset/?id=158516792"
-            },
-            ["Matcha"] = {
-                SkyboxBk = "http://www.roblox.com/asset/?id=151165214",
-                SkyboxDn = "http://www.roblox.com/asset/?id=151165197",
-                SkyboxFt = "http://www.roblox.com/asset/?id=151165224",
-                SkyboxLf = "http://www.roblox.com/asset/?id=151165191",
-                SkyboxRt = "http://www.roblox.com/asset/?id=151165206",
-                SkyboxUp = "http://www.roblox.com/asset/?id=151165227"
-            },
-            ["Abyssal Blues"] = {
-                SkyboxBk = "http://www.roblox.com/asset/?id=16269815885",
-                SkyboxDn = "http://www.roblox.com/asset/?id=16269839652",
-                SkyboxFt = "http://www.roblox.com/asset/?id=16269798011",
-                SkyboxLf = "http://www.roblox.com/asset/?id=16269813852",
-                SkyboxRt = "http://www.roblox.com/asset/?id=16269814948",
-                SkyboxUp = "http://www.roblox.com/asset/?id=16269829700"
-            },
-            ["Pink Sky"] = {
-                SkyboxBk = "http://www.roblox.com/asset/?id=271042516",
-                SkyboxDn = "http://www.roblox.com/asset/?id=271077243",
-                SkyboxFt = "http://www.roblox.com/asset/?id=271042556",
-                SkyboxLf = "http://www.roblox.com/asset/?id=271042310",
-                SkyboxRt = "http://www.roblox.com/asset/?id=271042467",
-                SkyboxUp = "http://www.roblox.com/asset/?id=271077958"
-            },
-            ["Green Sky"] = {
-                SkyboxBk = "rbxassetid://921882045",
-                SkyboxDn = "rbxassetid://921881907",
-                SkyboxFt = "rbxassetid://921882121",
-                SkyboxLf = "rbxassetid://921881811",
-                SkyboxRt = "rbxassetid://921881989",
-                SkyboxUp = "rbxassetid://921882259"
-            },
-            ["Purple Nebula"] = {
-                SkyboxBk = "http://www.roblox.com/asset/?id=159454299",
-                SkyboxDn = "http://www.roblox.com/asset/?id=159454296",
-                SkyboxFt = "http://www.roblox.com/asset/?id=159454299",
-                SkyboxLf = "http://www.roblox.com/asset/?id=159454299",
-                SkyboxRt = "http://www.roblox.com/asset/?id=159454299",
-                SkyboxUp = "http://www.roblox.com/asset/?id=159454288"
-            },
-            ["Vaporwave"] = {
-                SkyboxBk = "http://www.roblox.com/asset/?id=1417494030",
-                SkyboxDn = "http://www.roblox.com/asset/?id=1417494146",
-                SkyboxFt = "http://www.roblox.com/asset/?id=1417494030",
-                SkyboxLf = "http://www.roblox.com/asset/?id=1417494030",
-                SkyboxRt = "http://www.roblox.com/asset/?id=1417494030",
-                SkyboxUp = "http://www.roblox.com/asset/?id=1417494643"
-            },
-            ["Redshift"] = {
-                SkyboxBk = "http://www.roblox.com/asset/?id=2670643365",
-                SkyboxDn = "http://www.roblox.com/asset/?id=2670643365",
-                SkyboxFt = "http://www.roblox.com/asset/?id=2670643365",
-                SkyboxLf = "http://www.roblox.com/asset/?id=2670643365",
-                SkyboxRt = "http://www.roblox.com/asset/?id=2670643365",
-                SkyboxUp = "http://www.roblox.com/asset/?id=2670643365"
-            },
-            ["Minecraft"] = { SkyboxBk = "rbxassetid://1876545003", SkyboxDn = "rbxassetid://1876544331", SkyboxFt = "rbxassetid://1876542941", SkyboxLf = "rbxassetid://1876543392", SkyboxRt = "rbxassetid://1876543764", SkyboxUp = "rbxassetid://1876544642" },
-            ["PurpleDay"] = { SkyboxBk = "rbxassetid://296908715", SkyboxDn = "rbxassetid://296908724", SkyboxFt = "rbxassetid://296908740", SkyboxLf = "rbxassetid://296908755", SkyboxRt = "rbxassetid://296908764", SkyboxUp = "rbxassetid://296908769" },
-            ["RedNight"] = { SkyboxBk = "rbxassetid://401664839", SkyboxDn = "rbxassetid://401664862", SkyboxFt = "rbxassetid://401664960", SkyboxLf = "rbxassetid://401664881", SkyboxRt = "rbxassetid://401664901", SkyboxUp = "rbxassetid://401664936" },
-            ["Trollge"] = { SkyboxBk = "rbxassetid://6155393905", SkyboxDn = "rbxassetid://6155393905", SkyboxFt = "rbxassetid://6155393905", SkyboxLf = "rbxassetid://6155393905", SkyboxRt = "rbxassetid://6155393905", SkyboxUp = "rbxassetid://6155393905" },
-            ["Night"] = { SkyboxBk = "rbxassetid://48020371", SkyboxDn = "rbxassetid://48020144", SkyboxFt = "rbxassetid://48020234", SkyboxLf = "rbxassetid://48020211", SkyboxRt = "rbxassetid://48020254", SkyboxUp = "rbxassetid://48020383" },
-            ["Space"] = { SkyboxBk = "rbxassetid://149397692", SkyboxDn = "rbxassetid://149397686", SkyboxFt = "rbxassetid://149397697", SkyboxLf = "rbxassetid://149397684", SkyboxRt = "rbxassetid://149397688", SkyboxUp = "rbxassetid://149397702" },
-            ["Default"] = { SkyboxBk = "rbxassetid://6444884337", SkyboxDn = "rbxassetid://6444884785", SkyboxFt = "rbxassetid://6444884337", SkyboxLf = "rbxassetid://6444884337", SkyboxRt = "rbxassetid://6444884337", SkyboxUp = "rbxassetid://6412503613" },
-            ["VibeMorning"] = { SkyboxBk = "rbxassetid://1417494030", SkyboxDn = "rbxassetid://1417494146", SkyboxFt = "rbxassetid://1417494253", SkyboxLf = "rbxassetid://1417494402", SkyboxRt = "rbxassetid://1417494499", SkyboxUp = "rbxassetid://1417494643" },
-            ["VibeNight"] = { SkyboxBk = "rbxassetid://5084575798", SkyboxDn = "rbxassetid://5084575916", SkyboxFt = "rbxassetid://5103949679", SkyboxLf = "rbxassetid://5103948542", SkyboxRt = "rbxassetid://5103948784", SkyboxUp = "rbxassetid://5084576400" },
-            ["PurpleSplash"] = { SkyboxBk = "rbxassetid://8539982183", SkyboxDn = "rbxassetid://8539981943", SkyboxFt = "rbxassetid://8539981721", SkyboxLf = "rbxassetid://8539981424", SkyboxRt = "rbxassetid://8539980766", SkyboxUp = "rbxassetid://8539981085" },
-            ["GreenSpace"] = { SkyboxBk = "rbxassetid://159248188", SkyboxDn = "rbxassetid://159248183", SkyboxFt = "rbxassetid://159248187", SkyboxLf = "rbxassetid://159248173", SkyboxRt = "rbxassetid://159248192", SkyboxUp = "rbxassetid://159248176" },
-            ["Snowy"] = { SkyboxBk = "rbxassetid://155657655", SkyboxDn = "rbxassetid://155674246", SkyboxFt = "rbxassetid://155657609", SkyboxLf = "rbxassetid://155657671", SkyboxRt = "rbxassetid://155657619", SkyboxUp = "rbxassetid://155674931" },
-            ["Spongebob"] = { SkyboxBk = "rbxassetid://10287764626", SkyboxDn = "rbxassetid://10287766382", SkyboxFt = "rbxassetid://10287764626", SkyboxLf = "rbxassetid://10287763421", SkyboxRt = "rbxassetid://10287764626", SkyboxUp = "rbxassetid://10287767597" },
-            ["PinkDay"] = { SkyboxBk = "rbxassetid://271042516", SkyboxDn = "rbxassetid://271077243", SkyboxFt = "rbxassetid://271042556", SkyboxLf = "rbxassetid://271042310", SkyboxRt = "rbxassetid://271042467", SkyboxUp = "rbxassetid://271077958" },
-            ["AlienRed"] = { SkyboxBk = "rbxassetid://1012890", SkyboxDn = "rbxassetid://1012891", SkyboxFt = "rbxassetid://1012887", SkyboxLf = "rbxassetid://1012889", SkyboxRt = "rbxassetid://1012888", SkyboxUp = "rbxassetid://1014449" },
-            ["WallsOfAutumn"] = { SkyboxBk = "rbxassetid://7123244709", SkyboxDn = "rbxassetid://7123246497", SkyboxFt = "rbxassetid://7123255895", SkyboxLf = "rbxassetid://7123257992", SkyboxRt = "rbxassetid://7123279103", SkyboxUp = "rbxassetid://7123281828" },
-            ["ColdWinterness"] = { SkyboxBk = "rbxassetid://7123754562", SkyboxDn = "rbxassetid://7123756028", SkyboxFt = "rbxassetid://7123757422", SkyboxLf = "rbxassetid://7123758897", SkyboxRt = "rbxassetid://7123760563", SkyboxUp = "rbxassetid://7123762364" },
-            ["Oblivion"] = { SkyboxBk = "rbxassetid://7123654189", SkyboxDn = "rbxassetid://7123657455", SkyboxFt = "rbxassetid://7123662047", SkyboxLf = "rbxassetid://7123664533", SkyboxRt = "rbxassetid://7123666598", SkyboxUp = "rbxassetid://7123668994" },
-            ["ClassicSky"] = { SkyboxBk = "rbxassetid://672345740", SkyboxDn = "rbxassetid://672345828", SkyboxFt = "rbxassetid://672345879", SkyboxLf = "rbxassetid://672345927", SkyboxRt = "rbxassetid://672346006", SkyboxUp = "rbxassetid://672346072" },
-            ["PurpleNight"] = { SkyboxBk = "rbxassetid://5084575798", SkyboxDn = "rbxassetid://5084575916", SkyboxFt = "rbxassetid://5103949679", SkyboxLf = "rbxassetid://5103948542", SkyboxRt = "rbxassetid://5103948784", SkyboxUp = "rbxassetid://5084576400" },
-            ["PurpleDayClear"] = { SkyboxBk = "rbxassetid://6847607535", SkyboxDn = "rbxassetid://6847607977", SkyboxFt = "rbxassetid://6847608302", SkyboxLf = "rbxassetid://6847608608", SkyboxRt = "rbxassetid://6847608986", SkyboxUp = "rbxassetid://6847609323" },
-            ["YellowDay"] = { SkyboxBk = "rbxassetid://2651432901", SkyboxDn = "rbxassetid://2651434974", SkyboxFt = "rbxassetid://2651435990", SkyboxLf = "rbxassetid://2651436494", SkyboxRt = "rbxassetid://2651436979", SkyboxUp = "rbxassetid://2651437350" },
-            ["MinecraftSky"] = { SkyboxBk = "rbxassetid://8735166756", SkyboxDn = "rbxassetid://8735166707", SkyboxFt = "rbxassetid://8735231668", SkyboxLf = "rbxassetid://8735166755", SkyboxRt = "rbxassetid://8735166751", SkyboxUp = "rbxassetid://8735166729" },
-            ["Sunset"] = { SkyboxBk = "rbxassetid://150939022", SkyboxDn = "rbxassetid://150939038", SkyboxFt = "rbxassetid://150939047", SkyboxLf = "rbxassetid://150939056", SkyboxRt = "rbxassetid://150939063", SkyboxUp = "rbxassetid://150939082" },
-            ["CartoonSky"] = { SkyboxBk = "rbxassetid://6778646360", SkyboxDn = "rbxassetid://6778658683", SkyboxFt = "rbxassetid://6778648039", SkyboxLf = "rbxassetid://6778649136", SkyboxRt = "rbxassetid://6778650519", SkyboxUp = "rbxassetid://6778658364" },
-            ["Anime"] = { SkyboxBk = "rbxassetid://7643700666", SkyboxDn = "rbxassetid://7643743687", SkyboxFt = "rbxassetid://7644304186", SkyboxLf = "rbxassetid://7644288724", SkyboxRt = "rbxassetid://7643700819", SkyboxUp = "rbxassetid://7643757404" },
-            ["HellSky"] = { SkyboxBk = "rbxassetid://437430787", SkyboxDn = "rbxassetid://437430804", SkyboxFt = "rbxassetid://437430543", SkyboxLf = "rbxassetid://437430732", SkyboxRt = "rbxassetid://437430747", SkyboxUp = "rbxassetid://437430771" },
-            ["StarryNight"] = { SkyboxBk = "rbxassetid://8291078911", SkyboxDn = "rbxassetid://8291077403", SkyboxFt = "rbxassetid://8291081613", SkyboxLf = "rbxassetid://8291074004", SkyboxRt = "rbxassetid://8291080353", SkyboxUp = "rbxassetid://8291075054" },
-            ["Omori"] = { SkyboxBk = "rbxassetid://8767416629", SkyboxDn = "rbxassetid://8767416629", SkyboxFt = "rbxassetid://8767416629", SkyboxLf = "rbxassetid://8767416629", SkyboxRt = "rbxassetid://8767416629", SkyboxUp = "rbxassetid://8767416629" },
-            ["c00lkidd"] = { SkyboxBk = "rbxassetid://433381097", SkyboxDn = "rbxassetid://433381097", SkyboxFt = "rbxassetid://433381097", SkyboxLf = "rbxassetid://433381097", SkyboxRt = "rbxassetid://433381097", SkyboxUp = "rbxassetid://433381097" },
-            ["ClearDay"] = { SkyboxBk = "rbxassetid://591058823", SkyboxDn = "rbxassetid://591059876", SkyboxFt = "rbxassetid://591058104", SkyboxLf = "rbxassetid://591057861", SkyboxRt = "rbxassetid://591057625", SkyboxUp = "rbxassetid://591059642" },
-            ["Mountains"] = { SkyboxBk = "http://www.roblox.com/asset/?id=324014980", SkyboxDn = "http://www.roblox.com/asset/?id=324015477", SkyboxFt = "http://www.roblox.com/asset/?id=324014995", SkyboxLf = "http://www.roblox.com/asset/?id=324014679", SkyboxRt = "http://www.roblox.com/asset/?id=324015013", SkyboxUp = "http://www.roblox.com/asset/?id=324015409" },
-            ["Forest"] = { SkyboxBk = "http://www.roblox.com/asset/?id=70945545", SkyboxDn = "http://www.roblox.com/asset/?id=70945449", SkyboxFt = "http://www.roblox.com/asset/?id=70945487", SkyboxLf = "http://www.roblox.com/asset/?id=70945523", SkyboxRt = "http://www.roblox.com/asset/?id=70945508", SkyboxUp = "http://www.roblox.com/asset/?id=70945531" },
-            ["LargeForest"] = { SkyboxBk = "rbxassetid://17428978603", SkyboxDn = "rbxassetid://17428977445", SkyboxFt = "rbxassetid://17428977114", SkyboxLf = "rbxassetid://17428978399", SkyboxRt = "rbxassetid://17428976828", SkyboxUp = "rbxassetid://17428976669" },
-            ["Crimson"] = { SkyboxBk = "rbxassetid://15832429892", SkyboxDn = "rbxassetid://15832430998", SkyboxFt = "rbxassetid://15832430210", SkyboxLf = "rbxassetid://15832430671", SkyboxRt = "rbxassetid://15832431198", SkyboxUp = "rbxassetid://15832429401" },
-            ["PumpkinHill"] = { SkyboxBk = "rbxassetid://11202510597", SkyboxDn = "rbxassetid://11202510255", SkyboxFt = "rbxassetid://11202509993", SkyboxLf = "rbxassetid://11202510806", SkyboxRt = "rbxassetid://11202511066", SkyboxUp = "rbxassetid://11202509704" },
-            ["AnimeIsland"] = { SkyboxBk = "http://www.roblox.com/asset/?id=14753804949", SkyboxDn = "http://www.roblox.com/asset/?id=14753795573", SkyboxFt = "http://www.roblox.com/asset/?id=14753807625", SkyboxLf = "http://www.roblox.com/asset/?id=14753797417", SkyboxRt = "http://www.roblox.com/asset/?id=14753799966", SkyboxUp = "http://www.roblox.com/asset/?id=14753810287" },
-            ["SnowyMountains"] = { SkyboxBk = "http://www.roblox.com/asset/?id=368385273", SkyboxDn = "http://www.roblox.com/asset/?id=48015300", SkyboxFt = "http://www.roblox.com/asset/?id=368388290", SkyboxLf = "http://www.roblox.com/asset/?id=368390615", SkyboxRt = "http://www.roblox.com/asset/?id=368385190", SkyboxUp = "http://www.roblox.com/asset/?id=48015387" },
-            ["Desert"] = { SkyboxBk = "rbxassetid://161319957", SkyboxDn = "rbxassetid://161319965", SkyboxFt = "rbxassetid://161319970", SkyboxLf = "rbxassetid://161319983", SkyboxRt = "rbxassetid://161319989", SkyboxUp = "rbxassetid://161319996" },
-            ["Cloudy"] = { SkyboxBk = "http://www.roblox.com/asset/?id=225469345", SkyboxDn = "http://www.roblox.com/asset/?id=225469349", SkyboxFt = "http://www.roblox.com/asset/?id=225469359", SkyboxLf = "http://www.roblox.com/asset/?id=225469364", SkyboxRt = "http://www.roblox.com/asset/?id=225469372", SkyboxUp = "http://www.roblox.com/asset/?id=225469380" },
-            ["Island"] = { SkyboxBk = "http://www.roblox.com/asset/?id=319343577", SkyboxDn = "http://www.roblox.com/asset/?id=319343653", SkyboxFt = "http://www.roblox.com/asset/?id=319343666", SkyboxLf = "http://www.roblox.com/asset/?id=319343686", SkyboxRt = "http://www.roblox.com/asset/?id=319343631", SkyboxUp = "http://www.roblox.com/asset/?id=319343614" },
-            ["OrangeFog"] = { SkyboxBk = "http://www.roblox.com/asset/?id=458016711", SkyboxDn = "http://www.roblox.com/asset/?id=458016826", SkyboxFt = "http://www.roblox.com/asset/?id=458016532", SkyboxLf = "http://www.roblox.com/asset/?id=458016655", SkyboxRt = "http://www.roblox.com/asset/?id=458016782", SkyboxUp = "http://www.roblox.com/asset/?id=458016792" },
-            ["FadeNight"] = { SkyboxBk = "http://www.roblox.com/asset/?id=16888843486", SkyboxDn = "http://www.roblox.com/asset/?id=16888845693", SkyboxFt = "http://www.roblox.com/asset/?id=16888848245", SkyboxLf = "http://www.roblox.com/asset/?id=16888850949", SkyboxRt = "http://www.roblox.com/asset/?id=16888854243", SkyboxUp = "http://www.roblox.com/asset/?id=16888857144" },
-            ["Office"] = { SkyboxBk = "rbxassetid://658623433", SkyboxDn = "rbxassetid://316342560", SkyboxFt = "rbxassetid://658625205", SkyboxLf = "rbxassetid://658627155", SkyboxRt = "rbxassetid://658628504", SkyboxUp = "rbxassetid://658632701" },
-            ["Spongebob2"] = { SkyboxBk = "rbxassetid://12049872454", SkyboxDn = "rbxassetid://12049872284", SkyboxFt = "rbxassetid://12049872181", SkyboxLf = "rbxassetid://12049872074", SkyboxRt = "rbxassetid://12049871884", SkyboxUp = "rbxassetid://12049871774" },
-            ["PurpleFog"] = { SkyboxBk = "http://www.roblox.com/asset/?id=17279854976", SkyboxDn = "http://www.roblox.com/asset/?id=17279856318", SkyboxFt = "http://www.roblox.com/asset/?id=17279858447", SkyboxLf = "http://www.roblox.com/asset/?id=17279860360", SkyboxRt = "http://www.roblox.com/asset/?id=17279862234", SkyboxUp = "http://www.roblox.com/asset/?id=17279864507" },
-            ["EarthSpace"] = { SkyboxBk = "rbxassetid://15753305495", SkyboxDn = "rbxassetid://15753362674", SkyboxFt = "rbxassetid://15753305823", SkyboxLf = "rbxassetid://15753310707", SkyboxRt = "rbxassetid://15753304774", SkyboxUp = "rbxassetid://15753304473" },
-            ["GreenCloudy"] = { SkyboxBk = "rbxassetid://921882045", SkyboxDn = "rbxassetid://921881907", SkyboxFt = "rbxassetid://921882121", SkyboxLf = "rbxassetid://921881811", SkyboxRt = "rbxassetid://921881989", SkyboxUp = "rbxassetid://921882259" },
-            ["SummerDay"] = { SkyboxBk = "http://www.roblox.com/asset/?version=1&id=135483466", SkyboxDn = "http://www.roblox.com/asset/?version=1&id=135483484", SkyboxFt = "http://www.roblox.com/asset/?version=1&id=135483461", SkyboxLf = "http://www.roblox.com/asset/?version=1&id=135483495", SkyboxRt = "http://www.roblox.com/asset/?version=1&id=135483499", SkyboxUp = "http://www.roblox.com/asset/?version=1&id=135483475" },
-            ["SnowyPlains"] = { SkyboxBk = "http://www.roblox.com/asset/?id=155657655", SkyboxDn = "http://www.roblox.com/asset/?id=155674246", SkyboxFt = "http://www.roblox.com/asset/?id=155657609", SkyboxLf = "http://www.roblox.com/asset/?id=155657671", SkyboxRt = "http://www.roblox.com/asset/?id=155657619", SkyboxUp = "http://www.roblox.com/asset/?id=155674931" },
-            ["Underwater"] = { SkyboxBk = "http://www.roblox.com/asset/?id=227635868", SkyboxDn = "http://www.roblox.com/asset/?id=227635921", SkyboxFt = "http://www.roblox.com/asset/?id=227635954", SkyboxLf = "http://www.roblox.com/asset/?id=227635974", SkyboxRt = "http://www.roblox.com/asset/?id=227635990", SkyboxUp = "http://www.roblox.com/asset/?id=227636031" },
-            ["BlueAbyss"] = { SkyboxBk = "rbxassetid://16269815885", SkyboxDn = "rbxassetid://16269839652", SkyboxFt = "rbxassetid://16269798011", SkyboxLf = "rbxassetid://16269813852", SkyboxRt = "rbxassetid://16269814948", SkyboxUp = "rbxassetid://16269829700" },
-            ["Poison"] = { SkyboxBk = "rbxassetid://1370716695", SkyboxDn = "rbxassetid://1370716766", SkyboxFt = "rbxassetid://1370716833", SkyboxLf = "rbxassetid://1370716898", SkyboxRt = "rbxassetid://1370716955", SkyboxUp = "rbxassetid://1370717024" },
-            ["BlueSpace"] = { SkyboxBk = "rbxassetid://1127563035", SkyboxDn = "rbxassetid://1127563006", SkyboxFt = "rbxassetid://1127563026", SkyboxLf = "rbxassetid://1127563216", SkyboxRt = "rbxassetid://1127563115", SkyboxUp = "rbxassetid://1127562999" },
-            ["AnimeMountains"] = { SkyboxBk = "http://www.roblox.com/asset/?id=12849370744", SkyboxDn = "http://www.roblox.com/asset/?id=12849378890", SkyboxFt = "http://www.roblox.com/asset/?id=12849390276", SkyboxLf = "http://www.roblox.com/asset/?id=12849405549", SkyboxRt = "http://www.roblox.com/asset/?id=12849398428", SkyboxUp = "http://www.roblox.com/asset/?id=12849426002" },
-            ["PinkGradient"] = { SkyboxBk = "http://www.roblox.com/asset/?id=5371541816", SkyboxDn = "http://www.roblox.com/asset/?id=5371541154", SkyboxFt = "http://www.roblox.com/asset/?id=5371541816", SkyboxLf = "http://www.roblox.com/asset/?id=5371541816", SkyboxRt = "http://www.roblox.com/asset/?id=5371541816", SkyboxUp = "http://www.roblox.com/asset/?id=5371540604" },
-            ["YellowGradient"] = { SkyboxBk = "http://www.roblox.com/asset/?id=159005370", SkyboxDn = "rbxassetid://858422412", SkyboxFt = "http://www.roblox.com/asset/?id=159005370", SkyboxLf = "http://www.roblox.com/asset/?id=159005370", SkyboxRt = "http://www.roblox.com/asset/?id=159005370", SkyboxUp = "http://www.roblox.com/asset/?id=159006363" },
-            ["BlueGradient"] = { SkyboxBk = "http://www.roblox.com/asset/?id=4628466090", SkyboxDn = "http://www.roblox.com/asset/?id=4628471901", SkyboxFt = "http://www.roblox.com/asset/?id=4628466090", SkyboxLf = "http://www.roblox.com/asset/?id=4628466090", SkyboxRt = "http://www.roblox.com/asset/?id=4628466090", SkyboxUp = "http://www.roblox.com/asset/?id=4628472152" },
-            ["GreenNebula"] = { SkyboxBk = "http://www.roblox.com/asset/?id=47974894", SkyboxDn = "http://www.roblox.com/asset/?id=47974690", SkyboxFt = "http://www.roblox.com/asset/?id=47974821", SkyboxLf = "http://www.roblox.com/asset/?id=47974776", SkyboxRt = "http://www.roblox.com/asset/?id=47974859", SkyboxUp = "http://www.roblox.com/asset/?id=47974909" },
-            ["OrangeGradient"] = { SkyboxBk = "rbxassetid://6902754982", SkyboxDn = "rbxassetid://6902795826", SkyboxFt = "rbxassetid://6902754982", SkyboxLf = "rbxassetid://6902754982", SkyboxRt = "rbxassetid://6902754982", SkyboxUp = "rbxassetid://6902796078" },
-            ["GreenAurora"] = { SkyboxBk = "http://www.roblox.com/asset/?id=16563478983", SkyboxDn = "http://www.roblox.com/asset/?id=16563481302", SkyboxFt = "http://www.roblox.com/asset/?id=16563484084", SkyboxLf = "http://www.roblox.com/asset/?id=16563485362", SkyboxRt = "http://www.roblox.com/asset/?id=16563487078", SkyboxUp = "http://www.roblox.com/asset/?id=16563489821" },
-            ["Blank"] = { SkyboxBk = "http://www.roblox.com/asset/?ID=1361097", SkyboxDn = "http://www.roblox.com/asset/?ID=1361097", SkyboxFt = "http://www.roblox.com/asset/?ID=1361097", SkyboxLf = "http://www.roblox.com/asset/?ID=1361097", SkyboxRt = "http://www.roblox.com/asset/?ID=1361097", SkyboxUp = "http://www.roblox.com/asset/?ID=1361097" },
-            ["Clouds"] = { SkyboxBk = "rbxassetid://570557514", SkyboxDn = "rbxassetid://570557775", SkyboxFt = "rbxassetid://570557559", SkyboxLf = "rbxassetid://570557620", SkyboxRt = "rbxassetid://570557672", SkyboxUp = "rbxassetid://570557727" },
-            ["Cloudy Skies"] = { SkyboxBk = "rbxassetid://151165214", SkyboxDn = "rbxassetid://151165197", SkyboxFt = "rbxassetid://151165224", SkyboxLf = "rbxassetid://151165191", SkyboxRt = "rbxassetid://151165206", SkyboxUp = "rbxassetid://151165227" },
-            ["Elegant Morning"] = { SkyboxBk = "rbxassetid://153767241", SkyboxDn = "rbxassetid://153767216", SkyboxFt = "rbxassetid://153767266", SkyboxLf = "rbxassetid://153767200", SkyboxRt = "rbxassetid://153767231", SkyboxUp = "rbxassetid://153767288" },
-            ["Fade Blue"] = { SkyboxBk = "rbxassetid://153695414", SkyboxDn = "rbxassetid://153695352", SkyboxFt = "rbxassetid://153695452", SkyboxLf = "rbxassetid://153695320", SkyboxRt = "rbxassetid://153695383", SkyboxUp = "rbxassetid://153695471" },
-            ["Neptune"] = { SkyboxBk = "rbxassetid://218955819", SkyboxDn = "rbxassetid://218953419", SkyboxFt = "rbxassetid://218954524", SkyboxLf = "rbxassetid://218958493", SkyboxRt = "rbxassetid://218957134", SkyboxUp = "rbxassetid://218950090" },
-            ["Night Sky"] = { SkyboxBk = "rbxassetid://12064107", SkyboxDn = "rbxassetid://12064152", SkyboxFt = "rbxassetid://12064121", SkyboxLf = "rbxassetid://12063984", SkyboxRt = "rbxassetid://12064115", SkyboxUp = "rbxassetid://12064131" },
-            ["Purple And Blue"] = { SkyboxBk = "rbxassetid://149397692", SkyboxDn = "rbxassetid://149397686", SkyboxFt = "rbxassetid://149397697", SkyboxLf = "rbxassetid://149397684", SkyboxRt = "rbxassetid://149397688", SkyboxUp = "rbxassetid://149397702" },
-            ["Purple Clouds"] = { SkyboxBk = "rbxassetid://151165214", SkyboxDn = "rbxassetid://151165197", SkyboxFt = "rbxassetid://151165224", SkyboxLf = "rbxassetid://151165191", SkyboxRt = "rbxassetid://151165206", SkyboxUp = "rbxassetid://151165227" },
-            ["Purple Galaxy"] = { SkyboxBk = "http://www.roblox.com/Asset/?ID=14543264135", SkyboxDn = "http://www.roblox.com/asset/?ID=14543358958", SkyboxFt = "http://www.roblox.com/asset/?ID=14543257810", SkyboxLf = "http://www.roblox.com/asset/?ID=14543275895", SkyboxRt = "http://www.roblox.com/asset/?ID=14543280890", SkyboxUp = "http://www.roblox.com/asset/?ID=14543371676" },
-            ["Purple Nebula"] = { SkyboxBk = "rbxassetid://159454299", SkyboxDn = "rbxassetid://159454296", SkyboxFt = "rbxassetid://159454293", SkyboxLf = "rbxassetid://159454286", SkyboxRt = "rbxassetid://159454300", SkyboxUp = "rbxassetid://159454288" },
-            ["Red Night Sky"] = { SkyboxBk = "http://www.roblox.com/Asset/?ID=401664839", SkyboxDn = "http://www.roblox.com/asset/?ID=401664862", SkyboxFt = "http://www.roblox.com/asset/?ID=401664960", SkyboxLf = "http://www.roblox.com/asset/?ID=401664881", SkyboxRt = "http://www.roblox.com/asset/?ID=401664901", SkyboxUp = "http://www.roblox.com/asset/?ID=401664936" },
-            ["Redshift"] = { SkyboxBk = "rbxassetid://401664839", SkyboxDn = "rbxassetid://401664862", SkyboxFt = "rbxassetid://401664960", SkyboxLf = "rbxassetid://401664881", SkyboxRt = "rbxassetid://401664901", SkyboxUp = "rbxassetid://401664936" },
-            ["Setting Sun"] = { SkyboxBk = "rbxassetid://626460377", SkyboxDn = "rbxassetid://626460216", SkyboxFt = "rbxassetid://626460513", SkyboxLf = "rbxassetid://626473032", SkyboxRt = "rbxassetid://626458639", SkyboxUp = "rbxassetid://626460625" },
-            ["Twighlight"] = { SkyboxBk = "rbxassetid://264908339", SkyboxDn = "rbxassetid://264907909", SkyboxFt = "rbxassetid://264909420", SkyboxLf = "rbxassetid://264909758", SkyboxRt = "rbxassetid://264908886", SkyboxUp = "rbxassetid://264907379" },
-            ["Vaporwave"] = { SkyboxBk = "rbxassetid://1417494030", SkyboxDn = "rbxassetid://1417494146", SkyboxFt = "rbxassetid://1417494253", SkyboxLf = "rbxassetid://1417494402", SkyboxRt = "rbxassetid://1417494499", SkyboxUp = "rbxassetid://1417494643" },
-            ["Vivid Skies"] = { SkyboxBk = "rbxassetid://271042516", SkyboxDn = "rbxassetid://271077243", SkyboxFt = "rbxassetid://271042556", SkyboxLf = "rbxassetid://271042310", SkyboxRt = "rbxassetid://271042467", SkyboxUp = "rbxassetid://271077958" },
-            ["Elisium Sky"] = { SkyboxBk = "rbxassetid://1898724755", SkyboxDn = "rbxassetid://1898727189", SkyboxFt = "rbxassetid://1898722814", SkyboxLf = "rbxassetid://1898729298", SkyboxRt = "rbxassetid://1898741025", SkyboxUp = "rbxassetid://1898736761" },
-        };
-
-        self.elements = {};
-        for skybox_name, _ in next, self.list do
-            table.insert(self.elements, skybox_name);
-        end;
-
-        self.selected = ELI.world.skybox_selected;
-    end;
-
-    function skybox_changer:update_skybox()
-        self.last_apply = os.clock();
-
-        for _, v in next, lighting:GetChildren() do
-            if v:IsA("Sky") then
-                v:Destroy();
-            end;
-        end;
-
-        local world_cfg = ELI.world;
-        local Sky;
-
-        if not world_cfg.skybox then
-            if self.default_skybox then
-                Sky = self.default_skybox:Clone();
-                Sky.Parent = lighting;
-            end;
-        else
-            local skybox_data = self.list[world_cfg.skybox_selected or ""];
-            if not skybox_data then return end;
-
-            Sky = Instance.new("Sky");
-            Sky.SkyboxBk = skybox_data.SkyboxBk;
-            Sky.SkyboxDn = skybox_data.SkyboxDn;
-            Sky.SkyboxFt = skybox_data.SkyboxFt;
-            Sky.SkyboxLf = skybox_data.SkyboxLf;
-            Sky.SkyboxRt = skybox_data.SkyboxRt;
-            Sky.SkyboxUp = skybox_data.SkyboxUp;
-            Sky.Parent = lighting;
-        end;
-
-        if Sky then
-            if world_cfg.skybox_remove_sun then Sky.SunTextureId = "" end;
-            if world_cfg.skybox_remove_moon then Sky.MoonTextureId = "" end;
-            if world_cfg.skybox_remove_stars then Sky.StarCount = 0 end;
-        end;
-    end;
-
-    skybox_changer:init();
-    skybox_changer.last_apply = 0;
-
-    local function skybox_reapply()
-        local world_cfg = ELI.world;
-        if not (world_cfg.skybox or world_cfg.skybox_remove_sun or world_cfg.skybox_remove_moon or world_cfg.skybox_remove_stars) then
-            return;
-        end;
-        if os.clock() - skybox_changer.last_apply < 0.25 then
-            return;
-        end;
-        skybox_changer:update_skybox();
-    end;
-
-    trove:Add(lighting.ChildRemoved:Connect(function(child)
-        if child:IsA("Sky") then
-            task.defer(skybox_reapply);
-        end;
-    end));
-
-    trove:Add(lighting.ChildAdded:Connect(function(child)
-        if child:IsA("Sky") then
-            task.defer(skybox_reapply);
-        end;
-    end));
-
-    trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function(dt)
-        local world_cfg = ELI.world;
-        local sky = lighting:FindFirstChildOfClass("Sky");
-        if world_cfg.skybox_rotate and sky then
-            if not skybox_changer.original_orientation then
-                skybox_changer.original_orientation = sky.SkyboxOrientation;
-            end;
-            skybox_changer.rotation_tick = (skybox_changer.rotation_tick or 0) + (dt * world_cfg.skybox_rotate_speed * 0.5);
-            local rotation_angle = 0;
-            if world_cfg.skybox_rotate_method == 'Spin' then
-                rotation_angle = (skybox_changer.rotation_tick * 20) % 360;
-            elseif world_cfg.skybox_rotate_method == 'Wave' then
-                rotation_angle = math.sin(skybox_changer.rotation_tick) * 180;
-            elseif world_cfg.skybox_rotate_method == 'Alternate' then
-                rotation_angle = math.abs((skybox_changer.rotation_tick * 40 % 720) - 360) - 180;
-            end;
-            local rot_v3 = Vector3.new(0, 0, 0);
-            if world_cfg.skybox_rotate_direction == 'Horizontal' then
-                rot_v3 = Vector3.new(0, rotation_angle, 0);
-            elseif world_cfg.skybox_rotate_direction == 'Vertical' then
-                rot_v3 = Vector3.new(rotation_angle, 0, 0);
-            elseif world_cfg.skybox_rotate_direction == 'Diagonal' then
-                rot_v3 = Vector3.new(rotation_angle, rotation_angle, rotation_angle);
-            end;
-            local success = pcall(function()
-                sky.SkyboxOrientation = rot_v3;
-            end);
-            if not success and world_cfg.skybox_rotate_direction == 'Horizontal' then
-                lighting.GeographicLatitude = rotation_angle;
-            end;
-        elseif not world_cfg.skybox_rotate and sky and skybox_changer.original_orientation then
-            pcall(function()
-                sky.SkyboxOrientation = skybox_changer.original_orientation;
-            end);
-            skybox_changer.original_orientation = nil;
-            skybox_changer.rotation_tick = 0;
-        end;
-    end)));
-end;
-
-local atmosphere_changer = {};
-do
-    function atmosphere_changer:init()
-        self.atmosphere_object = lighting:FindFirstChildOfClass("Atmosphere");
-        if not self.atmosphere_object then
-            self.atmosphere_object = Instance.new("Atmosphere");
-            self.atmosphere_object.Parent = lighting;
-        end;
-
-        self.default_atmosphere = self.atmosphere_object:Clone();
-        self.default_atmosphere.Parent = nil;
-
-        self.properties = {};
-        self.properties_list = {"glare", "haze", "offset", "density"};
-
-        for _, property in next, self.properties_list do
-            self.properties[property] = ELI.world["atmosphere_" .. property];
-        end;
-
-        if not ELI.world.atmosphere then
-            self.atmosphere_object.Parent = nil;
-        end;
-    end;
-
-    function atmosphere_changer:update_atmosphere()
-        if not ELI.world.atmosphere then
-            self.atmosphere_object.Parent = nil;
-
-            if self.default_atmosphere then
-                local Restored = self.default_atmosphere:Clone();
-                Restored.Parent = lighting;
-                self.atmosphere_object = Restored;
-            end;
-
-            return;
-        end;
-
-        if not self.atmosphere_object.Parent then
-            self.atmosphere_object.Parent = lighting;
-        end;
-
-        for _, property in next, self.properties_list do
-            local value = ELI.world["atmosphere_" .. property];
-            if value == nil then continue end;
-            self.atmosphere_object[property:sub(1, 1):upper() .. property:sub(2, #property)] = value;
-        end;
-
-        self.atmosphere_object.Color = ELI.world.atmosphere_color;
-        self.atmosphere_object.Decay = ELI.world.atmosphere_decay;
-    end;
-
-    atmosphere_changer:init();
-end;
-
-local hooked = {};
-function hookanim(vm)
-    local anim = rawget(vm, "Animator");
-    if not anim or hooked[anim] then return end;
-    hooked[anim] = true;
-    local mt = getmetatable(anim);
-    local orig = rawget(anim, "PlayAnimation") or (mt and rawget(mt, "PlayAnimation"));
-    if not orig then return end;
-    anim.PlayAnimation = function(self, key, ...)
-        local cfg = ELI.disable_anims;
-        if cfg.enable then
-            local k = tostring(key):lower();
-            if table.find(cfg.select, "shoot") and k:find("shoot") then return end;
-            if table.find(cfg.select, "attack") and k:find("attack") then return end;
-            if table.find(cfg.select, "charge") and k:find("charge") then return end;
-            if table.find(cfg.select, "equip") and k:find("equip") then return end;
-            if table.find(cfg.select, "reload") and k:find("reload") then return end;
-            if table.find(cfg.select, "throw") and k:find("throw") then return end;
-        end;
-        return orig(self, key, ...);
-    end;
-end;
-local old_update = client_viewmodel.Update; client_viewmodel.Update = function(c, dt, movement_state, render_data)
-    if c.ClientItem.ClientFighter.IsLocalPlayer then
-        hookanim(c);
-
-        local cfg = ELI.disable_anims;
-        if cfg.enable then
-            if table.find(cfg.select, "bobbing") then
-                c._bobbing_value_spring.Value = Vector2.new(0, 0);
-                c._bobbing_value_spring.Target = Vector2.new(0, 0);
-                c._bobbing_speed_spring.Value = 0;
-                c._bobbing_speed_spring.Target = 0;
-                c._bobbing_tick = 0;
-            end;
-
-            if table.find(cfg.select, "landing") then
-                c._landing_spring.Value = 0;
-                c._landing_spring.Target = 0;
-                c._jump_spring.Value = 0;
-                c._jump_spring.Target = 0;
-            end;
-
-            if table.find(cfg.select, "sway") then
-                c._sway_spring.Value = Vector2.new(0, 0);
-                c._sway_spring.Target = Vector2.new(0, 0);
-                c._tilt_spring.Value = Vector2.new(0, 0);
-                c._tilt_spring.Target = Vector2.new(0, 0);
-            end;
-
-            if table.find(cfg.select, "equip") then
-                c._equip_spring.Position = c._equip_spring.Target;
-                c._equip_spring.Velocity = 0;
-            end;
-
-            if table.find(cfg.select, "inspect") then
-                c._inspect_spring.Position = c._inspect_spring.Target;
-                c._inspect_spring.Velocity = 0;
-            end;
-
-            if table.find(cfg.select, "sliding") and movement_state then
-                movement_state.IsSliding = false;
-            end;
-
-            if table.find(cfg.select, "shoot") then
-                c._recoil_spring.Value = Vector3.new(0, 0, 0);
-                c._recoil_spring.Target = Vector3.new(0, 0, 0);
-                c._unrecoil_spring.Value = Vector3.new(0, 0, 0);
-                c._unrecoil_spring.Target = Vector3.new(0, 0, 0);
-            end;
-
-            if table.find(cfg.select, "impulse") then
-                c._impulse_position_spring.Value = Vector3.new(0, 0, 0);
-                c._impulse_position_spring.Target = Vector3.new(0, 0, 0);
-            end;
-
-            if table.find(cfg.select, "aim") then
-                c._aim_spring.Position = c._aim_spring.Target;
-                c._aim_spring.Velocity = 0;
-            end;
-
-            if table.find(cfg.select, "sprint") and movement_state then
-                movement_state.IsActuallySprinting = false;
-            end;
-        end;
-    end;
-
-    return old_update(c, dt, movement_state, render_data);
-end;
-
-trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-    if ELI.auto_vote_map.enable then
-    replicated_storage.Remotes.Duels.Vote:FireServer(ELI.auto_vote_map.map);
-    end;
-end)));
-
-do
-local function fire_gui_button(btn)
-    local fired = false;
-    if firesignal then
-        for _, sname in eli_ipairs({ "MouseButton1Click", "MouseButton1Down", "Activated" }) do
-            local ok, sig = pcall(function() return btn[sname] end);
-            if ok and sig then
-                if pcall(firesignal, sig) then fired = true end;
-            end;
-        end;
-    end;
-    if not fired and getconnections then
-        for _, sname in eli_ipairs({ "MouseButton1Click", "MouseButton1Down", "Activated" }) do
-            local ok, sig = pcall(function() return btn[sname] end);
-            if ok and sig then
-                local good, cons = pcall(getconnections, sig);
-                if good and cons then
-                    for _, con in eli_ipairs(cons) do
-                        pcall(function()
-                            if con.Fire then con:Fire() elseif con.Function then con.Function() end;
-                        end);
-                        fired = true;
-                    end;
-                end;
-            end;
-        end;
-    end;
-    return fired;
-end;
-
-local function button_is_shown(gui)
-    local cur = gui;
-    while cur do
-        if cur:IsA("ScreenGui") then return cur.Enabled == true end;
-        if cur:IsA("GuiObject") and not cur.Visible then return false end;
-        cur = cur.Parent;
-    end;
-    return false;
-end;
-
-local leave_words = { ["leave"] = true, ["leave match"] = true, ["leave duel"] = true, ["leave game"] = true, ["back to lobby"] = true, ["return to lobby"] = true, ["lobby"] = true };
-
-local function try_auto_leave()
-    local pg = local_player:FindFirstChildOfClass("PlayerGui");
-    if not pg then return false end;
-    for _, d in eli_ipairs(pg:GetDescendants()) do
-        if d:IsA("TextButton") then
-            local t = string.lower((d.Text or ""):gsub("^%s*(.-)%s*$", "%1"));
-            if leave_words[t] and button_is_shown(d) then
-                if fire_gui_button(d) then return true end;
-            end;
-        end;
-    end;
-    return false;
-end;
-
-trove:Add(task.spawn(function()
-    while wait(1) do
-        if ELI.auto_queue.enable and ELI.auto_queue.queue_mode ~= "" then
-            local fighter = fighter_controller.LocalFighter;
-            local currently_in_match = false;
-            pcall(function()
-                currently_in_match = fighter ~= nil and fighter:Get("IsInDuel") == true;
-            end);
-            if currently_in_match then
-                clickedontheremote = false;
-            else
-                local pressed_leave = false;
-                pcall(function() pressed_leave = try_auto_leave() end);
-                if pressed_leave then
-                    clickedontheremote = false;
-                elseif not clickedontheremote then
-                    pcall(function()
-                        replicated_storage.Remotes.Matchmaking.JoinQueue:InvokeServer(ELI.auto_queue.queue_mode);
-                    end);
-                    clickedontheremote = true;
-                end;
-            end;
-            was_i_in_a_match = currently_in_match;
-        end;
-    end;
-end));
-end;
-
-local sorted_item_list = {};
-local class_dir = {
-    ['primary'] = 1,
-    ['secondary'] = 2,
-    ['melee'] = 3,
-    ['utility'] = 4
-};
-for _, item in next, item_lib.Items do
-    local key = item.Class;
-    if not sorted_item_list[key] then
-        sorted_item_list[key] = {};
-    end;
-    if item.Name == 'MISSING_WEAPON' then continue end;
-    table.insert(sorted_item_list[key], item.Name);
-end;
-
-local pick_weapons = replicated_storage.Remotes.Replication.Fighter.PickWeapons;
-trove:Add(task.spawn(LPH_NO_VIRTUALIZE(function()
-    while task.wait() do
-        if not ELI.auto_loadout.enable then
-            continue;
-        end;
-        local loadout = ELI.auto_loadout.loadout;
-        local current_page = pages.PageSystem.CurrentPage;
-        if local_fighter and local_fighter:Get('CanPickWeapons') == true then
-            if not current_page then continue end;
-            if current_page.Name ~= 'PickWeapons' then continue end;
-            local payload = {};
-            for i = 1, local_fighter:GetMaxEquippableWeapons() do
-                payload[i] = loadout[i];
-            end;
-            pick_weapons:FireServer(payload);
-        end;
-    end;
-end)));
-
-trove:Add(run_service.RenderStepped:Connect(LPH_NO_VIRTUALIZE(function()
-    if ELI.arcade_server.grab_drops then
-        for _,v in next, workspace:GetChildren() do
-            if v.Name == "_drop" and v:IsA("BasePart") and local_player.Character:FindFirstChildWhichIsA("HumanoidRootPart") then
-                firetouchinterest(local_player.Character.HumanoidRootPart, v, 0);
-                firetouchinterest(local_player.Character.HumanoidRootPart, v, 1);
-            end;
-        end;
-    end;
-end)));
-
-trove:Add(run_service.RenderStepped:Connect(LPH_NO_VIRTUALIZE(function()
-    if ELI.fov_changer.enable then
-        camera.FieldOfView = ELI.fov_changer.fov;
-    end;
-end)));
-
-trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-    if ELI.arcade_server.auto_respawn then
-        replicated_storage.Remotes.Duels.RespawnNow:FireServer();
-    end;
-end)));
-
-local triggerbot_handler = {};
-triggerbot_handler.is_shooting = false;
-
-trove:Add(task.spawn(function()
-    while task.wait(0.05) do
-        if ELI.triggerbot.enable then
-            local hit = workspace:FindPartOnRayWithIgnoreList(Ray.new(camera.CFrame.Position, camera.CFrame.LookVector * 2500), {local_player.Character});
-            if hit and hit.Parent:FindFirstChildWhichIsA('Humanoid') and hit.Parent:FindFirstChildWhichIsA('Humanoid').Health > 0 then
-                local target_player = players:GetPlayerFromCharacter(hit.Parent);
-                if ELI.triggerbot.team_check and target_player and target_player:GetAttribute('TeamID') == local_player:GetAttribute('TeamID') then
-                    triggerbot_handler.is_shooting = false;
-                else
-                    if not triggerbot_handler.is_shooting then
-                        task.wait(ELI.triggerbot.reaction_time);
-                        triggerbot_handler.is_shooting = true;
-                    end;
-                    if local_fighter then
-                        setthreadidentity(2);
-                        local_fighter:Input('StartShooting');
-                        setthreadidentity(7);
-                        task.wait(ELI.triggerbot.shoot_delay);
-                    end;
-                end;
-            else
-                triggerbot_handler.is_shooting = false;
-            end;
-        end;
-    end;
-end));
-trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-    if ELI.guns.force_modifier_enable then
-        for i,v in next, item_lib.Items do
-            v.InputSpammingEnabled.StartShooting = ELI.guns.force_modifier_v;
-        end;
-    end;
-end)));
-
-trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-    if ELI.viewmodel_offsets.enable then
-        for i, v in next, item_lib.ViewModels do
-            if oldoffsets[i] then
-                v.RootPartOffset = CFrame.new(oldoffsets[i].X + ELI.viewmodel_offsets.x, oldoffsets[i].Y + ELI.viewmodel_offsets.y, oldoffsets[i].Z + ELI.viewmodel_offsets.z);
-            end;
-        end;
-    end;
-end)));
-
-local replicate_from_server = local_fighter.ReplicateFromServer; local_fighter.ReplicateFromServer = function(controller, _type, ...)
-    if _type == 'DamageNumberEffect' then
-        local hit_root, hit_damage, is_headshot = unpack({...});
-        if not hit_root or not hit_damage then
-            return replicate_from_server(controller, _type, ...);
-        end;
-
-        local hit_character = hit_root.Parent;
-        if not hit_character or (hit_character and not hit_character:FindFirstChildOfClass('Humanoid')) then
-            return replicate_from_server(controller, _type, ...);
-        end;
-
-        if ELI.esp.filled.hit_flash then
-            local hp = players:GetPlayerFromCharacter(hit_character);
-            if hp and cache[hp] then cache[hp].hitFlash = tick() end;
-        end;
-
-        if ELI.hit_notify.enable then
-            local part = is_headshot and "Head" or "Body";
-            local raw_message = ELI.hit_notify.msg;
-            raw_message = raw_message:match('{target}') and raw_message:gsub('{target}', hit_character.Name) or raw_message;
-            raw_message = raw_message:match('{damage}') and raw_message:gsub('{damage}', tostring(math.floor(hit_damage or 0))) or raw_message;
-            raw_message = raw_message:match('{hitpart}') and raw_message:gsub('{hitpart}', part) or raw_message;
-
-            local notify_duration = ELI.hit_notify.duration;
-
-            task.spawn(function()
-                local original_context = getthreadidentity();
-                setthreadidentity(7);
-                Library:Notify(raw_message, notify_duration);
-                setthreadidentity(original_context);
-            end);
-        end;
-
-        if elisium_state.fireDamage and ELI.damage_numbers.enable then
-            local hp = players:GetPlayerFromCharacter(hit_character);
-            local ok, pos = pcall(function()
-                return hit_root.Position + Vector3.new(0, is_headshot and 2.6 or 2.1, 0);
-            end);
-            elisium_state.fireDamage(hp, hit_damage, ok and pos or nil);
-        end;
-
-        if ELI.damage_numbers.enable or ELI.damage_numbers.remove_ingame then
-            return
-        end;
-    end;
-    return replicate_from_server(controller, _type, ...);
-end;
-
-local play_hitmarker_sound = client_viewmodel.PlayHitmarkerSound; client_viewmodel.PlayHitmarkerSound = function(controller, critical, pitch)
-    if ELI.custom_hitsounds.enable then
-        if ELI.custom_hitsounds.selected and hitsound_dir[ELI.custom_hitsounds.selected] then
-            local hitsound = hitsound_dir[ELI.custom_hitsounds.selected];
-            if hitsound then
-                local volume = ELI.custom_hitsounds.volume;
-                local pitch = ELI.custom_hitsounds.pitch;
-                controller:_CreateHitmarkerSound(hitsound, volume, pitch, local_player.PlayerGui, true, 1);
-            end;
-
-            if ELI.custom_hitsounds.remove_default_hitsound then
-                return;
-            end;
-        end;
-    end;
-
-    return play_hitmarker_sound(controller, critical, pitch);
-end;
-
-trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-    if ELI.device_spoof.enable then
-        replicated_storage.Remotes.Replication.Fighter.SetControls:FireServer(ELI.device_spoof.type);
-    end;
-end)));
-
-trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-    if ELI.sound_spammer.enable then
-        mechanics_controller:PlayMechanicsSound(ELI.sound_spammer.type);
-    end;
-end)));
-
-trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-    if ELI.targeting.auto_shoot then
-        local target = getclosest();
-        if (target and target.Character) then
-            setthreadidentity(2);
-            local_fighter:Input("StartShooting");
-            setthreadidentity(7);
-        end;
-    end;
-end)));
-
-local old = katana._StartDeflecting; katana._StartDeflecting = function(...)
-    local args = {...};
-    local fighter = args[1].ClientFighter;
-    local player = fighter and fighter.Player;
-    if (player) then
-        deflecting[player] = true;
-        task.delay(args[1].Info.DeflectDuration or 0.1, function(...)
-            deflecting[player] = false;
-        end);
-    end;
-    return old(table.unpack(args));
-end;
-
-local items_backup = {};
-local old = gun.StartShooting; gun.StartShooting = function(controller, is_empty, debounce)
-    local client_fighter = controller.ClientFighter;
-    if not client_fighter.Islocal_player then
-        return old(controller, is_empty, debounce);
-    end;
-    if not is_empty and controller:Get("Ammo") <= 0 then
-        return false;
-    end;
-    local shoot_result = {old(controller, is_empty, debounce)};
-    local current_item = client_fighter.EquippedItem;
-    if current_item then
-        if ELI.guns.no_spread then
-            shoot_result[4] = true;
-        end;
-    end;
-    return unpack(shoot_result);
-end;
-
-trove:Add(function()
-    katana._StartDeflecting = old;
-end);
-
-local old_muzzle = utility.PlayParticles; utility.PlayParticles = function(s, p)
-    if ELI.guns.no_muzzle_flash and p.Name == "_muzzle" then
-        return;
-    end;
-    return old_muzzle(s, p);
-end;
-
-trove:Add(function()
-    utility.PlayParticles = old_muzzle;
-end);
-
-local old_raycast = utility.Raycast; utility.Raycast = LPH_NO_VIRTUALIZE(function(...)
-    if ELI.silent_aim.enable and debug.info(3, "n") == "StartShooting" then
-        if math.random(1, 100) <= ELI.silent_aim.hit_chance then
-            local closest = getclosest();
-            if closest and closest.Character then
-                local target_pos;
-                if ELI.silent_aim.closest_part then
-                    local part = closest_part(closest);
-                    target_pos = part and part.Position;
-                else
-                    local char = closest.Character;
-                    local aim_part = char:FindFirstChild(ELI.targeting.part)
-                        or char:FindFirstChild("HitboxHead")
-                        or char:FindFirstChild("Head")
-                        or char:FindFirstChild("HumanoidRootPart");
-                    target_pos = aim_part and aim_part.Position;
-                end;
-                if target_pos then
-                    elisium_state.silentTarget = target_pos;
-                    elisium_state.silentTargetT = tick();
-                    local args = {...};
-                    args[3] = target_pos;
-                    return old_raycast(table.unpack(args));
-                end;
-            end;
-        end;
-    end;
-    return old_raycast(...);
-end);
-
-trove:Add(function()
-    utility.Raycast = old_raycast;
-end);
-
-local legit_tab = Tabs.Main; do
-    local aim_tabs = legit_tab:AddLeftTabbox(); do
-        local silentaim_tab = aim_tabs:AddTab('silent aim'); do
-            local keybind_silent_aim_enable = false;
-
-            silentaim_tab:AddToggle('silent_aim_enable', {
-                Text = 'enable',
-                Default = false,
-                Callback = function(v)
-                    keybind_silent_aim_enable = v;
-                    ELI.silent_aim.enable = v;
-                    sfov.Visible = v and ELI.silent_aim.show_fov or false;
-                    Toggles.show_fov_enable:SetVisible(v);
+        local old
+        old = hookmetamethod(game, '__namecall', newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            local args = {...}
+            if method == 'Kick' or method == 'kick' then return end
+            if (method == 'FireServer' or method == 'InvokeServer') and self then
+                local sName = ''
+                pcall(function() sName = string.lower(tostring(self.Name or '')) end)
+                for k in pairs(banned) do
+                    if sName ~= '' and string.find(sName, k, 1, true) then return end
                 end
-            }):AddKeyPicker('silent_aim_keybind', {
-                Default = '...',
-                Text = 'silent aim',
-                NoUI = false,
-                EnableCheck = function()
-                    return ELI.silent_aim.enable;
-                end,
-                Callback = function(v)
-                    ELI.silent_aim.enable = keybind_silent_aim_enable and v or false;
-                    sfov.Visible = ELI.silent_aim.enable and ELI.silent_aim.show_fov or false;
-                end
-            });
-
-            silentaim_tab:AddToggle('closest_part_enable', {
-                Text = 'closest part',
-                Default = false,
-                Callback = function(v)
-                    ELI.silent_aim.closest_part = v;
-                end
-            });
-
-            silentaim_tab:AddToggle('silent_aim_visualize', {
-                Text = 'visualize',
-                Default = false,
-                Callback = function(v)
-                    ELI.silent_aim.visualize = v;
-                end
-            });
-
-            silentaim_tab:AddToggle('show_fov_enable', {
-                Text = 'show fov',
-                Default = false,
-                Visible = false,
-                Callback = function(v)
-                    ELI.silent_aim.show_fov = v;
-                    sfov.Visible = v and ELI.silent_aim.enable or false;
-                    Options.silent_aim_fov_radius:SetVisible(v);
-                    Options.silent_aim_fov_transparency:SetVisible(v);
-                    Options.silent_aim_fov_thickness:SetVisible(v);
-                    Options.silent_aim_rotation_speed:SetVisible(v);
-                    Toggles.show_fill_enable:SetVisible(v);
-                end
-            }):AddColorPicker('fov_color', {
-                Title = 'fov color',
-                Default = Color3.fromRGB(120, 81, 166),
-                Callback = function(v)
-                    ELI.silent_aim.fov_color = v;
-                end
-            }):AddColorPicker('fov_color2', {
-    Title = 'fov color 2',
-    Default = Color3.fromRGB(255, 255, 255),
-    Callback = function(v)
-        ELI.silent_aim.fov_color2 = v;
-    end
-});
-
-            silentaim_tab:AddToggle('silent_aim_follow_gunpoint', {
-                Text = 'follow gunpoint',
-                Default = false,
-                Callback = function(v)
-                    ELI.silent_aim.follow_gunpoint = v;
-                end
-            });
-
-                        silentaim_tab:AddToggle('silent_aim_follow_target', {
-    Text = 'follow target',
-    Default = false,
-    Callback = function(v)
-        ELI.silent_aim.follow_target = v;
-    end
-});
-
-            silentaim_tab:AddToggle('show_fill_enable', {
-                Text = 'show fill',
-                Default = false,
-                Visible = false,
-                Callback = function(v)
-                    ELI.silent_aim.show_fill = v;
-                    Options.silent_aim_fill_transparency:SetVisible(v);
-                end
-            }):AddColorPicker('fill_color_primary', {
-                Title = 'fill color',
-                Default = Color3.fromRGB(120, 81, 166),
-                Callback = function(v)
-                    ELI.silent_aim.fov_fill_color = v;
-                end
-            }):AddColorPicker('fill_color_secondary', {
-                Title = 'fill color 2',
-                Default = Color3.fromRGB(255, 255, 255),
-                Callback = function(v)
-                    ELI.silent_aim.fov_fill_color2 = v;
-                end
-            });
-
-            silentaim_tab:AddSlider('silent_aim_fov_radius', {
-                Text = 'radius',
-                Default = 180,
-                Suffix = 'px',
-                Min = 1,
-                Max = 600,
-                Rounding = 0,
-                Visible = false,
-                Callback = function(v)
-                    ELI.silent_aim.fov_radius = v;
-                end
-            });
-
-            silentaim_tab:AddSlider('silent_aim_fill_transparency', {
-                Text = 'fill transparency',
-                Default = 0.6,
-                Min = 0,
-                Max = 1,
-                Rounding = 2,
-                Visible = false,
-                Callback = function(v)
-                    ELI.silent_aim.fov_fill_transparency = v;
-                end
-            });
-
-            silentaim_tab:AddSlider('silent_aim_fov_transparency', {
-                Text = 'fov transparency',
-                Default = 0.2,
-                Min = 0,
-                Max = 1,
-                Rounding = 2,
-                Visible = false,
-                Callback = function(v)
-                    ELI.silent_aim.fov_outline_transparency = v;
-                end
-            });
-
-            silentaim_tab:AddSlider('silent_aim_fov_thickness', {
-                Text = 'thickness',
-                Default = 2,
-                Min = 1,
-                Max = 10,
-                Rounding = 0,
-                Visible = false,
-                Callback = function(v)
-                    ELI.silent_aim.fov_thickness = v;
-                end
-            });
-
-            silentaim_tab:AddSlider('silent_aim_rotation_speed', {
-                Text = 'rotation speed',
-                Default = 90,
-                Min = 0,
-                Max = 360,
-                Rounding = 0,
-                Visible = false,
-                Callback = function(v)
-                    ELI.silent_aim.fov_rotation_speed = v;
-                end
-            });
-
-            silentaim_tab:AddSlider('silent_aim_hit_chance', {
-                Text = 'hit chance',
-                Default = 100,
-                Min = 1,
-                Max = 100,
-                Rounding = 0,
-                Callback = function(v)
-                    ELI.silent_aim.hit_chance = v;
-                end
-            });
-
-silentaim_tab:AddSlider('silent_aim_lerp', {
-    Text = 'lerp',
-    Default = 0,
-    Min = 0,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(v)
-        ELI.silent_aim.lerp = v;
-    end
-});
-        end;
-
-        local aimbot_tab = aim_tabs:AddTab('aimbot'); do
-            local keybind_aimbot_enable = false;
-
-            aimbot_tab:AddToggle('aimbot_enable', {
-                Text = 'enable',
-                Default = false,
-                Callback = function(v)
-                    keybind_aimbot_enable = v;
-                    ELI.aimbot.enable = v;
-                    afov.Visible = v and ELI.aimbot.show_fov or false;
-                    Toggles.aimbot_show_fov_enable:SetVisible(v);
-                end
-            }):AddKeyPicker('aimbot_keybind', {
-                Default = '...',
-                Text = 'aimbot',
-                NoUI = false,
-                EnableCheck = function()
-                    return ELI.aimbot.enable;
-                end,
-                Callback = function(v)
-                    ELI.aimbot.enable = keybind_aimbot_enable and v or false;
-                    afov.Visible = ELI.aimbot.enable and ELI.aimbot.show_fov or false;
-                end
-            });
-
-            aimbot_tab:AddToggle('aimbot_show_fov_enable', {
-                Text = 'show fov',
-                Default = false,
-                Visible = false,
-                Callback = function(v)
-                    ELI.aimbot.show_fov = v;
-                    afov.Visible = v and ELI.aimbot.enable or false;
-                    Options.aimbot_fov_radius:SetVisible(v);
-                    Options.aimbot_fov_transparency:SetVisible(v);
-                    Options.aimbot_fov_thickness:SetVisible(v);
-                    Options.aimbot_rotation_speed:SetVisible(v);
-                    Toggles.aimbot_show_fill_enable:SetVisible(v);
-                end
-            }):AddColorPicker('aimbot_fov_color', {
-                Title = 'fov color',
-                Default = Color3.fromRGB(120, 81, 166),
-                Callback = function(v)
-                    ELI.aimbot.fov_color = v;
-                end
-            }):AddColorPicker('aimbot_fov_color2', {
-    Title = 'fov color 2',
-    Default = Color3.fromRGB(255, 255, 255),
-    Callback = function(v)
-        ELI.aimbot.fov_color2 = v;
-    end
-});
-
-            aimbot_tab:AddToggle('aimbot_follow_gunpoint', {
-                Text = 'follow gunpoint',
-                Default = false,
-                Callback = function(v)
-                    ELI.aimbot.follow_gunpoint = v;
-                end
-            });
-            aimbot_tab:AddToggle('aimbot_follow_target', {
-    Text = 'follow target',
-    Default = false,
-    Callback = function(v)
-        ELI.aimbot.follow_target = v;
-    end
-});
-
-            aimbot_tab:AddToggle('aimbot_closest_part', {
-                Text = 'closest part',
-                Default = false,
-                Callback = function(v)
-                    ELI.aimbot.closest_part = v;
-                end
-            });
-
-            aimbot_tab:AddToggle('aimbot_show_fill_enable', {
-                Text = 'show fill',
-                Default = false,
-                Visible = false,
-                Callback = function(v)
-                    ELI.aimbot.show_fill = v;
-                    Options.aimbot_fill_transparency:SetVisible(v);
-                end
-            }):AddColorPicker('aimbot_fill_color_primary', {
-                Title = 'fill color',
-                Default = Color3.fromRGB(120, 81, 166),
-                Callback = function(v)
-                    ELI.aimbot.fov_fill_color = v;
-                end
-            }):AddColorPicker('aimbot_fill_color_secondary', {
-                Title = 'fill color 2',
-                Default = Color3.fromRGB(255, 255, 255),
-                Callback = function(v)
-                    ELI.aimbot.fov_fill_color2 = v;
-                end
-            });
-
-            aimbot_tab:AddSlider('aimbot_fov_radius', {
-                Text = 'radius',
-                Default = 180,
-                Suffix = 'px',
-                Min = 1,
-                Max = 600,
-                Rounding = 0,
-                Visible = false,
-                Callback = function(v)
-                    ELI.aimbot.fov_radius = v;
-                end
-            });
-
-            aimbot_tab:AddSlider('aimbot_fill_transparency', {
-                Text = 'fill transparency',
-                Default = 0.6,
-                Min = 0,
-                Max = 1,
-                Rounding = 2,
-                Visible = false,
-                Callback = function(v)
-                    ELI.aimbot.fov_fill_transparency = v;
-                end
-            });
-
-            aimbot_tab:AddSlider('aimbot_fov_transparency', {
-                Text = 'fov transparency',
-                Default = 0.2,
-                Min = 0,
-                Max = 1,
-                Rounding = 2,
-                Visible = false,
-                Callback = function(v)
-                    ELI.aimbot.fov_outline_transparency = v;
-                end
-            });
-
-            aimbot_tab:AddSlider('aimbot_fov_thickness', {
-                Text = 'thickness',
-                Default = 2,
-                Min = 1,
-                Max = 10,
-                Rounding = 0,
-                Visible = false,
-                Callback = function(v)
-                    ELI.aimbot.fov_thickness = v;
-                end
-            });
-
-            aimbot_tab:AddSlider('aimbot_rotation_speed', {
-                Text = 'rotation speed',
-                Default = 90,
-                Min = 0,
-                Max = 360,
-                Rounding = 0,
-                Visible = false,
-                Callback = function(v)
-                    ELI.aimbot.fov_rotation_speed = v;
-                end
-            });
-
-            aimbot_tab:AddSlider('aimbot_smoothing', {
-                Text = 'smoothing',
-                Suffix = 's',
-                Default = 1,
-                Min = 0,
-                Max = 1,
-                Rounding = 2,
-                Callback = function(v)
-                    ELI.aimbot.smoothing = v;
-                end
-            });
-
- aimbot_tab:AddSlider('aimbot_lerp', {
-    Text = 'lerp',
-    Default = 0,
-    Min = 0,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(v)
-        ELI.aimbot.lerp = v;
-    end
-});
-        end;
-    end;
-
-    local triggerbot_tab = legit_tab:AddRightGroupbox('triggerbot'); do
-        local keybind_triggerbot_enable = false;
-
-        triggerbot_tab:AddToggle('triggerbot_enable', {
-            Text = 'enable',
-            Default = false,
-            Callback = function(v)
-                keybind_triggerbot_enable = v;
-                ELI.triggerbot.enable = v;
-            end
-        }):AddKeyPicker('triggerbot_keybind', {
-            Default = '...',
-            Text = 'triggerbot',
-            NoUI = false,
-            EnableCheck = function()
-                return ELI.triggerbot.enable;
-            end,
-            Callback = function(v)
-                ELI.triggerbot.enable = keybind_triggerbot_enable and v or false;
-            end
-        });
-
-        triggerbot_tab:AddToggle('triggerbot_team_check', {
-            Text = 'team check',
-            Default = false,
-            Callback = function(v)
-                ELI.triggerbot.team_check = v;
-            end
-        });
-
-        triggerbot_tab:AddSlider('triggerbot_reaction_time', {
-            Text = 'reaction time',
-            Default = 0.05,
-            Min = 0,
-            Max = 2,
-            Rounding = 2,
-            Suffix = 's',
-            Callback = function(v)
-                ELI.triggerbot.reaction_time = v;
-            end
-        });
-
-        triggerbot_tab:AddSlider('triggerbot_shoot_delay', {
-            Text = 'shoot delay',
-            Default = 0.1,
-            Min = 0,
-            Max = 2,
-            Rounding = 2,
-            Suffix = 's',
-            Callback = function(v)
-                ELI.triggerbot.shoot_delay = v;
-            end
-        });
-
-        triggerbot_tab:AddSlider('triggerbot_max_distance', {
-            Text = 'max distance',
-            Default = 2500,
-            Min = 1,
-            Max = 2500,
-            Rounding = 0,
-            Suffix = 'studs',
-            Callback = function(v)
-                ELI.triggerbot.max_distance = v;
-            end
-        });
-    end;
-
-    local guns_tab = legit_tab:AddRightGroupbox('guns'); do
-        guns_tab:AddToggle('no_muzzle_flash_enable', {
-            Text = 'no muzzle flash',
-            Default = false,
-            Callback = function(v)
-                ELI.guns.no_muzzle_flash = v;
-            end
-        });
-
-        guns_tab:AddToggle('no_spread_enable', {
-            Text = 'no spread',
-            Default = false,
-            Callback = function(v)
-                ELI.guns.no_spread = v;
-            end
-        });
-
-        guns_tab:AddToggle('force_modifier_enable', {
-            Text = 'force modifier',
-            Default = false,
-            Callback = function(v)
-                ELI.guns.force_modifier_enable = v;
-                Options.force_modifier_value:SetVisible(v);
-                if v then
-                    for i, item in next, item_lib.Items do
-                        old_force_auto[i] = item.InputSpammingEnabled.StartShooting;
-                    end;
-                else
-                    for i, item in next, item_lib.Items do
-                        item.InputSpammingEnabled.StartShooting = old_force_auto[i];
-                    end;
-                end;
-            end
-        });
-
-        guns_tab:AddSlider('force_modifier_value', {
-            Text = '',
-            Suffix = 'x',
-            Default = 0,
-            Min = 0,
-            Max = 1,
-            Rounding = 2,
-            Visible = false,
-            Callback = function(v)
-                ELI.guns.force_modifier_v = v;
-            end
-        });
-    end;
-
-    local targeting_tab = legit_tab:AddLeftGroupbox('targeting'); do
-        targeting_tab:AddToggle('visible_only_enable', {
-            Text = 'visible only',
-            Default = false,
-            Callback = function(v)
-                ELI.targeting.visible_only = v;
-            end
-        });
-
-        targeting_tab:AddToggle('auto_shoot_enable', {
-            Text = 'auto shoot',
-            Default = false,
-            Callback = function(v)
-                ELI.targeting.auto_shoot = v;
-            end
-        });
-
-        local keybind_anti_katana_enable = false;
-
-        targeting_tab:AddToggle('anti_katana_enable', {
-            Text = 'anti katana',
-            Default = false,
-            Callback = function(v)
-                keybind_anti_katana_enable = v;
-                ELI.targeting.anti_katana = v;
-            end
-        }):AddKeyPicker('anti_katana_keybind', {
-            Default = '...',
-            Text = 'anti katana',
-            NoUI = false,
-            EnableCheck = function()
-                return ELI.targeting.anti_katana;
-            end,
-            Callback = function(v)
-                ELI.targeting.anti_katana = keybind_anti_katana_enable and v or false;
-            end
-        });
-
-        local keybind_anti_riot_shield_enable = false;
-
-        targeting_tab:AddToggle('anti_riot_shield_enable', {
-            Text = 'anti riot shield',
-            Default = false,
-            Callback = function(v)
-                keybind_anti_riot_shield_enable = v;
-                ELI.silent_aim.riot_shield = v;
-            end
-        }):AddKeyPicker('anti_riot_shield_keybind', {
-            Default = '...',
-            Text = 'anti riot shield',
-            NoUI = false,
-            EnableCheck = function()
-                return ELI.silent_aim.riot_shield;
-            end,
-            Callback = function(v)
-                ELI.silent_aim.riot_shield = keybind_anti_riot_shield_enable and v or false;
-            end
-        });
-
-        targeting_tab:AddDropdown('targeting_hit_part', {
-            Values = {'Head', 'HumanoidRootPart', 'UpperTorso', 'LowerTorso'},
-            Default = 1,
-            Multi = false,
-            Text = 'hit part',
-            Callback = function(v)
-                ELI.targeting.part = v;
-            end
-        });
-
-        targeting_tab:AddSlider('max_distance', {
-            Text = 'max distance',
-            Default = 100,
-            Min = 100,
-            Max = 700,
-            Rounding = 0,
-            Callback = function(v)
-                ELI.targeting.max_distance = v;
-            end
-        });
-    end;
-end;
-
-local PredictionService = {}
-do
-    function PredictionService:Init()
-        self.enabled = false;
-        self.multiplier = 1.2;
-        self.velocity = Vector3.new(0, 0, 0);
-        self.acceleration = Vector3.new(0, 0, 0);
-        self.lastposition = nil;
-        self.lasttime = 0;
-        self.velbuffer = {};
-        self.posbuffer = {};
-        self.maxvelsamples = 15;
-        self.maxpossamples = 5;
-    end;
-
-    function PredictionService:Update(target)
-        if not self.enabled or not target or not target.Character then
-            self.velocity = Vector3.new(0, 0, 0);
-            self.acceleration = Vector3.new(0, 0, 0);
-            self.lastposition = nil;
-            self.velbuffer = {};
-            self.posbuffer = {};
-            return
-        end;
-
-        local root = target.Character:FindFirstChild("HumanoidRootPart");
-        if not root then return end;
-
-        local now = tick();
-        local dt = now - self.lasttime;
-
-        if dt > 0 and dt < 0.1 then
-            local currentpos = root.Position;
-
-            table.insert(self.posbuffer, 1, {
-                position = currentpos,
-                time = now
-            });
-
-            if #self.posbuffer > self.maxpossamples then
-                table.remove(self.posbuffer);
-            end;
-
-            if self.lastposition then
-                local instantvel = (currentpos - self.lastposition) / dt;
-
-                if self.velocity.Magnitude > 0.1 then
-                    local instantaccel = (instantvel - self.velocity) / dt;
-                    self.acceleration = self.acceleration:Lerp(instantaccel, 0.5);
-                end;
-
-                table.insert(self.velbuffer, 1, {
-                    velocity = instantvel,
-                    time = now,
-                    dt = dt
-                });
-
-                if #self.velbuffer > self.maxvelsamples then
-                    table.remove(self.velbuffer);
-                end;
-
-                if #self.velbuffer > 0 then
-                    local weightedsum = Vector3.new(0, 0, 0);
-                    local totalweight = 0;
-
-                    for i, entry in next, self.velbuffer do
-                        local weight = math.exp(-(i - 1) * 0.3);
-                        weightedsum = weightedsum + (entry.velocity * weight);
-                        totalweight = totalweight + weight;
-                    end;
-
-                    self.velocity = weightedsum / totalweight;
-                else
-                    self.velocity = instantvel;
-                end;
-            end;
-
-            self.lastposition = currentpos;
-            self.lasttime = now;
-        end;
-    end;
-
-    function PredictionService:Predict(targetpart, origin)
-        if not self.enabled or not targetpart then
-            return targetpart.Position;
-        end;
-
-        local basepos = targetpart.Position;
-        local distance = (basepos - origin).Magnitude;
-
-        local ping = 0;
-        pcall(function()
-            ping = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue() / 1000;
-        end);
-
-        local bulletspeed = 3000;
-        local traveltime = distance / bulletspeed;
-        local speed = self.velocity.Magnitude;
-
-        local adaptivemult = 1.0;
-        if speed > 150 then
-            adaptivemult = 1.5 + math.min((speed - 150) / 300, 1.0);
-        elseif speed > 80 then
-            adaptivemult = 1.3;
-        elseif speed > 40 then
-            adaptivemult = 1.1;
-        elseif speed < 10 then
-            adaptivemult = 0.7;
-        end;
-
-        local totaltime = (traveltime + ping) * self.multiplier * adaptivemult;
-        local predicted = basepos + (self.velocity * totaltime);
-
-        if self.acceleration.Magnitude > 5 and speed > 50 then
-            predicted = predicted + self.acceleration * (totaltime * totaltime * 0.5);
-        end;
-
-        if #self.posbuffer >= 3 then
-            local jittersum = Vector3.new(0, 0, 0);
-            for i = 1, math.min(3, #self.posbuffer - 1) do
-                jittersum = jittersum + (self.posbuffer[i].position - self.posbuffer[i + 1].position);
-            end;
-            local avgjitter = jittersum / math.min(3, #self.posbuffer - 1);
-            if avgjitter.Magnitude > 2 then
-                predicted = predicted + (avgjitter * 0.3);
-            end;
-        end;
-
-        if math.abs(self.velocity.Y) > 5 then
-            predicted = predicted + Vector3.new(0, self.velocity.Y * totaltime * 0.15, 0);
-        end;
-
-        return predicted;
-    end;
-
-    PredictionService:Init();
-end;
-
-local DesyncService = {}
-do
-    function DesyncService:Init()
-        self.active = false;
-        self.connection = nil;
-        self.server = nil;
-        self.client = nil;
-        self.angle = 0;
-        self.speed = 9000;
-        self.fighter = fighter_controller.LocalFighter;
-
-        local ref = camera_controller.Update;
-        camera_controller.Update = function(...)
-            if self.active and self.fighter and self.fighter.Entity.RootPart and self.client then
-                self.fighter.Entity.RootPart.CFrame = self.client;
-            end;
-            return ref(...);
-        end;
-    end;
-
-    function DesyncService:Start(target)
-        if self.active then return end;
-        if not local_player.Character then return end;
-        if not self.fighter or not self.fighter.Entity.RootPart then return end;
-
-        self.active = true;
-        self.connection = run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function(dt)
-            if not self.active then
-                if self.connection then
-                    self.connection:Disconnect();
-                    self.connection = nil;
-                end;
-                return
-            end;
-
-            if not target or not target.Character or not target.Character:FindFirstChild('HumanoidRootPart') or not self.fighter or not self.fighter.Entity.RootPart then
-                if self.connection then
-                    self.connection:Disconnect();
-                    self.connection = nil;
-                end;
-                if self.client and self.fighter and self.fighter.Entity.RootPart then
-                    self.fighter.Entity.RootPart.CFrame = self.client;
-                end;
-                self.active = false;
-                self.client = nil;
-                self.server = nil;
-                return
-            end;
-
-            self.client = self.fighter.Entity.RootPart.CFrame;
-
-            local item = self.fighter.EquippedItem;
-            if not item then return end;
-
-            local targetPos = target.Character.HumanoidRootPart.Position;
-
-            if is_deflecting(target) or has_riot(target) then
-            self.server = Vector3.new(0, 2^26, 0);
-            return
-            end;
-
-            if item.Name == "Slingshot" then
-                self.server = Vector3.new(0, 2^26, 0);
-            else
-                self.server = targetPos + Vector3.new(ELI.ragebot.x, ELI.ragebot.y, ELI.ragebot.z);
-            end;
-
-            self.fighter.Entity.RootPart.CFrame = CFrame.new(self.server);
-        end));
-    end;
-
-    function DesyncService:Stop()
-        if not self.active then return end;
-        if self.connection then
-            self.connection:Disconnect();
-            self.connection = nil;
-        end;
-        if self.client and self.fighter and self.fighter.Entity.RootPart then
-            self.fighter.Entity.RootPart.CFrame = self.client;
-        end;
-        self.active = false;
-        self.server = nil;
-        self.client = nil;
-    end;
-
-    DesyncService:Init();
-end
-
-do
-    local POOL_SIZE = 32;
-    local pool = {};
-    local throwables = {
-        ["grenade"] = true, ["molotov"] = true, ["flashbang"] = true,
-        ["smoke grenade"] = true, ["satchel"] = true, ["jump pad"] = true,
-        ["war horn"] = true, ["flare gun"] = true,
-    };
-
-    local function getPart(i)
-        local p = pool[i];
-        if p and p.Parent then return p end;
-        p = Instance.new("Part");
-        p.Anchored = true;
-        p.CanCollide = false;
-        p.CanQuery = false;
-        p.CanTouch = false;
-        p.Shape = Enum.PartType.Ball;
-        p.Size = Vector3.new(0.4, 0.4, 0.4);
-        p.Material = Enum.Material.Neon;
-        p.Parent = workspace;
-        pool[i] = p;
-        return p;
-    end;
-
-    local function hideFrom(n)
-        for i = n, POOL_SIZE do
-            local p = pool[i];
-            if p then p.Transparency = 1 end;
-        end;
-    end;
-
-    local function clearPool()
-        for i, p in eli_pairs(pool) do
-            pcall(function() p:Destroy() end);
-            pool[i] = nil;
-        end;
-    end;
-
-    local function computeArc(startPos, velocity, gravity, dt, steps, params)
-        local points = { startPos };
-        local pos = startPos;
-        local vel = velocity;
-        for _ = 1, steps do
-            local nextPos = pos + vel * dt + gravity * (0.5 * dt * dt);
-            local hit = params and workspace:Raycast(pos, nextPos - pos, params);
-            if hit then
-                points[#points + 1] = hit.Position;
-                return points;
-            end;
-            points[#points + 1] = nextPos;
-            pos = nextPos;
-            vel = vel + gravity * dt;
-        end;
-        return points;
-    end;
-
-    trove:Add(run_service.RenderStepped:Connect(LPH_NO_VIRTUALIZE(function()
-        local cfg = ELI.trajectory;
-        if not cfg.enable then
-            hideFrom(1);
-            return
-        end;
-
-        local fighter = fighter_controller.LocalFighter;
-        local item = fighter and fighter.EquippedItem;
-        local name = item and item.Name;
-        local show = cfg.all_weapons or (name ~= nil and throwables[string.lower(name)] == true);
-        if not show then
-            hideFrom(1);
-            return
-        end;
-
-        local origin = camera.CFrame.Position;
-        local velocity = camera.CFrame.LookVector * cfg.speed + Vector3.new(0, cfg.arc_up, 0);
-        local gravity = Vector3.new(0, -workspace.Gravity, 0);
-
-        local params = RaycastParams.new();
-        params.FilterType = Enum.RaycastFilterType.Exclude;
-        params.FilterDescendantsInstances = { local_player.Character };
-
-        local points = computeArc(origin, velocity, gravity, 0.07, POOL_SIZE - 1, params);
-        for i = 1, #points do
-            local p = getPart(i);
-            p.Position = points[i];
-            p.Color = cfg.color;
-            p.Transparency = 0;
-        end;
-        hideFrom(#points + 1);
-    end)));
-
-    trove:Add(clearPool);
-end;
-
-local RagebotService = {}
-do
-    function RagebotService:Init()
-        self.active = false;
-        self.debounce = false;
-        self.lastShot = os.clock();
-        self.connection = nil;
-    end;
-
-    function RagebotService:IsValid(player)
-        if not (player
-            and player.Character
-            and player.Character:FindFirstChild("Humanoid")
-            and player.Character.Humanoid.Health > 0
-            and player:GetAttribute('EnvironmentID') == local_player:GetAttribute('EnvironmentID')) then
-            return false;
-        end;
-
-        if ELI.ragebot.ffa_mode then
-            return true;
-        end;
-
-        return local_player:GetAttribute('TeamID') ~= player:GetAttribute('TeamID');
-    end;
-
-    function RagebotService:GetClosest()
-        local closest, best = nil, math.huge;
-
-        for _, player in next, players:GetPlayers() do
-            if player ~= local_player and self:IsValid(player) then
-                local rootpos = player.Character.HumanoidRootPart.Position;
-                local mag = local_player:DistanceFromCharacter(rootpos);
-
-                if mag < best then
-                    closest, best = player, mag;
-                end;
-            end;
-        end;
-
-        return closest;
-    end;
-
-    function RagebotService:FireWeapon(target)
-        if not target or not target.Character then return end;
-
-        local fighter = fighter_controller.LocalFighter;
-        if not fighter then return end;
-
-        local item = fighter.EquippedItem;
-        if not item then return end;
-        if is_deflecting(target) or has_riot(target) then
-            return
-        end;
-        local head = target.Character:FindFirstChild('HitboxHead')
-            or target.Character:FindFirstChild('HitboxTorso')
-            or target.Character:FindFirstChild('HumanoidRootPart');
-        if not head then return end;
-
-        local character = local_player.Character;
-        if not character or not character:FindFirstChild('HumanoidRootPart') then return end;
-
-        local shootPos = DesyncService.active and DesyncService.server or character.HumanoidRootPart.Position;
-
-        local aimPos = head.Position;
-
-        if ELI.ragebot.prediction then
-            local troot = target.Character:FindFirstChild('HumanoidRootPart');
-            if troot then
-                local ping = 0.05;
-                pcall(function() ping = local_player:GetNetworkPing() end);
-                local lead = math.clamp(ping, 0, 0.4) * (ELI.ragebot.prediction_amount or 1);
-                aimPos = aimPos + troot.AssemblyLinearVelocity * lead;
-            end;
-        end;
-
-        local data = {
-            [utf8.char(1)] = {
-                [utf8.char(0)] = utility:EncodeCFrame(CFrame.new(shootPos, aimPos)),
-                [utf8.char(1)] = utility:EncodeCFrame(CFrame.new(shootPos, aimPos)),
-                [utf8.char(2)] = head,
-                [utf8.char(1)] = utility:EncodeCFrame(CFrame.new(shootPos, aimPos)),
-            },
-        };
-
-        replicated_storage.Remotes.Replication.Fighter.UseItem:FireServer(item:Get('ObjectID'), enum_lib:ToEnum('StartShooting'), data, nil);
-    end;
-
-    function RagebotService:ProjectileHandler()
-        workspace.DescendantAdded:Connect(function(child)
-            if not ELI.ragebot.enable then return end;
-
-            if child:IsA('BasePart') or child:IsA('Model') then
-                if child.Name == "Slingshot" or child.Name == "CoreProjectile" or child.Name == "OuterProjectile" then
-                    task.spawn(function()
-                        task.wait(0.03);
-
-                        local proj = child:IsA('BasePart') and child or child:FindFirstChildWhichIsA('BasePart');
-                        if not proj then return end;
-
-                        proj.CanTouch = true;
-
-                        for i = 1, 45 do
-                            if not ELI.ragebot.enable then break end;
-
-                            local target = self:GetClosest();
-                            if target and target.Character then
-                                local hitpart = target.Character:FindFirstChild('HitboxHead') or target.Character:FindFirstChild('HumanoidRootPart');
-
-                                if hitpart and hitpart:IsA("BasePart")
-                                    and hitpart.Parent
-                                    and proj.Parent
-                                    and hitpart:IsDescendantOf(workspace)
-                                    and proj:IsDescendantOf(workspace)
-                                then
-                                    pcall(firetouchinterest, hitpart, proj, 0);
-                                    pcall(firetouchinterest, hitpart, proj, 1);
-                                end;
-                            end;
-                            task.wait();
-                        end;
-                    end);
-                end;
-            end;
-        end);
-    end;
-
-    function RagebotService:Start()
-        if self.connection then return end;
-
-        self.connection = run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-            if not ELI.ragebot.enable then
-                self:Stop();
-                return
-            end;
-
-            local target = self:GetClosest();
-            if not target then DesyncService:Stop() return end;
-
-            local fighter = fighter_controller.LocalFighter;
-            if not fighter then DesyncService:Stop() return end;
-
-            local item = fighter.EquippedItem;
-            if not item then DesyncService:Stop() return end;
-
-            local target_fighter = fighter_controller:GetFighter(target);
-            if not target_fighter then DesyncService:Stop() return end;
-
-            local viewmodel = item.ViewModel;
-            if not viewmodel then DesyncService:Stop() return end;
-            local target_entity = target_fighter.Entity;
-            if not target_entity or target_entity:Get('IsInvincible') then DesyncService:Stop() return end;
-
-            if item:Get('Ammo') and item:Get('Ammo') > 0 and not viewmodel:IsAnimationPlaying('Reload') then
-                if self.debounce == false then
-                    self.debounce = os.clock() + 0.5;
-                    return
-                end;
-
-                if typeof(self.debounce) == 'number' and os.clock() < self.debounce then
-                    return
-                end;
-
-                if typeof(self.debounce) == 'number' then
-                    self.debounce = true;
-                end;
-
-                DesyncService:Start(target);
-
-                if not target.Character then return end;
-
-                if DesyncService.server then
-                    self.lastShot = os.clock();
-                    self:FireWeapon(target);
-                end;
-            else
-                if not viewmodel:IsAnimationPlaying('Reload') then
-                    setthreadidentity(2);
-                    item:Input('StartReloading');
-                    setthreadidentity(7);
-                end;
-            end;
-        end));
-    end;
-
-    function RagebotService:Stop()
-        if self.connection then
-            self.connection:Disconnect();
-            self.connection = nil;
-        end;
-        self.debounce = false;
-        DesyncService:Stop();
-    end;
-
-    RagebotService:Init();
-    RagebotService:ProjectileHandler();
-end;
-
-local ragebot_tab = Tabs.Main:AddRightGroupbox('ragebot') do
-
-    ragebot_tab:AddLabel('warning: ragebot is detected - use at your own risk', true);
-
-    ragebot_tab:AddToggle('ragebot_enable', {
-        Text = 'enable',
-        Default = false,
-        Callback = function(v)
-            ELI.ragebot.enable = v;
-            if v then
-                RagebotService:Start();
-            else
-                RagebotService:Stop();
-            end;
-        end
-    });
-
-    ragebot_tab:AddToggle('ragebot_ffa_mode', {
-        Text = 'ffa mode',
-        Default = false,
-        Callback = function(v)
-            ELI.ragebot.ffa_mode = v;
-        end
-    });
-
-    ragebot_tab:AddSlider('ragebot_x', {
-        Text = 'x offset',
-        Default = 7,
-        Min = 1,
-        Max = 10,
-        Rounding = 1,
-        Callback = function(v)
-            ELI.ragebot.x = v;
-        end
-    });
-
-    ragebot_tab:AddSlider('ragebot_y', {
-        Text = 'y offset',
-        Default = 7,
-        Min = 1,
-        Max = 10,
-        Rounding = 1,
-        Callback = function(v)
-            ELI.ragebot.y = v;
-        end
-    });
-
-    ragebot_tab:AddSlider('ragebot_z', {
-        Text = 'z offset',
-        Default = 7,
-        Min = 1,
-        Max = 10,
-        Rounding = 1,
-        Callback = function(v)
-            ELI.ragebot.z = v;
-        end
-    });
-
-    ragebot_tab:AddToggle('ragebot_prediction', {
-        Text = 'prediction',
-        Default = true,
-        Callback = function(v)
-            ELI.ragebot.prediction = v;
-            Options.ragebot_prediction_amount:SetVisible(v);
-        end
-    });
-
-    ragebot_tab:AddSlider('ragebot_prediction_amount', {
-        Text = 'prediction strength',
-        Default = 1,
-        Min = 0,
-        Max = 3,
-        Rounding = 2,
-        Callback = function(v)
-            ELI.ragebot.prediction_amount = v;
-        end
-    });
-end
-
-do
-    local opt_tab = Tabs.optimizations;
-    local function apply(kind) pcall(function() getgenv().elisium_apply_opt(kind) end) end;
-
-    local boost_box = opt_tab:AddLeftGroupbox('fps boost');
-
-    boost_box:AddToggle('opt_no_particles', {
-        Text = 'remove particles & effects',
-        Default = false,
-        Callback = function(v)
-            ELI.optimizations.no_particles = v;
-            apply('particles');
-        end
-    });
-
-    boost_box:AddToggle('opt_no_shadows', {
-        Text = 'disable shadows',
-        Default = false,
-        Callback = function(v)
-            ELI.optimizations.no_shadows = v;
-            apply('shadows');
-        end
-    });
-
-    boost_box:AddToggle('opt_no_postfx', {
-        Text = 'disable post processing',
-        Default = false,
-        Callback = function(v)
-            ELI.optimizations.no_postfx = v;
-            apply('postfx');
-        end
-    });
-
-    boost_box:AddToggle('opt_low_quality', {
-        Text = 'low render quality',
-        Default = false,
-        Callback = function(v)
-            ELI.optimizations.low_quality = v;
-            apply('quality');
-        end
-    });
-
-    boost_box:AddToggle('opt_no_atmosphere', {
-        Text = 'disable atmosphere & clouds',
-        Default = false,
-        Callback = function(v)
-            ELI.optimizations.no_atmosphere = v;
-            apply('atmosphere');
-        end
-    });
-
-    boost_box:AddToggle('opt_no_textures', {
-        Text = 'remove textures',
-        Default = false,
-        Callback = function(v)
-            ELI.optimizations.no_textures = v;
-            apply('textures');
-        end
-    });
-
-    boost_box:AddButton('quick boost (all)', function()
-        Toggles.opt_no_particles:SetValue(true);
-        Toggles.opt_no_shadows:SetValue(true);
-        Toggles.opt_no_postfx:SetValue(true);
-        Toggles.opt_low_quality:SetValue(true);
-        Toggles.opt_no_atmosphere:SetValue(true);
-        Library:Notify('Applied fps boost', 3);
-    end);
-
-    local fr_box = opt_tab:AddRightGroupbox('frame rate');
-
-    fr_box:AddToggle('opt_fps_cap_enable', {
-        Text = 'limit fps',
-        Default = false,
-        Callback = function(v)
-            ELI.optimizations.fps_cap_enable = v;
-            apply('fpscap');
-            if v and not setfpscap then
-                Library:Notify('your executor has no setfpscap, to unlock fps past 60 use the fflags injector below then rejoin', 8);
-            end;
-        end
-    });
-
-    fr_box:AddSlider('opt_fps_cap', {
-        Text = 'fps limit',
-        Default = 60,
-        Min = 30,
-        Max = 240,
-        Rounding = 0,
-        Callback = function(v)
-            ELI.optimizations.fps_cap = v;
-            apply('fpscap');
-        end
-    });
-
-    fr_box:AddLabel('this caps fps where setfpscap is supported, on mobile roblox is locked to 60 by the engine, raising this slider will not go past 60, to truly unlock use the fflags injector then fully rejoin', true);
-
-    local ff_box = opt_tab:AddRightGroupbox('fflags injector');
-
-    ff_box:AddLabel('how to use', false);
-    ff_box:AddLabel('1 tap "inject fps boost fflags"', true);
-    ff_box:AddLabel('2 it applies live if your executor supports it and always saves them to the elisium fflags file', true);
-    ff_box:AddLabel('3 if it only saved, open your executor fastflags editor and import that file (or paste it in)', true);
-    ff_box:AddLabel('4 fully close and rejoin roblox to apply', true);
-    ff_box:AddLabel('this unlocks fps past 60 and forces low graphics for a big fps gain, paste your own flags in the box for custom ones', true);
-    ff_box:AddDivider();
-
-    local exec_label = ff_box:AddLabel('detecting your executor', true)
-    do
-        local name = '';
-        local fn = identifyexecutor or getexecutorname;
-        if fn then
-            local ok, n = pcall(fn);
-            if ok and n then name = tostring(n) end;
-        end;
-        local key = string.lower(name);
-
-        local known = {
-            'delta', 'codex', 'cryptic', 'fluxus', 'arceus', 'hydrogen', 'vega', 'trigon',
-            'evon', 'electron', 'mercury', 'nihon', 'cloud', 'sirhurt', 'krnl',
-            'wave', 'solara', 'xeno', 'velocity', 'seliware', 'zenith', 'ronix', 'synapse',
-            'bytebreaker', 'potassium', 'volt', 'awp', 'swift', 'bunni', 'isabelle', 'jjsploit',
-            'nezur', 'comet', 'argon', 'matcha', 'nihon', 'valex', 'assembly',
-            'macsploit', 'opiumware', 'nirvana', 'hydrogen',
-        };
-        local overrides = {
-            delta = 'tap the floating delta icon > settings (gear) > fastflags, paste or import the json then save',
-            fluxus = 'open settings > fastflags manager, paste or import the json then save',
-            codex = 'open menu > settings > fastflags editor, paste or import the json',
-            cryptic = 'open menu > settings > fastflags, paste or import the json',
-            macsploit = 'open the macsploit menu > settings > fastflags, paste the json',
-            arceus = 'open menu > settings > fastflags, paste or import the json',
-        };
-        local base = 'open its settings > fastflags editor, paste or import the elisium fflags file then save';
-
-        local matched;
-        for _, k in eli_ipairs(known) do
-            if key ~= '' and string.find(key, k, 1, true) then
-                matched = k;
-                break;
-            end;
-        end;
-
-        local guide;
-        if name == '' then
-            guide = 'could not auto detect your executor, open its fastflags or config editor, import the elisium fflags file then fully rejoin roblox';
-        else
-            local steps = (matched and overrides[matched]) or base;
-            guide = 'detected ' .. string.lower(name) .. ', ' .. steps .. ' then fully rejoin roblox';
-        end;
-        pcall(function() exec_label:SetText(guide) end);
-    end;
-
-    local function do_inject(json)
-        local injector = getgenv().elisium_inject_fflags;
-        if not injector then
-            Library:Notify('fflags injector not ready', 4);
-            return
-        end;
-        local res = injector(json);
-        if not res or not res.ok then
-            Library:Notify('fflags: ' .. ((res and res.reason) or 'failed'), 4);
-            return
-        end;
-        if res.live and res.applied > 0 then
-            Library:Notify(string.format('fflags applied %d/%d live - rejoin to fully apply', res.applied, res.total), 6);
-        elseif res.saved then
-            Library:Notify('fflags saved to Dv.a/fflags.json - import in your executor & rejoin', 7);
-        else
-            Library:Notify('your executor cannot set fflags from a script', 5);
-        end;
-    end;
-
-    ff_box:AddButton('inject fps boost fflags', function()
-        do_inject(nil);
-    end);
-
-    ff_box:AddInput('opt_fflag_custom', {
-        Text = 'custom fflags json',
-        Default = '',
-        Placeholder = 'paste fflags json here',
-    });
-
-    ff_box:AddButton('inject custom fflags', function()
-        local v = Options.opt_fflag_custom and Options.opt_fflag_custom.Value or '';
-        do_inject(v);
-    end);
-
-    ff_box:AddButton('save preset to file', function()
-        if not writefile then
-            Library:Notify('no writefile support', 4);
-            return
-        end;
-        pcall(function()
-            if makefolder and isfolder and not isfolder('Dv.a') then makefolder('Dv.a') end;
-            writefile('Dv.a/fflags.json', getgenv().elisium_fflag_preset or '{}');
-        end);
-        Library:Notify('saved preset to Dv.a/fflags.json', 5);
-    end);
-end;
-
-local visuals_tab = Tabs.visualstab; do
-
-    local viewmodel_thing = visuals_tab:AddLeftTabbox(); do
-        local viewmodel_tab = viewmodel_thing:AddTab('viewmodel'); do
-
-            local vm_material_names = getgenv().elisium_materials.names;
-
-            local function build_vm_chams_section(tab, key, chams_label, is_arms)
-                local prefix = 'vm_' .. key;
-                local vm = ELI.viewmodel_chams;
-
-                tab:AddToggle(prefix .. '_chams_enable', {
-                    Text = chams_label,
-                    Default = false,
-                    Callback = function(v)
-                        vm[key .. '_chams'].enable = v;
-                        Options[prefix .. '_chams_material']:SetVisible(v);
-                        Options[prefix .. '_chams_transparency']:SetVisible(v);
-                        if is_arms then Options[prefix .. '_chams_invisible']:SetVisible(v) end;
-                    end;
-                }):AddColorPicker(prefix .. '_chams_color', {
-                    Title = 'color',
-                    Default = Color3.fromRGB(255, 255, 255),
-                    Callback = function(v)
-                        vm[key .. '_chams'].color = v;
-                    end;
-                });
-
-                tab:AddDropdown(prefix .. '_chams_material', {
-                    Text = 'material',
-                    Values = vm_material_names,
-                    Default = 'Neon',
-                    Visible = false,
-                    Callback = function(v)
-                        vm[key .. '_chams'].material = v;
-                    end;
-                });
-
-                tab:AddSlider(prefix .. '_chams_transparency', {
-                    Text = 'transparency',
-                    Default = 0, Min = 0, Max = 1, Rounding = 2, Visible = false,
-                    Callback = function(v)
-                        vm[key .. '_chams'].transparency = v;
-                    end;
-                });
-
-                if is_arms then
-                    tab:AddToggle(prefix .. '_chams_invisible', {
-                        Text = 'invisible arms',
-                        Default = false,
-                        Visible = false,
-                        Callback = function(v)
-                            vm.arm_chams.invisible = v;
-                        end;
-                    });
-                end;
-
-                tab:AddToggle(prefix .. '_highlight_enable', {
-                    Text = is_arms and 'arm highlight' or 'weapon highlight',
-                    Default = false,
-                    Callback = function(v)
-                        vm[key .. '_highlight'].enable = v;
-                        Options[prefix .. '_highlight_fill']:SetVisible(v);
-                        Options[prefix .. '_highlight_outline']:SetVisible(v);
-                    end;
-                }):AddColorPicker(prefix .. '_highlight_color', {
-                    Title = 'fill color',
-                    Default = Color3.fromRGB(255, 255, 255),
-                    Callback = function(v)
-                        vm[key .. '_highlight'].color = v;
-                    end;
-                }):AddColorPicker(prefix .. '_highlight_outline_color', {
-                    Title = 'outline color',
-                    Default = Color3.fromRGB(255, 255, 255),
-                    Callback = function(v)
-                        vm[key .. '_highlight'].outline_color = v;
-                    end;
-                });
-
-                tab:AddSlider(prefix .. '_highlight_fill', {
-                    Text = 'fill transparency',
-                    Default = 0.5, Min = 0, Max = 1, Rounding = 2, Visible = false,
-                    Callback = function(v)
-                        vm[key .. '_highlight'].transparency = v;
-                    end;
-                });
-
-                tab:AddSlider(prefix .. '_highlight_outline', {
-                    Text = 'outline transparency',
-                    Default = 0, Min = 0, Max = 1, Rounding = 2, Visible = false,
-                    Callback = function(v)
-                        vm[key .. '_highlight'].outline_transparency = v;
-                    end;
-                });
-            end;
-
-            local weapon_chams_tab = viewmodel_thing:AddTab('weapon');
-            build_vm_chams_section(weapon_chams_tab, 'weapon', 'weapon chams', false);
-
-            local arm_chams_tab = viewmodel_thing:AddTab('arms');
-            build_vm_chams_section(arm_chams_tab, 'arm', 'arm chams', true);
-
-            viewmodel_tab:AddToggle('viewmodel_offsets', {
-                Text = 'viewmodel override',
-                Default = false,
-                Callback = function(v)
-                    ELI.viewmodel_offsets.enable = v;
-                    Options.viewmodel_offset_x:SetVisible(v);
-                    Options.viewmodel_offset_y:SetVisible(v);
-                    Options.viewmodel_offset_z:SetVisible(v);
-                    if v then
-                        for i, vm in next, item_lib.ViewModels do
-                            if vm.RootPartOffset then
-                                oldoffsets[i] = vm.RootPartOffset;
-                            end;
-                        end;
-                    else
-                        for i, vm in next, item_lib.ViewModels do
-                            if oldoffsets[i] then
-                                vm.RootPartOffset = oldoffsets[i];
-                            end;
-                        end;
-                        oldoffsets = {};
-                    end;
-                end;
-            });
-
-            viewmodel_tab:AddSlider('viewmodel_offset_x', {
-                Text = 'x',
-                Default = 0,
-                Min = -5,
-                Max = 5,
-                Rounding = 2,
-                Visible = false,
-                Callback = function(v)
-                    ELI.viewmodel_offsets.x = v;
-                end;
-            });
-
-            viewmodel_tab:AddSlider('viewmodel_offset_y', {
-                Text = 'y',
-                Default = 0,
-                Min = -5,
-                Max = 5,
-                Rounding = 2,
-                Visible = false,
-                Callback = function(v)
-                    ELI.viewmodel_offsets.y = v;
-                end;
-            });
-
-            viewmodel_tab:AddSlider('viewmodel_offset_z', {
-                Text = 'z',
-                Default = 0,
-                Min = -5,
-                Max = 5,
-                Rounding = 2,
-                Visible = false,
-                Callback = function(v)
-                    ELI.viewmodel_offsets.z = v;
-                end;
-            });
-
-            viewmodel_tab:AddToggle('bullet_tracers_enable', {
-                Text = 'bullet tracers',
-                Default = false,
-                Callback = function(v)
-                    ELI.bullet_tracers.enable = v;
-                    Options.bullet_tracers_texture:SetVisible(v);
-                    Options.bullet_tracers_speed:SetVisible(v);
-                    Options.bullet_tracers_lifetime:SetVisible(v);
-                    Options.bullet_tracers_width0:SetVisible(v);
-                    Options.bullet_tracers_width1:SetVisible(v);
-                    Options.bullet_tracers_position_lerp_speed:SetVisible(v);
-                    Options.bullet_tracers_spring_expand:SetVisible(v);
-                    Options.bullet_tracers_expand_speed:SetVisible(v and ELI.bullet_tracers.spring_expand);
-                    Options.bullet_tracers_expand_damper:SetVisible(v and ELI.bullet_tracers.spring_expand);
-                end;
-            }):AddColorPicker('bullet_tracers_color_start', {
-                Title = 'color start',
-                Default = Color3.fromRGB(255, 255, 255),
-                Callback = function(v)
-                    ELI.bullet_tracers.color_start = v;
-                end;
-            }):AddColorPicker('bullet_tracers_color_end', {
-                Title = 'color end',
-                Default = Color3.fromRGB(255, 255, 255),
-                Callback = function(v)
-                    ELI.bullet_tracers.color_end = v;
-                end;
-            });
-
-            viewmodel_tab:AddToggle('bullet_tracers_curve', {
-                Text = 'curve around walls',
-                Default = false,
-                Callback = function(v)
-                    ELI.bullet_tracers.curve_around = v;
-                    Options.bullet_tracers_curve_height:SetVisible(v);
-                end
-            });
-
-            viewmodel_tab:AddToggle('bullet_tracers_through_walls', {
-                Text = 'show through walls',
-                Default = false,
-                Callback = function(v)
-                    ELI.bullet_tracers.through_walls = v;
-                end
-            });
-
-            viewmodel_tab:AddSlider('bullet_tracers_curve_height', {
-                Text = 'curve height',
-                Default = 14,
-                Min = 2,
-                Max = 60,
-                Rounding = 0,
-                Visible = false,
-                Callback = function(v)
-                    ELI.bullet_tracers.curve_height = v;
-                end
-            });
-
-            viewmodel_tab:AddDropdown('bullet_tracers_texture', {
-                Values = {"beam", "lightning", "heartrate", "chain", "glitch", "swirl", "neon", "arrow1", "bullets1", "bullets2", "curve1", "curve2", "curve3", "curve4", "curve5", "curve6", "dna", "dna2", "dna3", "dna4", "dna5", "dna6", "dna7", "glow1", "laser1", "laser2", "laser3", "laser4", "laser5", "laser6", "line1", "line2", "line3", "line4", "line5", "none (solid)", "pattern1", "pattern2", "pattern3", "pattern4", "ray1", "ray2", "ray3"},
-                Default = 2,
-                Multi = false,
-                Text = 'texture',
-                Visible = false,
-                Callback = function(v)
-                    ELI.bullet_tracers.texture = v;
-                end;
-            });
-
-            viewmodel_tab:AddSlider('bullet_tracers_speed', {
-                Text = 'speed',
-                Default = 3,
-                Min = 0,
-                Max = 10,
-                Rounding = 1,
-                Visible = false,
-                Callback = function(v)
-                    ELI.bullet_tracers.speed = v;
-                end;
-            });
-
-            viewmodel_tab:AddSlider('bullet_tracers_lifetime', {
-                Text = 'lifetime',
-                Default = 1.5,
-                Min = 0.10,
-                Max = 5,
-                Rounding = 1,
-                Suffix = 's',
-                Visible = false,
-                Callback = function(v)
-                    ELI.bullet_tracers.life_time = v;
-                end;
-            });
-
-            viewmodel_tab:AddSlider('bullet_tracers_position_lerp_speed', {
-                Text = 'position lerp',
-                Default = 0,
-                Min = 0,
-                Max = 3,
-                Rounding = 1,
-                Suffix = 's',
-                Visible = false,
-                Callback = function(v)
-                    ELI.bullet_tracers.position_lerp_speed = v;
-                end;
-            });
-
-            viewmodel_tab:AddSlider('bullet_tracers_width0', {
-                Text = 'width start',
-                Default = 0.35,
-                Min = 0,
-                Max = 2,
-                Rounding = 2,
-                Visible = false,
-                Callback = function(v)
-                    ELI.bullet_tracers.width0 = v;
-                end;
-            });
-
-            viewmodel_tab:AddSlider('bullet_tracers_width1', {
-                Text = 'width end',
-                Default = 0.15,
-                Min = 0,
-                Max = 2,
-                Rounding = 2,
-                Visible = false,
-                Callback = function(v)
-                    ELI.bullet_tracers.width1 = v;
-                end;
-            });
-
-            viewmodel_tab:AddToggle('bullet_tracers_spring_expand', {
-                Text = 'spring expand',
-                Default = false,
-                Visible = false,
-                Callback = function(v)
-                    ELI.bullet_tracers.spring_expand = v;
-                    Options.bullet_tracers_expand_speed:SetVisible(v);
-                    Options.bullet_tracers_expand_damper:SetVisible(v);
-                end;
-            });
-
-            viewmodel_tab:AddSlider('bullet_tracers_expand_speed', {
-                Text = 'expand speed',
-                Default = 12,
-                Min = 1,
-                Max = 40,
-                Rounding = 1,
-                Visible = false,
-                Callback = function(v)
-                    ELI.bullet_tracers.expand_speed = v;
-                end;
-            });
-
-            viewmodel_tab:AddSlider('bullet_tracers_expand_damper', {
-                Text = 'expand damper',
-                Default = 0.6,
-                Min = 0.1,
-                Max = 1,
-                Rounding = 2,
-                Visible = false,
-                Callback = function(v)
-                    ELI.bullet_tracers.expand_damper = v;
-                end;
-            });
-
-        end;
-
-local target_hud_box = visuals_tab:AddLeftGroupbox('target hud'); do
-
-    target_hud_box:AddToggle('target_hud_enable', {
-        Text = 'enable',
-        Default = false,
-        Callback = function(v)
-            ELI.target_hud.enable = v;
-            G2L["2"]["Visible"] = false;
-        end;
-    });
-
-    target_hud_box:AddDropdown('target_hud_method', {
-        Values = {"silent aim", "aimbot"},
-        Default = "",
-        Multi = false,
-        Text = 'target method',
-        Callback = function(v)
-            ELI.target_hud.target_method = v;
-        end;
-    });
-
-    target_hud_box:AddDropdown('target_hud_position', {
-        Values = {"static", "center", "gunpoint", "target"},
-        Default = "static",
-        Multi = false,
-        Text = 'position',
-        Callback = function(v)
-            ELI.target_hud.position_mode = v;
-        end;
-    });
-
-    target_hud_box:AddSlider('target_hud_offset_x', {
-        Text = 'offset x',
-        Default = 0,
-        Min = -500,
-        Max = 500,
-        Rounding = 0,
-        Callback = function(v)
-            ELI.target_hud.offset_x = v;
-        end;
-    });
-
-    target_hud_box:AddSlider('target_hud_offset_y', {
-        Text = 'offset y',
-        Default = 0,
-        Min = -500,
-        Max = 500,
-        Rounding = 0,
-        Callback = function(v)
-            ELI.target_hud.offset_y = v;
-        end;
-    });
-
-    target_hud_box:AddSlider('target_hud_scale', {
-        Text = 'size',
-        Default = 1,
-        Min = 0.5,
-        Max = 2.5,
-        Rounding = 2,
-        Callback = function(v)
-            ELI.target_hud.scale = v;
-        end;
-    });
-
-end;
-
-local disable_anims_tab = visuals_tab:AddLeftGroupbox('disable animation'); do
-    disable_anims_tab:AddToggle('disable_anims_enable', {
-        Text = 'enable',
-        Default = false,
-        Callback = function(v)
-            ELI.disable_anims.enable = v;
-        end;
-    });
-
-    disable_anims_tab:AddDropdown('disable_anims_select', {
-        Values = {"bobbing", "landing", "sway", "equip", "inspect", "sliding", "shoot", "impulse", "aim", "sprint", "attack", "charge", "reload", "throw"},
-        Default = {},
-        Multi = true,
-        Text = 'types',
-        Callback = function(v)
-            local converted = {};
-            for k, val in next, v do
-                converted[#converted + 1] = type(k) == "number" and val or k;
-            end;
-            ELI.disable_anims.select = converted;
-        end;
-    });
-end;
-
-local motion_blur_tab = visuals_tab:AddLeftGroupbox('motion blur'); do
-    motion_blur_tab:AddToggle('motion_blur_enable', {
-        Text = 'enable',
-        Default = false,
-        Callback = function(v)
-            ELI.motion_blur.enable = v;
-        end;
-    });
-
-    motion_blur_tab:AddSlider('motion_blur_intensity', {
-        Text = 'intensity',
-        Default = 0.5,
-        Min = 0,
-        Max = 1,
-        Rounding = 2,
-        Callback = function(v)
-            ELI.motion_blur.intensity = v;
-        end;
-    });
-
-    motion_blur_tab:AddSlider('motion_blur_sensitivity', {
-        Text = 'sensitivity',
-        Default = 1,
-        Min = 0.1,
-        Max = 3,
-        Rounding = 2,
-        Callback = function(v)
-            ELI.motion_blur.sensitivity = v;
-        end;
-    });
-end
-
-do
-    local function spawnDeathEffect(pos)
-        local cfg = ELI.death_effects;
-        pcall(function()
-            if cfg.type == "Explosion" then
-                local e = Instance.new("Explosion");
-                e.Position = pos;
-                e.BlastRadius = 0;
-                e.BlastPressure = 0;
-                e.DestroyJointRadiusPercent = 0;
-                e.Parent = workspace;
-                return
-            end;
-
-            local part = Instance.new("Part");
-            part.Anchored = true;
-            part.CanCollide = false;
-            part.CanQuery = false;
-            part.CanTouch = false;
-            part.Transparency = 1;
-            part.Size = Vector3.new(1, 1, 1);
-            part.CFrame = CFrame.new(pos);
-            part.Parent = workspace;
-
-            local att = Instance.new("Attachment");
-            att.Parent = part;
-
-            local emitter = Instance.new("ParticleEmitter");
-            emitter.Color = ColorSequence.new(cfg.color);
-            emitter.Lifetime = NumberRange.new(0.4, 0.9);
-            emitter.Speed = NumberRange.new(12, 28);
-            emitter.Rate = 0;
-            emitter.SpreadAngle = Vector2.new(180, 180);
-            emitter.Rotation = NumberRange.new(0, 360);
-            emitter.Size = NumberSequence.new(1.5);
-            if cfg.type == "Fire" then
-                emitter.Texture = "rbxasset://textures/particles/fire_main.dds";
-            elseif cfg.type == "Sparkles" then
-                emitter.Texture = "rbxasset://textures/particles/sparkles_main.dds";
-                emitter.LightEmission = 1;
-            else
-                emitter.Texture = "rbxasset://textures/particles/smoke_main.dds";
-                emitter.LightEmission = 1;
-            end;
-            emitter.Parent = att;
-            emitter:Emit(45);
-
-            task.delay(1.3, function()
-                pcall(function() part:Destroy() end);
-            end);
-        end);
-    end;
-
-    local function hookDeath(plr)
-        plr.CharacterAdded:Connect(function(char)
-            local hum = char:WaitForChild("Humanoid", 6);
-            if not hum then return end;
-            hum.Died:Connect(function()
-                if not ELI.death_effects.enable then return end;
-                local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Head");
-                if root then
-                    spawnDeathEffect(root.Position);
-                end;
-            end);
-        end);
-    end;
-
-    for _, plr in eli_ipairs(players:GetPlayers()) do
-        hookDeath(plr);
-    end;
-    players.PlayerAdded:Connect(hookDeath);
-
-    local death_tab = visuals_tab:AddLeftGroupbox('death effects');
-    death_tab:AddToggle('death_effects_enable', {
-        Text = 'enable',
-        Default = false,
-        Callback = function(v)
-            ELI.death_effects.enable = v;
-        end
-    }):AddColorPicker('death_effects_color', {
-        Title = 'color',
-        Default = Color3.fromRGB(120, 81, 166),
-        Callback = function(v)
-            ELI.death_effects.color = v;
-        end
-    });
-    death_tab:AddDropdown('death_effects_type', {
-        Text = 'effect',
-        Default = 'Explosion',
-        Values = { 'Explosion', 'Fire', 'Sparkles', 'Neon Burst' },
-        Callback = function(v)
-            ELI.death_effects.type = v;
-        end
-    });
-
-    local dmg_tab = visuals_tab:AddRightGroupbox('damage numbers');
-    dmg_tab:AddToggle('damage_numbers_enable', {
-        Text = 'enable',
-        Default = false,
-        Callback = function(v)
-            ELI.damage_numbers.enable = v;
-        end
-    }):AddColorPicker('damage_numbers_color1', {
-        Title = 'color 1',
-        Default = Color3.fromRGB(255, 80, 80),
-        Callback = function(v)
-            ELI.damage_numbers.color1 = v;
-        end
-    }):AddColorPicker('damage_numbers_color2', {
-        Title = 'color 2',
-        Default = Color3.fromRGB(255, 210, 90),
-        Callback = function(v)
-            ELI.damage_numbers.color2 = v;
-        end
-    });
-    dmg_tab:AddToggle('damage_numbers_remove_ingame', {
-        Text = 'remove in game damage numbers',
-        Default = false,
-        Callback = function(v)
-            ELI.damage_numbers.remove_ingame = v;
-        end
-    });
-    dmg_tab:AddDropdown('damage_numbers_color_type', {
-        Text = 'color type',
-        Default = 'Gradient',
-        Values = { 'Gradient', 'Solid', 'Rainbow' },
-        Callback = function(v)
-            ELI.damage_numbers.color_type = v;
-        end
-    });
-    dmg_tab:AddDropdown('damage_numbers_font', {
-        Text = 'font',
-        Default = 'GothamBold',
-        Values = {
-            'GothamBold', 'GothamBlack', 'GothamMedium', 'Gotham',
-            'SourceSansBold', 'SourceSansSemibold', 'Code', 'RobotoMono', 'RobotoCondensed',
-            'Fantasy', 'Arcade', 'SciFi', 'Cartoon', 'Antique', 'Highway',
-            'Bangers', 'Michroma', 'LuckiestGuy', 'PermanentMarker', 'Creepster',
-            'FredokaOne', 'DenkOne', 'GrenzeGotisch', 'SpecialElite', 'Oswald',
-            'Sarpanch', 'TitilliumWeb', 'Ubuntu', 'JosefinSans', 'Jura',
-            'Kalam', 'IndieFlower', 'PatrickHand', 'AmaticSC', 'Merriweather',
-            'Nunito', 'Fondamento', 'Bodoni', 'Garamond', 'BuilderSansExtraBold',
-        },
-        Callback = function(v)
-            ELI.damage_numbers.font = v;
-        end
-    });
-    dmg_tab:AddSlider('damage_numbers_text_size', {
-        Text = 'text size',
-        Default = 18,
-        Min = 10,
-        Max = 40,
-        Rounding = 0,
-        Callback = function(v)
-            ELI.damage_numbers.text_size = v;
-        end
-    });
-    dmg_tab:AddSlider('damage_numbers_rise', {
-        Text = 'rise',
-        Default = 42,
-        Min = 0,
-        Max = 120,
-        Rounding = 0,
-        Callback = function(v)
-            ELI.damage_numbers.rise = v;
-        end
-    });
-    dmg_tab:AddSlider('damage_numbers_duration', {
-        Text = 'duration',
-        Default = 0.8,
-        Min = 0.2,
-        Max = 3,
-        Rounding = 2,
-        Suffix = 's',
-        Callback = function(v)
-            ELI.damage_numbers.duration = v;
-        end
-    });
-
-    local traj_tab = visuals_tab:AddLeftGroupbox('trajectory');
-    traj_tab:AddToggle('trajectory_enable', {
-        Text = 'enable',
-        Default = false,
-        Callback = function(v)
-            ELI.trajectory.enable = v;
-        end
-    }):AddColorPicker('trajectory_color', {
-        Title = 'color',
-        Default = Color3.fromRGB(120, 81, 166),
-        Callback = function(v)
-            ELI.trajectory.color = v;
-        end
-    });
-    traj_tab:AddToggle('trajectory_all_weapons', {
-        Text = 'all weapons',
-        Default = false,
-        Callback = function(v)
-            ELI.trajectory.all_weapons = v;
-        end
-    });
-    traj_tab:AddSlider('trajectory_speed', {
-        Text = 'throw speed',
-        Default = 90,
-        Min = 20,
-        Max = 300,
-        Rounding = 0,
-        Callback = function(v)
-            ELI.trajectory.speed = v;
-        end
-    });
-    traj_tab:AddSlider('trajectory_arc_up', {
-        Text = 'arc height',
-        Default = 10,
-        Min = 0,
-        Max = 60,
-        Rounding = 0,
-        Callback = function(v)
-            ELI.trajectory.arc_up = v;
-        end
-    });
-end;
-
-local viewmodel_custom_box = visuals_tab:AddLeftTabbox(); do
-    local base_material_names = { "ForceField", "Neon", "Plastic", "SmoothPlastic", "Wood", "WoodPlanks", "Marble", "Slate" };
-
-    local vmc_main = viewmodel_custom_box:AddTab('viewmodel'); do
-        vmc_main:AddToggle('vmc_enable', {
-            Text = 'enabled',
-            Default = false,
-            Callback = function(v)
-                ELI.viewmodel_custom.enable = v;
-            end;
-        });
-    end;
-
-    local vmc_body = viewmodel_custom_box:AddTab('body'); do
-        vmc_body:AddToggle('vmc_appearance', {
-            Text = 'viewmodel appearance',
-            Default = false,
-            Callback = function(v)
-                ELI.viewmodel_custom.appearance = v;
-            end;
-        });
-
-        vmc_body:AddToggle('vmc_body_color', {
-            Text = 'color',
-            Default = false,
-            Callback = function(v)
-                ELI.viewmodel_custom.body.color_enable = v;
-            end;
-        }):AddColorPicker('vmc_body_color_pick', {
-            Default = Color3.fromRGB(255, 255, 255),
-            Callback = function(v)
-                ELI.viewmodel_custom.body.color = v;
-            end;
-        });
-
-        vmc_body:AddToggle('vmc_body_material', {
-            Text = 'material',
-            Default = false,
-            Callback = function(v)
-                ELI.viewmodel_custom.body.material_enable = v;
-                Options.vmc_body_material_type:SetVisible(v);
-            end;
-        });
-
-        vmc_body:AddDropdown('vmc_body_material_type', {
-            Text = 'material',
-            Values = base_material_names,
-            Default = 'ForceField',
-            Visible = false,
-            Callback = function(v)
-                ELI.viewmodel_custom.body.material = v;
-            end;
-        });
-
-        vmc_body:AddToggle('vmc_body_disable_clothes', {
-            Text = 'disable clothes',
-            Default = false,
-            Callback = function(v)
-                ELI.viewmodel_custom.body.disable_clothes = v;
-            end;
-        });
-
-        vmc_body:AddSlider('vmc_body_transparency', {
-            Text = 'transparency',
-            Default = 0,
-            Min = 0,
-            Max = 100,
-            Rounding = 0,
-            Suffix = '%',
-            Callback = function(v)
-                ELI.viewmodel_custom.body.transparency = v;
-            end;
-        });
-    end;
-
-    local vmc_item = viewmodel_custom_box:AddTab('item'); do
-        vmc_item:AddToggle('vmc_item_color', {
-            Text = 'color',
-            Default = false,
-            Callback = function(v)
-                ELI.viewmodel_custom.item.color_enable = v;
-            end;
-        }):AddColorPicker('vmc_item_color_pick', {
-            Default = Color3.fromRGB(255, 255, 255),
-            Callback = function(v)
-                ELI.viewmodel_custom.item.color = v;
-            end;
-        });
-
-        vmc_item:AddToggle('vmc_item_material', {
-            Text = 'material',
-            Default = false,
-            Callback = function(v)
-                ELI.viewmodel_custom.item.material_enable = v;
-                Options.vmc_item_material_type:SetVisible(v);
-            end;
-        });
-
-        vmc_item:AddDropdown('vmc_item_material_type', {
-            Text = 'material',
-            Values = base_material_names,
-            Default = 'ForceField',
-            Visible = false,
-            Callback = function(v)
-                ELI.viewmodel_custom.item.material = v;
-            end;
-        });
-
-        vmc_item:AddSlider('vmc_item_transparency', {
-            Text = 'transparency',
-            Default = 0,
-            Min = 0,
-            Max = 100,
-            Rounding = 0,
-            Suffix = '%',
-            Callback = function(v)
-                ELI.viewmodel_custom.item.transparency = v;
-            end;
-        });
-    end;
-end;
-
-    local sound_tabs = Tabs.visualstab:AddRightTabbox(); do
-        local custom_hitsounds_tab = sound_tabs:AddTab('hitsounds'); do
-            custom_hitsounds_tab:AddToggle('hitsound_enable', {
-                Text = 'enable',
-                Default = false,
-                Callback = function(v)
-                    ELI.custom_hitsounds.enable = v;
-                end;
-            });
-
-            custom_hitsounds_tab:AddToggle('disable_default_hitsound_enable', {
-                Text = 'disable ingame hitsound',
-                Default = false,
-                Callback = function(v)
-                    ELI.custom_hitsounds.remove_default_hitsound = v;
-                end;
-            });
-
-            custom_hitsounds_tab:AddDropdown('hitsound_selected', {
-                Values = {"windows xp", "minecraft bow", "neverlose", "steve", "among us", "bonk", "rust", "fatality", "hitmarker", "csgo", "minecraft success bow hit",
-                'gamesense',},
-                Default = "",
-                Text = 'types',
-                Callback = function(v)
-                    ELI.custom_hitsounds.selected = v;
-                end;
-            });
-            custom_hitsounds_tab:AddSlider('hitsound_volume', {
-                Text = 'volume',
-                Default = 3,
-                Min = 0,
-                Max = 5,
-                Rounding = 1,
-                Visible = true,
-                Callback = function(v)
-                    ELI.custom_hitsounds.volume = v;
-                end;
-            });
-            custom_hitsounds_tab:AddSlider('hitsound_pitch', {
-                Text = 'pitch',
-                Default = 1,
-                Min = 0.5,
-                Max = 1.5,
-                Rounding = 1,
-                Visible = true,
-                Callback = function(v)
-                    ELI.custom_hitsounds.pitch = v;
-                end;
-            });
-        end;
-    end;
-
-    local notify_hit_tab = Tabs.visualstab:AddRightGroupbox('hit notify'); do
-        notify_hit_tab:AddToggle('hit_notify_enable', {
-            Text = 'enable',
-            Default = false,
-            Callback = function(v)
-                ELI.hit_notify.enable = v;
-            end;
-        });
-
-        notify_hit_tab:AddSlider('hit_notify_duration', {
-            Text = 'duration',
-            Default = 3,
-            Min = 1,
-            Max = 5,
-            Rounding = 1,
-            Suffix = 's',
-            Visible = true,
-            Callback = function(v)
-                ELI.hit_notify.duration = v;
-            end;
-        });
-
-        notify_hit_tab:AddInput('hit_notify_msg', {
-            Text = 'message',
-            Default = ELI.hit_notify.msg,
-            ClearTextOnFocus = false,
-            Callback = function(v)
-                ELI.hit_notify.msg = v;
-            end
-        });
-
-        notify_hit_tab:AddDivider();
-
-        notify_hit_tab:AddLabel('hit_notify_formatting', {
-            Text = "available formats:"
-        });
-
-        notify_hit_tab:AddLabel('hit_notify_formatting', {
-            Text = "{target}, {damage}, {hitpart}",
-            DoesWrap = true,
-        });
-    end;
-end;
-
-local world_tab = Tabs.worldtab; do
-    local world_main_tab = world_tab:AddLeftTabbox(); do
-        local color_correction_tab = world_main_tab:AddTab('color correction'); do
-            color_correction_tab:AddToggle('world_fog', {
-                Text = 'fog',
-                Default = false,
-                Callback = function(v)
-                    ELI.world.fog = v;
-                    if not v then
-                        lighting.FogColor = world.fog_color;
-                        lighting.FogStart = world.fog_start;
-                        lighting.FogEnd = world.fog_end;
-                    end;
-                end
-            }):AddColorPicker('fog_color', {
-                Default = Color3.fromRGB(255, 255, 255),
-                Callback = function(v)
-                    ELI.world.fog_color = v;
-                end
-            });
-
-            color_correction_tab:AddSlider('fog_start', {
-                Text = 'fog start',
-                Default = 150,
-                Min = 0,
-                Max = 10000,
-                Rounding = 0,
-                Callback = function(v)
-                    ELI.world.fog_start = v;
-                end
-            });
-
-            color_correction_tab:AddSlider('fog_end', {
-                Text = 'fog end',
-                Default = 550,
-                Min = 0,
-                Max = 10000,
-                Rounding = 0,
-                Callback = function(v)
-                    ELI.world.fog_end = v;
-                end
-            });
-
-            color_correction_tab:AddDivider();
-
-            color_correction_tab:AddToggle('world_ambient', {
-                Text = 'ambient',
-                Default = false,
-                Callback = function(v)
-                    ELI.world.ambient = v;
-                    if not v then
-                        lighting.Ambient = world.ambient;
-                    end;
-                end
-            }):AddColorPicker('ambient_color', {
-                Default = Color3.fromRGB(255, 255, 255),
-                Callback = function(v)
-                    ELI.world.ambient_color = v;
-                end
-            });
-
-            color_correction_tab:AddToggle('world_clock', {
-                Text = 'clock time',
-                Default = false,
-                Callback = function(v)
-                    ELI.world.clock = v;
-                    if not v then
-                        lighting.ClockTime = world.clock_time;
-                    end;
-                end
-            });
-
-            color_correction_tab:AddSlider('clock_time', {
-                Text = 'time',
-                Default = 14,
-                Min = 0,
-                Max = 24,
-                Rounding = 1,
-                Callback = function(v)
-                    ELI.world.clock_time = v;
-                end
-            });
-
-            color_correction_tab:AddToggle('world_brightness', {
-                Text = 'brightness',
-                Default = false,
-                Callback = function(v)
-                    ELI.world.brightness = v;
-                    if not v then
-                        lighting.Brightness = world.brightness;
-                    end;
-                end
-            });
-
-            color_correction_tab:AddSlider('brightness_level', {
-                Text = 'level',
-                Default = 1,
-                Min = 0,
-                Max = 10,
-                Rounding = 1,
-                Callback = function(v)
-                    ELI.world.brightness_level = v;
-                end
-            });
-
-            color_correction_tab:AddToggle('world_exposure', {
-                Text = 'exposure',
-                Default = false,
-                Callback = function(v)
-                    ELI.world.exposure = v;
-                    if not v then
-                        lighting.ExposureCompensation = world.exposure;
-                    end;
-                end
-            });
-
-            color_correction_tab:AddSlider('exposure_level', {
-                Text = 'compensation',
-                Default = 0,
-                Min = -10,
-                Max = 10,
-                Rounding = 1,
-                Callback = function(v)
-                    ELI.world.exposure_level = v;
-                end
-            });
-
-            color_correction_tab:AddToggle('world_color_shift_top', {
-                Text = 'color shift top',
-                Default = false,
-                Callback = function(v)
-                    ELI.world.color_shift_top = v;
-                    if not v then
-                        lighting.ColorShift_Top = world.color_shift_top;
-                    end;
-                end
-            }):AddColorPicker('color_shift_top_color', {
-                Default = Color3.fromRGB(255, 255, 255),
-                Callback = function(v)
-                    ELI.world.color_shift_top_color = v;
-                end
-            });
-
-            color_correction_tab:AddToggle('world_color_shift_bottom', {
-                Text = 'color shift bottom',
-                Default = false,
-                Callback = function(v)
-                    ELI.world.color_shift_bottom = v;
-                    if not v then
-                        lighting.ColorShift_Bottom = world.color_shift_bottom;
-                    end;
-                end
-            }):AddColorPicker('color_shift_bottom_color', {
-                Default = Color3.fromRGB(255, 255, 255),
-                Callback = function(v)
-                    ELI.world.color_shift_bottom_color = v;
-                end
-            });
-
-            color_correction_tab:AddDivider();
-
-            color_correction_tab:AddToggle('world_skybox', {
-                Text = 'skybox',
-                Default = false,
-                Callback = function(v)
-                    ELI.world.skybox = v;
-                    skybox_changer:update_skybox();
-                end
-            });
-
-            color_correction_tab:AddDropdown('world_skybox_selected', {
-                Values = skybox_changer.elements,
-                Default = 'Deep Space',
-                Multi = false,
-                Text = 'selected',
-                Callback = function(v)
-                    ELI.world.skybox_selected = v;
-                    skybox_changer:update_skybox();
-                end;
-            });
-
-            color_correction_tab:AddToggle('world_skybox_rotate', {
-                Text = 'skybox rotator',
-                Default = false,
-                Callback = function(v)
-                    ELI.world.skybox_rotate = v;
-                end
-            });
-
-            color_correction_tab:AddSlider('world_skybox_rotate_speed', {
-                Text = 'rotation speed',
-                Default = 1,
-                Min = 0,
-                Max = 100,
-                Rounding = 1,
-                Callback = function(v)
-                    ELI.world.skybox_rotate_speed = v;
-                end
-            });
-
-            color_correction_tab:AddDropdown('world_skybox_rotate_direction', {
-                Text = "direction",
-                Values = {'Horizontal', 'Vertical', 'Diagonal'},
-                Default = "Horizontal",
-                Callback = function(v)
-                    ELI.world.skybox_rotate_direction = v;
-                end;
-            });
-
-            color_correction_tab:AddDropdown('world_skybox_rotate_method', {
-                Text = "method",
-                Values = {'Spin', 'Wave', 'Alternate'},
-                Default = "Spin",
-                Callback = function(v)
-                    ELI.world.skybox_rotate_method = v;
-                end;
-            });
-
-            color_correction_tab:AddDivider();
-
-            color_correction_tab:AddToggle('world_skybox_remove_sun', {
-                Text = 'remove sun',
-                Default = false,
-                Callback = function(v)
-                    ELI.world.skybox_remove_sun = v;
-                    skybox_changer:update_skybox();
-                end
-            });
-
-            color_correction_tab:AddToggle('world_skybox_remove_moon', {
-                Text = 'remove moon',
-                Default = false,
-                Callback = function(v)
-                    ELI.world.skybox_remove_moon = v;
-                    skybox_changer:update_skybox();
-                end
-            });
-
-            color_correction_tab:AddToggle('world_skybox_remove_stars', {
-                Text = 'remove stars',
-                Default = false,
-                Callback = function(v)
-                    ELI.world.skybox_remove_stars = v;
-                    skybox_changer:update_skybox();
-                end
-            });
-        end;
-
-        local weather_tab = world_tab:AddRightGroupbox('weather'); do
-            weather_tab:AddToggle('weather_enabled', {
-                Text = "enable",
-                Default = false,
-                Callback = function(v)
-                    ELI.weather.enable = v;
-                end;
-            }):AddColorPicker('weather_color', {
-                Default = Color3.fromRGB(255, 255, 255),
-                Callback = function(v)
-                    ELI.weather.color = v;
-                end;
-            });
-
-            weather_tab:AddDropdown('weather_type', {
-                Text = "type",
-                Values = {'snow', 'rain', 'light rain'},
-                Default = "snow",
-                Callback = function(v)
-                    ELI.weather.type = v;
-                end;
-            });
-
-            weather_tab:AddSlider('weather_rate', {
-                Text = 'rate',
-                Default = 100,
-                Min = 100,
-                Max = 300,
-                Rounding = 0,
-                Callback = function(v)
-                    ELI.weather.rate = v;
-                end;
-            });
-        end;
-
-        local atmosphere_tab = world_main_tab:AddTab('atmosphere'); do
-            atmosphere_tab:AddToggle('world_atmosphere', {
-                Text = 'atmosphere',
-                Default = false,
-                Callback = function(v)
-                    ELI.world.atmosphere = v;
-                    atmosphere_changer:update_atmosphere();
-                end
-            }):AddColorPicker('world_atmosphere_color', {
-                Default = Color3.fromRGB(255, 255, 255),
-                Callback = function(v)
-                    ELI.world.atmosphere_color = v;
-                    atmosphere_changer:update_atmosphere();
-                end
-            }):AddColorPicker('world_atmosphere_decay', {
-                Default = Color3.fromRGB(255, 255, 255),
-                Callback = function(v)
-                    ELI.world.atmosphere_decay = v;
-                    atmosphere_changer:update_atmosphere();
-                end
-            });
-
-            for _, property in next, atmosphere_changer.properties_list do
-                atmosphere_tab:AddSlider('world_atmosphere_' .. property, {
-                    Text = property,
-                    Default = atmosphere_changer.properties[property],
-                    Min = 0,
-                    Max = property == 'density' and 1 or property == 'offset' and 1 or 10,
-                    Rounding = 2,
-                    Callback = function(v)
-                        ELI.world['atmosphere_' .. property] = v;
-                        atmosphere_changer:update_atmosphere();
-                    end
-                });
-            end;
-        end;
-    end;
-
-    local removals_tab = world_tab:AddRightGroupbox('world removals'); do
-
-        removals_tab:AddToggle('anti_flashbang_enable', {
-            Text = 'anti flashbang',
-            Default = false,
-            Callback = function(v)
-                    if v then
-                        flash1 = workspace.ChildAdded:Connect(function(v)
-                            if v.Name == "FlashbangEffect" then
-                                v:Destroy();
-                            end;
-                        end);
-                        flash2 = local_player.PlayerGui.ChildAdded:Connect(function(v)
-                            if v.Name == "FlashbangGui" then
-                                v:Destroy();
-                            end;
-                        end);
-                    else
-                        if flash1 then flash1:Disconnect() end;
-                        if flash2 then flash2:Disconnect() end;
-                    end;
-            end;
-        });
-    end;
-
-    local texture_connection = nil;
-    local texture_originals = {};
-    local minecraft_textures = {};
-    local minecraft_faces = {'Front', 'Back', 'Bottom', 'Top', 'Right', 'Left'};
-    local minecraft_ids = {
-        [Enum.Material.Wood] = '3258599312',
-        [Enum.Material.WoodPlanks] = '8676581022',
-        [Enum.Material.Brick] = '8558400252',
-        [Enum.Material.Cobblestone] = '5003953441',
-        [Enum.Material.Concrete] = '7341687607',
-        [Enum.Material.DiamondPlate] = '6849247561',
-        [Enum.Material.Fabric] = '118776397',
-        [Enum.Material.Granite] = '4722586771',
-        [Enum.Material.Grass] = '4722588177',
-        [Enum.Material.Ice] = '3823766459',
-        [Enum.Material.Marble] = '62967586',
-        [Enum.Material.Metal] = '62967586',
-        [Enum.Material.Sand] = '152572215',
-    };
-
-    local material_lookup = {};
-    for _, material in eli_pairs(Enum.Material:GetEnumItems()) do
-        material_lookup[string.lower(material.Name)] = material;
-    end;
-
-    local function resolve_material(name)
-        return material_lookup[string.lower((name:gsub('%s+', '')))];
-    end;
-
-    local function is_texture_excluded(part)
-        if ELI.textures.apply_to_viewmodel then
-            return false;
-        end;
-        local node = part;
-        while node and node ~= workspace do
-            if node:IsA("Model") and node:FindFirstChildOfClass("Humanoid") then
-                return true;
-            end;
-            node = node.Parent;
-        end;
-        local viewmodels = workspace:FindFirstChild("ViewModels");
-        if viewmodels and part:IsDescendantOf(viewmodels) then
-            return true;
-        end;
-        if camera and part:IsDescendantOf(camera) then
-            return true;
-        end;
-        return false;
-    end;
-
-    local function clear_minecraft_texture(part)
-        if minecraft_textures[part] then
-            for _, tex in eli_pairs(minecraft_textures[part]) do
-                if tex and tex.Parent then
-                    tex:Destroy();
-                end;
-            end;
-            minecraft_textures[part] = nil;
-        end;
-    end;
-
-    local function apply_minecraft_texture(part, texture_id)
-        clear_minecraft_texture(part);
-        minecraft_textures[part] = {};
-        for _, face_name in eli_pairs(minecraft_faces) do
-            local texture = Instance.new('Texture');
-            texture.Texture = 'rbxassetid://' .. texture_id;
-            texture.Face = Enum.NormalId[face_name];
-            texture.Color3 = part.Color;
-            texture.Transparency = part.Transparency;
-            texture.StudsPerTileU = 3;
-            texture.StudsPerTileV = 3;
-            texture.Parent = part;
-            table.insert(minecraft_textures[part], texture);
-        end;
-    end;
-
-    local function apply_texture(part)
-        if not part:IsA('BasePart') then
-            return
-        end;
-        if is_texture_excluded(part) then
-            return
-        end;
-        if not texture_originals[part] then
-            texture_originals[part] = {
-                Material = part.Material,
-                Color = part.Color,
-            };
-        end;
-        local config = ELI.textures;
-        part.Color = config.color;
-        if config.material == 'Minecraft' then
-            local source = texture_originals[part].Material;
-            local id = minecraft_ids[source] or '5003953441';
-            apply_minecraft_texture(part, id);
-        else
-            clear_minecraft_texture(part);
-            local material = resolve_material(config.material);
-            if material then
-                part.Material = material;
-            end;
-        end;
-    end;
-
-    local function applyToExisting()
-        for part in eli_pairs(texture_originals) do
-            if part and part.Parent then
-                apply_texture(part);
-            end;
-        end;
-    end;
-
-    local function enableTextures()
-        for _, part in eli_pairs(workspace:GetDescendants()) do
-            apply_texture(part);
-        end;
-        if texture_connection then
-            texture_connection:Disconnect();
-        end;
-        texture_connection = workspace.DescendantAdded:Connect(function(part)
-            if ELI.textures.enable then
-                task.defer(apply_texture, part);
-            end;
-        end);
-        trove:Add(texture_connection);
-    end;
-
-    local function disableTextures()
-        if texture_connection then
-            texture_connection:Disconnect();
-            texture_connection = nil;
-        end;
-        for part, props in eli_pairs(texture_originals) do
-            if part and part.Parent then
-                pcall(function()
-                    part.Material = props.Material;
-                    part.Color = props.Color;
-                end);
-            end;
-        end;
-        for part in eli_pairs(minecraft_textures) do
-            clear_minecraft_texture(part);
-        end;
-        table.clear(texture_originals);
-    end;
-
-    local textures_tab = world_tab:AddLeftGroupbox('world textures'); do
-        textures_tab:AddToggle('textures_enable', {
-            Text = 'enable',
-            Default = false,
-            Callback = function(v)
-                ELI.textures.enable = v;
-                if v then
-                    enableTextures();
-                else
-                    disableTextures();
-                end;
-            end
-        });
-
-        textures_tab:AddDropdown('textures_material', {
-            Values = {'Air', 'Asphalt', 'Basalt', 'Brick', 'Cardboard', 'Carpet', 'Ceramic Tiles', 'Clay Roof Tiles', 'Cobblestone', 'Concrete', 'Corroded Metal', 'Cracked Lava', 'Diamond Plate', 'Fabric', 'Foil', 'Forcefield', 'Glacier', 'Glass', 'Granite', 'Grass', 'Ground', 'Ice', 'Leafy Grass', 'Leather', 'Limestone', 'Marble', 'Metal', 'Minecraft', 'Mud', 'Neon', 'Pavement', 'Pebble', 'Plaster', 'Plastic', 'Rock', 'Roof Shingles', 'Rubber', 'Salt', 'Sand', 'Sandstone', 'Slate', 'Smooth Plastic', 'Snow', 'Water', 'Wood', 'Wood Planks'},
-            Default = 'Brick',
-            Multi = false,
-            Text = 'material',
-            Callback = function(v)
-                ELI.textures.material = v;
-                if ELI.textures.enable then
-                    applyToExisting();
-                end;
-            end
-        });
-
-        textures_tab:AddLabel('texture color'):AddColorPicker('textures_color', {
-            Default = Color3.fromRGB(244, 244, 244),
-            Callback = function(v)
-                ELI.textures.color = v;
-                if ELI.textures.enable then
-                    applyToExisting();
-                end;
-            end
-        });
-
-        textures_tab:AddToggle('textures_apply_to_viewmodel', {
-            Text = 'apply to viewmodel',
-            Default = false,
-            Callback = function(v)
-                ELI.textures.apply_to_viewmodel = v;
-                if ELI.textures.enable then
-                    disableTextures();
-                    enableTextures();
-                end;
-            end
-        });
-    end;
-
-    local shader_blur = Instance.new('BlurEffect');
-    shader_blur.Name = 'elisium_blur';
-    shader_blur.Enabled = false;
-    shader_blur.Size = 12;
-    shader_blur.Parent = lighting;
-    trove:Add(shader_blur);
-
-    local shader_bloom = Instance.new('BloomEffect');
-    shader_bloom.Name = 'elisium_bloom';
-    shader_bloom.Enabled = false;
-    shader_bloom.Intensity = 1;
-    shader_bloom.Size = 24;
-    shader_bloom.Threshold = 0.9;
-    shader_bloom.Parent = lighting;
-    trove:Add(shader_bloom);
-
-    local shader_dof = Instance.new('DepthOfFieldEffect');
-    shader_dof.Name = 'elisium_dof';
-    shader_dof.Enabled = false;
-    shader_dof.FocusDistance = 25;
-    shader_dof.InFocusRadius = 10;
-    shader_dof.NearIntensity = 0.15;
-    shader_dof.FarIntensity = 0.15;
-    shader_dof.Parent = lighting;
-    trove:Add(shader_dof);
-
-    local shader_sunrays = Instance.new('SunRaysEffect');
-    shader_sunrays.Name = 'elisium_sunrays';
-    shader_sunrays.Enabled = false;
-    shader_sunrays.Intensity = 0.25;
-    shader_sunrays.Spread = 1;
-    shader_sunrays.Parent = lighting;
-    trove:Add(shader_sunrays);
-
-    local shader_cc = Instance.new('ColorCorrectionEffect');
-    shader_cc.Name = 'elisium_cc';
-    shader_cc.Enabled = false;
-    shader_cc.Saturation = 0;
-    shader_cc.Contrast = 0;
-    shader_cc.TintColor = Color3.fromRGB(255, 255, 255);
-    shader_cc.Parent = lighting;
-    trove:Add(shader_cc);
-
-    local shaders_tab = world_tab:AddLeftGroupbox('shaders'); do
-        shaders_tab:AddToggle('shader_blur', {
-            Text = 'blur',
-            Default = false,
-            Callback = function(v)
-                ELI.world.blur = v;
-                shader_blur.Enabled = v;
-            end
-        });
-
-        shaders_tab:AddSlider('shader_blur_size', {
-            Text = 'blur size',
-            Default = 12,
-            Min = 0,
-            Max = 56,
-            Rounding = 0,
-            Callback = function(v)
-                ELI.world.blur_size = v;
-                shader_blur.Size = v;
-            end
-        });
-
-        shaders_tab:AddToggle('shader_bloom', {
-            Text = 'bloom',
-            Default = false,
-            Callback = function(v)
-                ELI.world.bloom = v;
-                shader_bloom.Enabled = v;
-            end
-        });
-
-        shaders_tab:AddSlider('shader_bloom_intensity', {
-            Text = 'bloom intensity',
-            Default = 1,
-            Min = 0,
-            Max = 5,
-            Rounding = 2,
-            Callback = function(v)
-                ELI.world.bloom_intensity = v;
-                shader_bloom.Intensity = v;
-            end
-        });
-
-        shaders_tab:AddSlider('shader_bloom_size', {
-            Text = 'bloom size',
-            Default = 24,
-            Min = 0,
-            Max = 56,
-            Rounding = 0,
-            Callback = function(v)
-                ELI.world.bloom_size = v;
-                shader_bloom.Size = v;
-            end
-        });
-
-        shaders_tab:AddSlider('shader_bloom_threshold', {
-            Text = 'bloom threshold',
-            Default = 0.9,
-            Min = 0,
-            Max = 2,
-            Rounding = 2,
-            Callback = function(v)
-                ELI.world.bloom_threshold = v;
-                shader_bloom.Threshold = v;
-            end
-        });
-
-        shaders_tab:AddToggle('shader_dof', {
-            Text = 'depth of field',
-            Default = false,
-            Callback = function(v)
-                ELI.world.depth_of_field = v;
-                shader_dof.Enabled = v;
-            end
-        });
-
-        shaders_tab:AddSlider('shader_dof_focus', {
-            Text = 'focus distance',
-            Default = 25,
-            Min = 0,
-            Max = 500,
-            Rounding = 0,
-            Callback = function(v)
-                ELI.world.dof_focus = v;
-                shader_dof.FocusDistance = v;
-            end
-        });
-
-        shaders_tab:AddSlider('shader_dof_intensity', {
-            Text = 'blur intensity',
-            Default = 0.15,
-            Min = 0,
-            Max = 1,
-            Rounding = 2,
-            Callback = function(v)
-                ELI.world.dof_intensity = v;
-                shader_dof.NearIntensity = v;
-                shader_dof.FarIntensity = v;
-            end
-        });
-
-        shaders_tab:AddToggle('shader_sun_rays', {
-            Text = 'sun rays',
-            Default = false,
-            Callback = function(v)
-                ELI.world.sun_rays = v;
-                shader_sunrays.Enabled = v;
-            end
-        });
-
-        shaders_tab:AddSlider('shader_sun_rays_intensity', {
-            Text = 'rays intensity',
-            Default = 0.25,
-            Min = 0,
-            Max = 1,
-            Rounding = 2,
-            Callback = function(v)
-                ELI.world.sun_rays_intensity = v;
-                shader_sunrays.Intensity = v;
-            end
-        });
-
-        shaders_tab:AddSlider('shader_sun_rays_spread', {
-            Text = 'rays spread',
-            Default = 1,
-            Min = 0,
-            Max = 1,
-            Rounding = 2,
-            Callback = function(v)
-                ELI.world.sun_rays_spread = v;
-                shader_sunrays.Spread = v;
-            end
-        });
-
-        shaders_tab:AddToggle('shader_saturation', {
-            Text = 'color grading',
-            Default = false,
-            Callback = function(v)
-                ELI.world.saturation = v;
-                shader_cc.Enabled = v;
-            end
-        }):AddColorPicker('shader_tint', {
-            Default = Color3.fromRGB(255, 255, 255),
-            Callback = function(v)
-                ELI.world.tint_color = v;
-                shader_cc.TintColor = v;
-            end
-        });
-
-        shaders_tab:AddSlider('shader_saturation_level', {
-            Text = 'saturation',
-            Default = 0,
-            Min = -1,
-            Max = 5,
-            Rounding = 2,
-            Callback = function(v)
-                ELI.world.saturation_level = v;
-                shader_cc.Saturation = v;
-            end
-        });
-
-        shaders_tab:AddSlider('shader_contrast_level', {
-            Text = 'contrast',
-            Default = 0,
-            Min = -1,
-            Max = 1,
-            Rounding = 2,
-            Callback = function(v)
-                ELI.world.contrast_level = v;
-                shader_cc.Contrast = v;
-            end
-        });
-    end;
-
-    local quality_tab = world_tab:AddLeftGroupbox('quality'); do
-        local default_technology = lighting.Technology;
-        local default_global_shadows = lighting.GlobalShadows;
-        local default_env_diffuse = lighting.EnvironmentDiffuseScale;
-        local default_env_specular = lighting.EnvironmentSpecularScale;
-        local default_outdoor_ambient = lighting.OutdoorAmbient;
-
-        quality_tab:AddDropdown('world_lighting_technology_mode', {
-            Text = 'lighting technology',
-            Values = { 'Legacy', 'Voxel', 'ShadowMap', 'Future' },
-            Default = 'Future',
-            Callback = function(v)
-                ELI.world.lighting_technology_mode = v;
-                if ELI.world.lighting_technology then
-                    pcall(function()
-                        lighting.Technology = Enum.Technology[v];
-                    end);
-                end;
-            end
-        });
-
-        quality_tab:AddToggle('world_lighting_technology', {
-            Text = 'apply lighting technology',
-            Default = false,
-            Callback = function(v)
-                ELI.world.lighting_technology = v;
-                pcall(function()
-                    if v then
-                        lighting.Technology = Enum.Technology[ELI.world.lighting_technology_mode];
-                    else
-                        lighting.Technology = default_technology;
-                    end;
-                end);
-            end
-        });
-
-        quality_tab:AddToggle('world_global_shadows', {
-            Text = 'global shadows',
-            Default = true,
-            Callback = function(v)
-                ELI.world.global_shadows = v;
-                pcall(function()
-                    lighting.GlobalShadows = v;
-                end);
-            end
-        });
-
-        quality_tab:AddToggle('world_env_diffuse', {
-            Text = 'environment diffuse',
-            Default = false,
-            Callback = function(v)
-                ELI.world.env_diffuse = v;
-                pcall(function()
-                    lighting.EnvironmentDiffuseScale = v and ELI.world.env_diffuse_scale or default_env_diffuse;
-                end);
-            end
-        });
-
-        quality_tab:AddSlider('world_env_diffuse_scale', {
-            Text = 'diffuse scale',
-            Default = 1,
-            Min = 0,
-            Max = 1,
-            Rounding = 2,
-            Callback = function(v)
-                ELI.world.env_diffuse_scale = v;
-                if ELI.world.env_diffuse then
-                    pcall(function()
-                        lighting.EnvironmentDiffuseScale = v;
-                    end);
-                end;
-            end
-        });
-
-        quality_tab:AddToggle('world_env_specular', {
-            Text = 'environment specular',
-            Default = false,
-            Callback = function(v)
-                ELI.world.env_specular = v;
-                pcall(function()
-                    lighting.EnvironmentSpecularScale = v and ELI.world.env_specular_scale or default_env_specular;
-                end);
-            end
-        });
-
-        quality_tab:AddSlider('world_env_specular_scale', {
-            Text = 'specular scale',
-            Default = 1,
-            Min = 0,
-            Max = 1,
-            Rounding = 2,
-            Callback = function(v)
-                ELI.world.env_specular_scale = v;
-                if ELI.world.env_specular then
-                    pcall(function()
-                        lighting.EnvironmentSpecularScale = v;
-                    end);
-                end;
-            end
-        });
-
-        quality_tab:AddToggle('world_outdoor_ambient', {
-            Text = 'outdoor ambient',
-            Default = false,
-            Callback = function(v)
-                ELI.world.outdoor_ambient = v;
-                pcall(function()
-                    lighting.OutdoorAmbient = v and ELI.world.outdoor_ambient_color or default_outdoor_ambient;
-                end);
-            end
-        }):AddColorPicker('world_outdoor_ambient_color', {
-            Default = Color3.fromRGB(70, 70, 70),
-            Callback = function(v)
-                ELI.world.outdoor_ambient_color = v;
-                if ELI.world.outdoor_ambient then
-                    pcall(function()
-                        lighting.OutdoorAmbient = v;
-                    end);
-                end;
-            end
-        });
-    end;
-
-local camera_tab = world_tab:AddRightGroupbox('camera'); do
-    local keybind_third_person_enable = false;
-    camera_tab:AddToggle('third_person_enable', {
-        Text = 'third person',
-        Default = false,
-        Callback = function(v)
-            keybind_third_person_enable = v;
-            ELI.third_person.enable = v;
-            camera_controller:SetThirdPersonOverride(v);
-        end;
-    }):AddKeyPicker('third_person_keybind', {
-        Default = '...',
-        Text = 'third person',
-        NoUI = false,
-        EnableCheck = function()
-            return ELI.third_person.enable;
-        end,
-        Callback = function(v)
-            ELI.third_person.enable = keybind_third_person_enable and v or false;
-            camera_controller:SetThirdPersonOverride(ELI.third_person.enable);
-        end;
-    });
-    local old_camera_stretched_res = camera.CFrame;
-    camera_tab:AddToggle('stretched_res_enable', {
-        Text = 'stretched res',
-        Default = false,
-        Callback = function(v)
-            ELI.stretched_res.enable = v;
-            if not v then
-                camera.CFrame = old_camera_stretched_res;
-            end;
-        end;
-    });
-    camera_tab:AddSlider('stretched_res_amount', {
-        Text = 'amount',
-        Default = 0.20,
-        Min = 0.1,
-        Max = 1,
-        Rounding = 2,
-        Callback = function(v)
-            ELI.stretched_res.stretched_res_amount = v;
-        end;
-    });
-    local old_camera_fov = camera.FieldOfView;
-    camera_tab:AddToggle('fov_changer_enable', {
-        Text = 'fov changer',
-        Default = false,
-        Callback = function(v)
-            ELI.fov_changer.enable = v;
-            if not v then
-                camera.FieldOfView = old_camera_fov;
-            end;
-        end;
-    });
-    camera_tab:AddSlider('fov_changer_fov', {
-        Text = 'fov',
-        Default = 80,
-        Min = 10,
-        Max = 140,
-        Rounding = 2,
-        Callback = function(v)
-            ELI.fov_changer.fov = v;
-        end;
-    });
-end;
-
-local esp_tab = Tabs.esptab; do
-    local esp_groupbox = esp_tab:AddLeftGroupbox('esp'); do
-        esp_groupbox:AddToggle('esp_enable', {
-            Text = 'enable',
-            Default = false,
-            Callback = function(v)
-                ELI.esp.enable = v;
-            end
-        });
-
-        esp_groupbox:AddToggle('esp_team_check', {
-            Text = 'team check',
-            Default = true,
-            Callback = function(v)
-                ELI.esp.team_check = v;
-            end
-        });
-
-        esp_groupbox:AddToggle('esp_box_enable', {
-            Text = 'box',
-            Default = false,
-            Callback = function(v)
-                ELI.esp.box.enable = v;
-                Options.esp_box_thickness:SetVisible(v);
-                Toggles.esp_glow_enable:SetVisible(v);
-            end
-        }):AddColorPicker('esp_box_color', {
-            Title = 'box color',
-            Default = Color3.new(1, 1, 1),
-            Callback = function(v)
-                ELI.esp.box.color = v;
-            end
-        }):AddColorPicker('esp_box_outline_color', {
-            Title = 'outline color',
-            Default = Color3.new(0, 0, 0),
-            Callback = function(v)
-                ELI.esp.box.outline = v;
-            end
-        }):AddColorPicker('esp_box_inline_color', {
-            Title = 'inline color',
-            Default = Color3.new(0, 0, 0),
-            Callback = function(v)
-                ELI.esp.box.inline = v;
-            end
-        });
-
-        esp_groupbox:AddToggle('esp_glow_enable', {
-            Text = 'glow box',
-            Default = false,
-            Visible = false,
-            Callback = function(v)
-                ELI.esp.glow.enable = v;
-                Options.esp_glow_transparency:SetVisible(v);
-            end
-        }):AddColorPicker('esp_glow_color_start', {
-            Title = 'glow start',
-            Default = Color3.new(1, 1, 1),
-            Callback = function(v)
-                ELI.esp.glow.color_start = v;
-            end
-        }):AddColorPicker('esp_glow_color_end', {
-            Title = 'glow end',
-            Default = Color3.new(1, 1, 1),
-            Callback = function(v)
-                ELI.esp.glow.color_end = v;
-            end
-        });
-
-        esp_groupbox:AddSlider('esp_glow_transparency', {
-            Text = 'glow transparency',
-            Default = 1,
-            Min = 0,
-            Max = 1,
-            Rounding = 2,
-            Visible = false,
-            Callback = function(v)
-                ELI.esp.glow.transparency = v;
-            end
-        });
-
-        esp_groupbox:AddSlider('esp_box_thickness', {
-            Text = 'box thickness',
-            Default = 1,
-            Min = 1,
-            Max = 5,
-            Rounding = 0,
-            Visible = false,
-            Callback = function(v)
-                ELI.esp.box.thickness = v;
-            end
-        });
-
-        esp_groupbox:AddToggle('esp_name_enable', {
-            Text = 'name',
-            Default = false,
-            Callback = function(v)
-                ELI.esp.text.name.enable = v;
-            end
-        }):AddColorPicker('esp_name_color', {
-            Title = 'name color',
-            Default = Color3.new(1, 1, 1),
-            Callback = function(v)
-                ELI.esp.text.name.color = v;
-            end
-        });
-
-        esp_groupbox:AddToggle('esp_studs_enable', {
-            Text = 'distance',
-            Default = false,
-            Callback = function(v)
-                ELI.esp.text.studs.enable = v;
-            end
-        }):AddColorPicker('esp_studs_color', {
-            Title = 'distance color',
-            Default = Color3.new(1, 1, 1),
-            Callback = function(v)
-                ELI.esp.text.studs.color = v;
-            end
-        });
-
-        esp_groupbox:AddToggle('esp_tool_enable', {
-            Text = 'weapon',
-            Default = false,
-            Callback = function(v)
-                ELI.esp.text.tool.enable = v;
-            end
-        }):AddColorPicker('esp_tool_color', {
-            Title = 'weapon color',
-            Default = Color3.new(1, 1, 1),
-            Callback = function(v)
-                ELI.esp.text.tool.color = v;
-            end
-        });
-
-        esp_groupbox:AddDropdown('esp_tool_position', {
-            Text = 'weapon position',
-            Default = 'right',
-            Values = { 'top', 'bottom', 'right' },
-            Callback = function(v)
-                ELI.esp.text.tool.position = v;
-            end
-        });
-
-        esp_groupbox:AddToggle('esp_filled_enable', {
-            Text = 'filled',
-            Default = false,
-            Callback = function(v)
-                ELI.esp.filled.enable = v;
-                Options.esp_filled_transparency:SetVisible(v);
-            end
-        }):AddColorPicker('esp_filled_color_start', {
-            Title = 'fill start',
-            Default = Color3.new(1, 1, 1),
-            Callback = function(v)
-                ELI.esp.filled.color_start = v;
-            end
-        }):AddColorPicker('esp_filled_color_end', {
-            Title = 'fill end',
-            Default = Color3.new(1, 1, 1),
-            Callback = function(v)
-                ELI.esp.filled.color_end = v;
-            end
-        });
-
-        esp_groupbox:AddToggle('esp_filled_hitflash', {
-            Text = 'hit flash',
-            Default = false,
-            Callback = function(v)
-                ELI.esp.filled.hit_flash = v;
-            end
-        }):AddColorPicker('esp_filled_hitcolor', {
-            Title = 'hit color',
-            Default = Color3.fromRGB(255, 40, 40),
-            Callback = function(v)
-                ELI.esp.filled.hit_color = v;
-            end
-        });
-
-        esp_groupbox:AddToggle('esp_visible_enable', {
-            Text = 'visible color',
-            Default = false,
-            Callback = function(v)
-                ELI.esp.visible.enable = v;
-            end
-        }):AddColorPicker('esp_visible_color', {
-            Title = 'visible color',
-            Default = Color3.fromRGB(60, 255, 90),
-            Callback = function(v)
-                ELI.esp.visible.color = v;
-            end
-        });
-
-        esp_groupbox:AddToggle('esp_highlight_enable', {
-            Text = 'highlight',
-            Default = false,
-            Callback = function(v)
-                ELI.esp.highlight.enable = v;
-            end
-        }):AddColorPicker('esp_highlight_fill', {
-            Title = 'fill color',
-            Default = Color3.fromRGB(120, 81, 166),
-            Callback = function(v)
-                ELI.esp.highlight.fill_color = v;
-            end
-        }):AddColorPicker('esp_highlight_outline', {
-            Title = 'outline color',
-            Default = Color3.fromRGB(255, 255, 255),
-            Callback = function(v)
-                ELI.esp.highlight.outline_color = v;
-            end
-        });
-
-        esp_groupbox:AddSlider('esp_highlight_fill_transparency', {
-            Text = 'highlight fill transparency',
-            Default = 0.55,
-            Min = 0,
-            Max = 1,
-            Rounding = 2,
-            Callback = function(v)
-                ELI.esp.highlight.fill_transparency = v;
-            end
-        });
-
-        esp_groupbox:AddSlider('esp_highlight_outline_transparency', {
-            Text = 'highlight outline transparency',
-            Default = 0,
-            Min = 0,
-            Max = 1,
-            Rounding = 2,
-            Callback = function(v)
-                ELI.esp.highlight.outline_transparency = v;
-            end
-        });
-
-        esp_groupbox:AddSlider('esp_filled_transparency', {
-            Text = 'fill transparency',
-            Default = 0.75,
-            Min = 0,
-            Max = 1,
-            Rounding = 2,
-            Visible = false,
-            Callback = function(v)
-                ELI.esp.filled.transparency = v;
-            end
-        });
-
-        esp_groupbox:AddToggle('esp_filled_animated', {
-            Text = 'animated fill',
-            Default = false,
-            Callback = function(v)
-                ELI.esp.filled.animated = v;
-                Options.esp_filled_rotation:SetVisible(v);
-                Options.esp_filled_speed:SetVisible(v);
-            end
-        });
-
-        esp_groupbox:AddSlider('esp_filled_rotation', {
-            Text = 'fill rotation',
-            Default = 90,
-            Min = 0,
-            Max = 360,
-            Rounding = 0,
-            Visible = false,
-            Callback = function(v)
-                ELI.esp.filled.rotation = v;
-            end
-        });
-
-        esp_groupbox:AddSlider('esp_filled_speed', {
-            Text = 'fill speed',
-            Default = 2,
-            Min = 0,
-            Max = 10,
-            Rounding = 1,
-            Visible = false,
-            Callback = function(v)
-                ELI.esp.filled.speed = v;
-            end
-        });
-
-        esp_groupbox:AddToggle('esp_health_enable', {
-            Text = 'health bar',
-            Default = false,
-            Callback = function(v)
-                ELI.esp.health.enable = v;
-                Options.esp_health_width:SetVisible(v);
-                Options.esp_health_gap:SetVisible(v);
-            end
-        }):AddColorPicker('esp_health_color_high', {
-            Title = 'health top',
-            Default = Color3.fromRGB(0, 255, 0),
-            Callback = function(v)
-                ELI.esp.health.color_high = v;
-            end
-        }):AddColorPicker('esp_health_color_mid', {
-            Title = 'health mid',
-            Default = Color3.fromRGB(255, 255, 0),
-            Callback = function(v)
-                ELI.esp.health.color_mid = v;
-            end
-        }):AddColorPicker('esp_health_color_low', {
-            Title = 'health bot',
-            Default = Color3.fromRGB(255, 0, 0),
-            Callback = function(v)
-                ELI.esp.health.color_low = v;
-            end
-        });
-
-        esp_groupbox:AddSlider('esp_health_width', {
-            Text = 'bar width',
-            Default = 3,
-            Min = 1,
-            Max = 10,
-            Rounding = 0,
-            Visible = false,
-            Callback = function(v)
-                ELI.esp.health.width = v;
-            end
-        });
-
-        esp_groupbox:AddSlider('esp_health_gap', {
-            Text = 'bar gap',
-            Default = 5,
-            Min = 1,
-            Max = 20,
-            Rounding = 0,
-            Visible = false,
-            Callback = function(v)
-                ELI.esp.health.gap = v;
-            end
-        });
-
-        esp_groupbox:AddSlider('esp_text_size', {
-            Text = 'text size',
-            Default = 9,
-            Min = 6,
-            Max = 16,
-            Rounding = 0,
-            Callback = function(v)
-                ELI.esp.text.size = v;
-            end
-        });
-
-        esp_groupbox:AddToggle('esp_text_gradient', {
-            Text = 'gradient text',
-            Default = false,
-            Callback = function(v)
-                ELI.esp.text.gradient = v;
-            end
-        }):AddColorPicker('esp_text_gradient_color1', {
-            Default = Color3.fromRGB(120, 81, 166),
-            Title = 'color 1',
-            Callback = function(v)
-                ELI.esp.text.gradient_color1 = v;
-            end
-        }):AddColorPicker('esp_text_gradient_color2', {
-            Default = Color3.fromRGB(255, 255, 255),
-            Title = 'color 2',
-            Callback = function(v)
-                ELI.esp.text.gradient_color2 = v;
-            end
-        });
-
-        esp_groupbox:AddToggle('esp_text_flow', {
-            Text = 'flow animation',
-            Default = false,
-            Callback = function(v)
-                ELI.esp.text.flow = v;
-            end
-        });
-
-        esp_groupbox:AddSlider('esp_text_flow_speed', {
-            Text = 'flow speed',
-            Default = 1,
-            Min = 0.1,
-            Max = 5,
-            Rounding = 1,
-            Callback = function(v)
-                ELI.esp.text.flow_speed = v;
-            end
-        });
-
-        esp_groupbox:AddSlider('esp_max_dist', {
-            Text = 'max distance',
-            Default = 25000,
-            Min = 100,
-            Max = 25000,
-            Rounding = 0,
-            Suffix = 'studs',
-            Callback = function(v)
-                ELI.esp.max_dist = v;
-            end
-        });
-    end;
-end;
-
-local esp_throwable_tab = Tabs.esptab:AddRightGroupbox('throwable esp'); do
-    esp_throwable_tab:AddToggle('thrower_esp_enable', {
-        Text = 'enable',
-        Default = false,
-        Callback = function(v)
-            ELI.thrower_esp.enable = v;
-            Options.thrower_esp_select:SetVisible(v);
-            Options.thrower_esp_font:SetVisible(v);
-            Toggles.thrower_esp_name:SetVisible(v);
-            Toggles.thrower_esp_distance:SetVisible(v);
-            Toggles.thrower_esp_image:SetVisible(v);
-        end;
-    });
-
-    esp_throwable_tab:AddToggle('thrower_esp_name', {
-        Text = 'name',
-        Default = false,
-        Visible = false,
-        Callback = function(v)
-            ELI.thrower_esp.name = v;
-            Options.thrower_esp_name_size:SetVisible(v);
-        end;
-    }):AddColorPicker('thrower_esp_name_color', {
-        Title = 'name color',
-        Default = Color3.fromRGB(255, 255, 255),
-        Callback = function(v)
-            ELI.thrower_esp.name_color = v;
-        end;
-    });
-
-    esp_throwable_tab:AddSlider('thrower_esp_name_size', {
-        Text = 'name size',
-        Default = 14,
-        Min = 6,
-        Max = 32,
-        Rounding = 0,
-        Visible = false,
-        Callback = function(v)
-            ELI.thrower_esp.name_size = v;
-        end;
-    });
-
-    esp_throwable_tab:AddToggle('thrower_esp_distance', {
-        Text = 'distance',
-        Default = false,
-        Visible = false,
-        Callback = function(v)
-            ELI.thrower_esp.distance = v;
-            Options.thrower_esp_distance_size:SetVisible(v);
-        end;
-    }):AddColorPicker('thrower_esp_distance_color', {
-        Title = 'distance color',
-        Default = Color3.fromRGB(255, 255, 255),
-        Callback = function(v)
-            ELI.thrower_esp.distance_color = v;
-        end;
-    });
-
-    esp_throwable_tab:AddSlider('thrower_esp_distance_size', {
-        Text = 'distance size',
-        Default = 12,
-        Min = 6,
-        Max = 32,
-        Rounding = 0,
-        Visible = false,
-        Callback = function(v)
-            ELI.thrower_esp.distance_size = v;
-        end;
-    });
-
-    esp_throwable_tab:AddToggle('thrower_esp_image', {
-        Text = 'image',
-        Default = false,
-        Visible = false,
-        Callback = function(v)
-            ELI.thrower_esp.image = v;
-        end;
-    });
-
-    esp_throwable_tab:AddDropdown('thrower_esp_select', {
-        Text = 'throwable whitelist',
-        Values = { 'Grenade', 'Flashbang', 'Molotov', 'Satchel', 'Smoke Grenade', 'Subspace Tripmine' },
-        Default = {},
-        Multi = true,
-        Visible = false,
-        Callback = function(v)
-            ELI.thrower_esp.thrower_select = v;
-        end;
-    });
-
-    esp_throwable_tab:AddDropdown('thrower_esp_font', {
-        Text = 'font',
-        Values = font_indexes,
-        Default = 'ProggyTiny',
-        Visible = false,
-        Callback = function(v)
-            ELI.thrower_esp.font = v;
-
-            for _, obj in next, thrower do
-                obj.name:Destroy();
-                obj.dist:Destroy();
-                obj.icon:Destroy();
-            end;
-
-            table.clear(thrower);
-        end;
-    });
-end;
-local misc_tab = Tabs.misc_tab; do
-    local auto_tabbox = Tabs.misc_tab:AddRightTabbox(); do
-        local auto_vote_map = auto_tabbox:AddTab('auto vote map'); do
-            auto_vote_map:AddToggle('auto_vote_map_enable', {
-                Text = 'enable',
-                Default = false,
-                Callback = function(v)
-                    ELI.auto_vote_map.enable = v;
-                end;
-            });
-
-            auto_vote_map:AddDropdown('auto_vote_map', {
-                Values = {"Arena", "Big Graveyard", "Docks", "Splash", "Bridge", "Crossroads", "Big Crossroads", "Big Backrooms", "Battleground", "Big Arena", "Construction", "Playground", "Onyx", "Graveyard", "Big Splash", "Big Onyx", "Backrooms", "Station", "Dimension",},
-                Default = "",
-                Multi = false,
-                Text = 'map',
-                Callback = function(v)
-                    ELI.auto_vote_map.map = v;
-                end;
-            });
-        end;
-    end;
-
-    local troll_tab = Tabs.misc_tab:AddLeftTabbox(); do
-        local device_spoof_tab = troll_tab:AddTab('device spoof'); do
-            device_spoof_tab:AddToggle('device_spoof_enable', {
-                Text = 'enable',
-                Default = false,
-                Callback = function(v)
-                    ELI.device_spoof.enable = v;
-                end;
-            });
-
-            device_spoof_tab:AddDropdown('device_spoof_type', {
-                Values = {'Touch', 'MouseKeyboard', 'Gamepad', 'VR'},
-                Default = 2,
-                Multi = false,
-                Text = 'type',
-                Callback = function(v)
-                    ELI.device_spoof.type = v;
-                end;
-            });
-        end;
-
-        local sound_spammer_tab = troll_tab:AddTab('sound spammer'); do
-            sound_spammer_tab:AddToggle('sound_spammer_enable', {
-                Text = 'enable',
-                Default = false,
-                Callback = function(v)
-                    ELI.sound_spammer.enable = v;
-                end;
-            });
-
-            sound_spammer_tab:AddDropdown('sound_spammer_type', {
-                Values = {'DoubleJump', 'Slide'},
-                Default = 1,
-                Multi = false,
-                Text = 'sound type',
-                Callback = function(v)
-                    ELI.sound_spammer.type = v;
-                end;
-            });
-        end;
-    end;
-
-    local spooftabthing = Tabs.misc_tab:AddRightTabbox(); do
-        local streak_spoof = spooftabthing:AddTab('streak');
-
-        streak_spoof:AddToggle('streak_spoof_enable', {
-            Text = 'spoof',
-            Default = false,
-            Callback = function(v)
-            ELI.spoof.streak.enable = v;
-                if not v then
-                    local_player:SetAttribute("StatisticDuelsWinStreak", spoof_old.streak);
-                  end;
-            end;
-        });
-
-    streak_spoof:AddInput('streak_spoof_text', {
-    Default = '9',
-    Numeric = true,
-
-    Text = 'spoof',
-
-    Callback = function(v)
-        local n = tonumber(v);
-        if n then
-            ELI.spoof.streak.value = n;
-        end;
-    end
-   });
-
-     local level_spoof = spooftabthing:AddTab('level');
-             level_spoof:AddToggle('level_spoof_enable', {
-            Text = 'spoof',
-            Default = false,
-            Callback = function(v)
-            ELI.spoof.level.enable = v;
-                if not v then
-                    local_player:SetAttribute("Level", spoof_old.level);
-                  end;
-            end;
-        });
-
-    level_spoof:AddInput('level_spoof_text', {
-    Default = '9',
-    Numeric = true,
-
-    Text = 'spoof',
-
-    Callback = function(v)
-        local n = tonumber(v);
-        if n then
-            ELI.spoof.level.value = n;
-        end;
-    end
-   });
-
-    local rank_spoof = spooftabthing:AddTab('rank');
-    rank_spoof:AddToggle('rank_spoof_enable', {
-        Text = 'spoof (not working)';
-        Default = false;
-        Callback = function(v)
-            ELI.rank_spoof.enable = v;
-        end;
-    });
-    rank_spoof:AddDropdown('rank_spoof_value', {
-        Values = { 'Bronze', 'Silver', 'Gold', 'Diamond', 'Onyx', 'Nemesis', 'Arch Nemesis' };
-        Default = 7;
-        Multi = false;
-        Text = 'rank';
-        Callback = function(v)
-            ELI.rank_spoof.rank = v;
-        end;
-    });
-
-    local elo_spoof = spooftabthing:AddTab('elo');
-    elo_spoof:AddToggle('elo_spoof_enable', {
-        Text = 'spoof (not working)';
-        Default = false;
-        Callback = function(v)
-            ELI.elo_spoof.enable = v;
-            if not v then
-                pcall(function() local_player:SetAttribute("DisplayELO", spoof_old.elo); end);
-            end;
-        end;
-    });
-    elo_spoof:AddInput('elo_spoof_text', {
-        Default = '60000';
-        Numeric = true;
-        Text = 'spoof';
-        Callback = function(v)
-            local n = tonumber(v);
-            if n then ELI.elo_spoof.value = n; end;
-        end;
-    });
-
-    local name_spoof = spooftabthing:AddTab('name');
-    name_spoof:AddToggle('name_spoof_enable', {
-        Text = 'spoof';
-        Default = false;
-        Callback = function(v)
-            ELI.name_spoof.enable = v;
-        end;
-    });
-    name_spoof:AddInput('name_spoof_display', {
-        Default = '';
-        Text = 'display name';
-        Placeholder = 'display name';
-        Callback = function(v)
-            ELI.name_spoof.display = v or "";
-        end;
-    });
-    name_spoof:AddInput('name_spoof_username', {
-        Default = '';
-        Text = 'username';
-        Placeholder = 'username';
-        Callback = function(v)
-            ELI.name_spoof.username = v or "";
-        end;
-    });
-    end;
-
-    local utility_tab = Tabs.misc_tab:AddLeftTabbox(); do
-        local auto_loadout_tab = utility_tab:AddTab('auto loadout'); do
-            auto_loadout_tab:AddToggle('auto_loadout_enable', {
-                Text = 'enable',
-                Default = false,
-                Callback = function(v)
-                    ELI.auto_loadout.enable = v;
-                end;
-            });
-
-            local ascending_classes = {'Primary', 'Secondary', 'Melee', 'Utility'};
-            for i = 1, #ascending_classes do
-                local class = ascending_classes[i];
-                local items = sorted_item_list[class] or {};
-                local slot = class_dir[class:lower()];
-                auto_loadout_tab:AddDropdown('auto_loadout_class_' .. class:lower(), {
-                    Values = items,
-                    Default = ELI.auto_loadout.loadout[slot],
-                    Multi = false,
-                    Text = class:lower(),
-                    Callback = function(v)
-                        ELI.auto_loadout.loadout[slot] = v;
-                    end;
-                });
-            end;
-        end;
-
-        local auto_queue_tab = utility_tab:AddTab('auto queue'); do
-            auto_queue_tab:AddToggle('auto_queue_enable', {
-                Text = 'enable',
-                Default = false,
-                Callback = function(v)
-                    ELI.auto_queue.enable = v;
-                    if not v then
-                        clickedontheremote = false;
-                        was_i_in_a_match = false;
-                    end;
-                end;
-            });
-
-            auto_queue_tab:AddDropdown('auto_queue_mode', {
-                Values = {"1v1", "2v2", "3v3", "4v4", "5v5", "2v2_beginner",},
-                Default = "",
-                Multi = false,
-                Text = 'queue mode',
-                Callback = function(v)
-                    ELI.auto_queue.queue_mode = v;
-                end;
-            });
-        end;
-    end;
-
-    local arcade_server_tab = Tabs.misc_tab:AddRightGroupbox('arcade server'); do
-        arcade_server_tab:AddToggle('grab_drops_enable', {
-            Text = 'grab drops',
-            Default = false,
-            Callback = function(v)
-                ELI.arcade_server.grab_drops = v;
-            end;
-        });
-
-        arcade_server_tab:AddToggle('auto_respawn_enable', {
-            Text = 'auto respawn',
-            Default = false,
-            Callback = function(v)
-                ELI.arcade_server.auto_respawn = v;
-            end;
-        });
-    end;
-end
-
-do
-local v555 = Tabs.misc_tab:AddRightGroupbox('cosmetics');
-local unlockAllInitialized = false;
-getgenv().elisium_cosmetic_state = getgenv().elisium_cosmetic_state or {
-    gui = nil,
-    frame = nil,
-    inner = nil,
-    panel = nil,
-    selectedWeapon = nil,
-    selectedType = "Skin",
-    anyModel = false,
-    dismissedThisSession = true,
-};
-
-v555:AddToggle("AnySkinMode", {
-    Text = "any skin",
-    Default = getgenv().elisium_cosmetic_state.anyModel or false,
-    Callback = function(val)
-        getgenv().elisium_cosmetic_state.anyModel = val and true or false;
-        local st = getgenv().elisium_cosmetic_state;
-        if st and st.refreshCosmetics then
-            st.refreshCosmetics();
-        end;
-    end
-});
-
-local function syncCosmeticChangerVisibility()
-    local st = getgenv().elisium_cosmetic_state;
-    if not st or not st.frame or not st.frame.Parent then return end;
-    if not unlockAllInitialized then return end;
-    local menuOpen = false;
-    pcall(function()
-        menuOpen = Library.MenuOpen;
-    end);
-    if not menuOpen then
-        st.frame.Visible = false;
-        return
-    end;
-    st.frame.Visible = not st.dismissedThisSession;
-end;
-getgenv().syncCosmeticChangerVisibility = syncCosmeticChangerVisibility;
-
-local function openCosmeticChanger(showUi)
-    if showUi == nil then showUi = true end;
-    if unlockAllInitialized then
-        if showUi then
-            local st = getgenv().elisium_cosmetic_state;
-            if st then
-                st.dismissedThisSession = false;
-            end;
-            syncCosmeticChangerVisibility();
-        end;
-        return
-    end;
-    unlockAllInitialized = true;
-    local replicated_storage = game:GetService("ReplicatedStorage");
-    local local_player = game:GetService("Players").LocalPlayer;
-    local enum_library = require(replicated_storage.Modules.EnumLibrary);
-    local cosmetic_lib = require(replicated_storage.Modules.CosmeticLibrary);
-    local data_ctrl = require(local_player.PlayerScripts.Controllers.PlayerDataController);
-    local rep_class = require(replicated_storage.Modules.ReplicatedClass);
-    local item_library = require(replicated_storage.Modules.ItemLibrary);
-    local equip_remote = replicated_storage.Remotes.Data.EquipCosmetic;
-    local fav_remote = replicated_storage.Remotes.Data.FavoriteCosmetic;
-    local equipped = {};
-    local favorites = {};
-    local current_weapon = nil;
-    local viewing_profile = nil;
-    local enabled = true;
-    local unlockAllActive = false;
-    local cosmeticNorm = function(s)
-        if type(s) ~= "string" then return ""; end;
-        return s:lower():gsub("[%s%-%_]+", "");
-    end;
-    local resolveEquippedWeaponName = function(weaponName, weapon_data)
-        if not weaponName then return nil; end;
-        if equipped[weaponName] then
-            return weaponName;
-        end;
-        if weapon_data then
-            for _, key in eli_ipairs({weapon_data.Name, weapon_data.Weapon, weapon_data.WeaponName}) do
-                if key and equipped[key] then
-                    return key;
-                end;
-            end;
-        end;
-        local norm = cosmeticNorm(weaponName);
-        if norm ~= "" then
-            for key in eli_pairs(equipped) do
-                if cosmeticNorm(key) == norm then
-                    return key;
-                end;
-            end;
-        end;
-        return nil;
-    end;
-    local clone_cosmetic = function(cosmetic_name, cosmetic_type, opts)
-        local base = cosmetic_lib.Cosmetics[cosmetic_name];
-        if not base then return nil end;
-        local new_data = table.clone(base);
-        new_data.Name = cosmetic_name;
-        new_data.Type = new_data.Type or cosmetic_type;
-        local ok, enum_val = pcall(enum_library.ToEnum, enum_library, cosmetic_name);
-        if ok and enum_val then
-            new_data.Enum = enum_val;
-            new_data.ObjectID = new_data.ObjectID or enum_val;
-        end;
-        if opts and opts.inverted ~= nil then
-            new_data.Inverted = opts.inverted;
-        end;
-        return new_data;
-    end;
-    local SKINS_FOLDER = "elisium_skins";
-    local SKINS_FILE = SKINS_FOLDER .. "/skins.json";
-    local http_service = game:GetService("HttpService");
-    local has_fs = isfolder and makefolder and writefile and readfile and isfile;
-    local function ensureSkinsFolder()
-        if not has_fs then return false end;
-        local ok = pcall(function()
-            if not isfolder(SKINS_FOLDER) then makefolder(SKINS_FOLDER) end;
-        end);
-        return ok;
-    end;
-    local save_pending = false;
-    local function saveSkins()
-        if not has_fs then return end;
-        if save_pending then return end;
-        save_pending = true;
-        task.delay(0.15, function()
-            save_pending = false;
-            ensureSkinsFolder();
-            local data = { equipped = {}, favorites = {} };
-            for weapon, types in eli_pairs(equipped) do
-                data.equipped[weapon] = {};
-                for ctype, cdata in eli_pairs(types) do
-                    data.equipped[weapon][ctype] = {
-                        name = cdata.Name,
-                        inverted = cdata.Inverted,
-                    };
-                end;
-            end;
-            for weapon, favs in eli_pairs(favorites) do
-                data.favorites[weapon] = {};
-                for cname, isFav in eli_pairs(favs) do
-                    data.favorites[weapon][cname] = isFav and true or nil;
-                end;
-                if not next(data.favorites[weapon]) then
-                    data.favorites[weapon] = nil;
-                end;
-            end;
-            local ok, json = pcall(function() return http_service:JSONEncode(data) end);
-            if ok and json then
-                pcall(writefile, SKINS_FILE, json);
-            end;
-        end);
-    end;
-    local function loadSkins()
-        if not has_fs then return end;
-        if not isfile(SKINS_FILE) then return end;
-        local ok, content = pcall(readfile, SKINS_FILE);
-        if not ok or not content or content == "" then return end;
-        local ok2, data = pcall(function() return http_service:JSONDecode(content) end);
-        if not ok2 or type(data) ~= "table" then return end;
-        if type(data.equipped) == "table" then
-            for weapon, types in eli_pairs(data.equipped) do
-                if type(types) == "table" then
-                    equipped[weapon] = equipped[weapon] or {};
-                    for ctype, ref in eli_pairs(types) do
-                        if type(ref) == "table" and ref.name then
-                            local cdata = clone_cosmetic(ref.name, ctype, { inverted = ref.inverted });
-                            if cdata then
-                                equipped[weapon][ctype] = cdata;
-                            end;
-                        end;
-                    end;
-                    if not next(equipped[weapon]) then
-                        equipped[weapon] = nil;
-                    end;
-                end;
-            end;
-        end;
-        if type(data.favorites) == "table" then
-            for weapon, favs in eli_pairs(data.favorites) do
-                if type(favs) == "table" then
-                    favorites[weapon] = favorites[weapon] or {};
-                    for cname, isFav in eli_pairs(favs) do
-                        favorites[weapon][cname] = isFav and true or nil;
-                    end;
-                end;
-            end;
-        end;
-    end;
-    local old = data_ctrl.Get; data_ctrl.Get = function(self, data_key)
-        local original = old(self, data_key);
-        if not enabled then return original end;
-        if data_key == "CosmeticInventory" then
-            if not unlockAllActive then return original; end;
-            local inv = original and table.clone(original) or {};
-            for cosmetic_name, cosmetic_data in eli_pairs(cosmetic_lib.Cosmetics) do
-                if inv[cosmetic_name] == nil
-                    and not cosmetic_name:find("MISSING_")
-                    and cosmetic_data.Type ~= "Finisher"
-                then
-                    inv[cosmetic_name] = true;
-                end;
-            end;
-            return inv;
-        end;
-        if data_key == "FavoritedCosmetics" then
-            local fav = original and table.clone(original) or {};
-            for weapon_name, weapon_favs in eli_pairs(favorites) do
-                fav[weapon_name] = fav[weapon_name] or {};
-                for cosmetic_name, is_fav in eli_pairs(weapon_favs) do
-                    fav[weapon_name][cosmetic_name] = is_fav;
-                end;
-            end;
-            return fav;
-        end;
-        return original;
-    end;
-    local old = data_ctrl.GetWeaponData; data_ctrl.GetWeaponData = function(self, weapon_name)
-        local weapon_data = old(self, weapon_name);
-        if not weapon_data then return nil end;
-        local final = table.clone(weapon_data);
-        final.Name = weapon_name;
-        if enabled then
-            local equipped_name = resolveEquippedWeaponName(weapon_name, weapon_data);
-            if equipped_name and equipped[equipped_name] then
-                for cosmetic_type, cosmetic_data in eli_pairs(equipped[equipped_name]) do
-                    final[cosmetic_type] = cosmetic_data;
-                end;
-            end;
-        end;
-        return final;
-    end;
-    local client_item_module = require(local_player.PlayerScripts.Modules.ClientReplicatedClasses.ClientFighter.ClientItem);
-    if client_item_module and client_item_module._CreateViewModel then
-        local old = client_item_module._CreateViewModel; client_item_module._CreateViewModel = function(self, vm_ref)
-            local weapon_name = self.Name;
-            local weapon_owner = self.ClientFighter and self.ClientFighter.Player;
-            current_weapon = (weapon_owner == local_player) and weapon_name or nil;
-            local equipped_name = resolveEquippedWeaponName(weapon_name);
-            if enabled and weapon_owner == local_player and equipped_name and equipped[equipped_name] and equipped[equipped_name].Skin and vm_ref then
-                local data_key = self:ToEnum("Data");
-                local skin_key = self:ToEnum("Skin");
-                local name_key = self:ToEnum("Name");
-                if vm_ref[data_key] then
-                    vm_ref[data_key][skin_key] = equipped[equipped_name].Skin;
-                    vm_ref[data_key][name_key] = equipped[equipped_name].Skin.Name;
-                elseif vm_ref.Data then
-                    vm_ref.Data.Skin = equipped[equipped_name].Skin;
-                    vm_ref.Data.Name = equipped[equipped_name].Skin.Name;
-                end;
-            end;
-            local result = old(self, vm_ref);
-            current_weapon = nil;
-            return result;
-        end;
-    end;
-    local vm_module_path = local_player.PlayerScripts.Modules.ClientReplicatedClasses.ClientFighter.ClientItem:FindFirstChild("ClientViewModel");
-    if vm_module_path then
-        local client_vm = require(vm_module_path);
-        if client_vm.GetWrap then
-            local old = client_vm.GetWrap; client_vm.GetWrap = function(self)
-                local weapon_name = self.ClientItem and self.ClientItem.Name;
-                local weapon_owner = self.ClientItem and self.ClientItem.ClientFighter and self.ClientItem.ClientFighter.Player;
-                local equipped_name = resolveEquippedWeaponName(weapon_name);
-                if enabled and weapon_name and weapon_owner == local_player and equipped_name and equipped[equipped_name] and equipped[equipped_name].Wrap then
-                    return equipped[equipped_name].Wrap;
-                end;
-                return old(self);
-            end;
-        end;
-        local old = client_vm.new; client_vm.new = function(rep_data, client_item)
-            local weapon_owner = client_item.ClientFighter and client_item.ClientFighter.Player;
-            local weapon_name = current_weapon or client_item.Name;
-            local equipped_name = resolveEquippedWeaponName(weapon_name);
-            if enabled and weapon_owner == local_player and equipped_name and equipped[equipped_name] then
-                local data_key = rep_class:ToEnum("Data");
-                rep_data[data_key] = rep_data[data_key] or {};
-                local eq = equipped[equipped_name];
-                if eq.Skin then rep_data[data_key][rep_class:ToEnum("Skin")] = eq.Skin end;
-                if eq.Wrap then rep_data[data_key][rep_class:ToEnum("Wrap")] = eq.Wrap end;
-                if eq.Charm then rep_data[data_key][rep_class:ToEnum("Charm")] = eq.Charm end;
-            end;
-            local vm_obj = old(rep_data, client_item);
-            if enabled and weapon_owner == local_player and equipped_name and equipped[equipped_name] and equipped[equipped_name].Wrap and vm_obj._UpdateWrap then
-                vm_obj:_UpdateWrap();
-                task.delay(0.1, function()
-                    if not vm_obj._destroyed then vm_obj:_UpdateWrap() end;
-                end);
-            end;
-            return vm_obj;
-        end;
-    end;
-    local function resolveEquippedSkinImage(selfObj, weapon_data, high_res)
-        if not weapon_data or not enabled then return nil end;
-        local weapon_name = weapon_data.Name;
-        local equipped_name = resolveEquippedWeaponName(weapon_name, weapon_data);
-        if not (weapon_name and equipped_name and equipped[equipped_name] and equipped[equipped_name].Skin) then
-            return nil;
-        end;
-        local skinName = equipped[equipped_name].Skin.Name;
-        if not skinName then return nil end;
-        local should_show = (weapon_data.Skin and weapon_data.Skin == equipped[equipped_name].Skin)
-            or (viewing_profile == local_player)
-            or (weapon_data.Weapon and weapon_data.Weapon == equipped_name)
-            or (weapon_data.WeaponName and weapon_data.WeaponName == equipped_name)
-            or (cosmeticNorm(weapon_data.Name) == cosmeticNorm(equipped_name));
-        if not should_show then return nil end;
-        local viewModels = selfObj and selfObj.ViewModels;
-        local skin_info = viewModels and viewModels[skinName];
-        if not skin_info then return nil end;
-        return skin_info[high_res and "ImageHighResolution" or "Image"] or skin_info.Image;
-    end;
-    local old = item_library.GetViewModelImageFromWeaponData; item_library.GetViewModelImageFromWeaponData = function(self, weapon_data, high_res)
-        local forced = resolveEquippedSkinImage(self, weapon_data, high_res);
-        if forced then return forced end;
-        return old(self, weapon_data, high_res);
-    end;
-    if item_library.GetImageFromWeaponData then
-        local oldImg = item_library.GetImageFromWeaponData;
-        item_library.GetImageFromWeaponData = function(self, weapon_data, high_res)
-            local forced = resolveEquippedSkinImage(self, weapon_data, high_res);
-            if forced then return forced end;
-            return oldImg(self, weapon_data, high_res);
-        end;
-    end;
-    if item_library.GetWeaponImageFromWeaponData then
-        local oldWeaponImg = item_library.GetWeaponImageFromWeaponData;
-        item_library.GetWeaponImageFromWeaponData = function(self, weapon_data, high_res)
-            local forced = resolveEquippedSkinImage(self, weapon_data, high_res);
-            if forced then return forced end;
-            return oldWeaponImg(self, weapon_data, high_res);
-        end;
-    end;
-    local view_profile = require(local_player.PlayerScripts.Modules.Pages.ViewProfile);
-    if view_profile and view_profile.Fetch then
-        local old = view_profile.Fetch; view_profile.Fetch = function(self, target_player)
-            viewing_profile = target_player;
-            return old(self, target_player);
-        end;
-    end;
-    loadSkins();
-    data_ctrl.CurrentData:Replicate("CosmeticInventory");
-    data_ctrl.CurrentData:Replicate("WeaponInventory");
-    data_ctrl.CurrentData:Replicate("FavoritedCosmetics");
-    local uiState = getgenv().elisium_cosmetic_state;
-    local function makeThemeColor(which, fallback)
-        if Library and Library[which] then return Library[which] end;
-        return fallback;
-    end;
-    local uiFont = (Library and Library.Font) or Enum.Font.Code;
-    local coreGui = game:GetService("CoreGui");
-    local rs = game:GetService("RunService");
-    local function destroyOld()
-        if uiState.gui then
-            pcall(function() uiState.gui:Destroy() end);
-        end;
-        uiState.gui = nil;
-        uiState.frame = nil;
-        uiState.inner = nil;
-        uiState.panel = nil;
-    end;
-    destroyOld();
-    local gui = Instance.new("ScreenGui");
-    gui.Name = "elisium_cosmetic_changer";
-    gui.ResetOnSpawn = false;
-    gui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
-    gui.Parent = coreGui;
-    local viewport = (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize) or Vector2.new(1280, 720);
-    local outer = Instance.new("Frame");
-    outer.Name = "CosmeticChangerOuter";
-    outer.AnchorPoint = Vector2.new(0.5, 0.5);
-    outer.Size = UDim2.fromOffset(math.clamp(math.floor(viewport.X * 0.86), 320, 700), math.clamp(math.floor(viewport.Y * 0.82), 300, 500));
-    outer.Position = UDim2.fromScale(0.5, 0.5);
-    outer.BorderSizePixel = 0;
-    outer.BackgroundColor3 = Color3.new(0, 0, 0);
-    outer.Parent = gui;
-    outer.Active = true;
-    outer.Draggable = true;
-    local outerConstraint = Instance.new("UISizeConstraint");
-    outerConstraint.MinSize = Vector2.new(300, 280);
-    outerConstraint.MaxSize = viewport;
-    outerConstraint.Parent = outer;
-
-    local userInput = game:GetService("UserInputService");
-    local resizer = Instance.new("TextButton");
-    resizer.Name = "CosmeticResizer";
-    resizer.Text = "";
-    resizer.AutoButtonColor = false;
-    resizer.AnchorPoint = Vector2.new(1, 1);
-    resizer.Position = UDim2.new(1, -2, 1, -2);
-    resizer.Size = UDim2.fromOffset(18, 18);
-    resizer.BackgroundColor3 = Color3.fromRGB(0, 186, 255);
-    resizer.BorderSizePixel = 0;
-    resizer.Size = UDim2.fromOffset(14, 14);
-    resizer.ZIndex = 50;
-    resizer.Parent = outer;
-
-    local resizing = false;
-    local resizeStart = nil;
-    local resizeStartSize = nil;
-    resizer.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            resizing = true;
-            resizeStart = input.Position;
-            resizeStartSize = outer.AbsoluteSize;
-        end;
-    end);
-    resizer.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            resizing = false;
-        end;
-    end);
-    userInput.InputChanged:Connect(LPH_NO_VIRTUALIZE(function(input)
-        if not resizing or not resizer.Parent then return end;
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080);
-            local delta = input.Position - resizeStart;
-            local newW = math.clamp(resizeStartSize.X + delta.X, 360, viewport.X);
-            local newH = math.clamp(resizeStartSize.Y + delta.Y, 280, viewport.Y);
-            outer.Size = UDim2.fromOffset(newW, newH);
-        end;
-    end));
-    local inner = Instance.new("Frame");
-    inner.Name = "CosmeticChangerInner";
-    inner.Size = UDim2.new(1, -2, 1, -2);
-    inner.Position = UDim2.fromOffset(1, 1);
-    inner.BorderSizePixel = 0;
-    inner.Parent = outer;
-    local panel = Instance.new("Frame");
-    panel.Name = "CosmeticChangerContent";
-    panel.AnchorPoint = Vector2.new(0.5, 0.5);
-    panel.Position = UDim2.fromScale(0.5, 0.5);
-    panel.Size = UDim2.new(1, -2, 1, -2);
-    panel.BorderSizePixel = 0;
-    panel.ClipsDescendants = true;
-    panel.Parent = inner;
-    local top = Instance.new("Frame");
-    top.Size = UDim2.new(1, 0, 0, 38);
-    top.Position = UDim2.new(0, 0, 0, 0);
-    top.BorderSizePixel = 0;
-    top.Parent = panel;
-    local accentBar = Instance.new("Frame");
-    accentBar.Name = "CosmeticChangerAccent";
-    accentBar.BorderSizePixel = 0;
-    accentBar.Size = UDim2.new(1, 0, 0, 2);
-    accentBar.Position = UDim2.new(0, 0, 0, 0);
-    accentBar.ZIndex = 2;
-    accentBar.Parent = panel;
-    local title = Instance.new("TextLabel");
-    title.BackgroundTransparency = 1;
-    title.Size = UDim2.new(1, -80, 1, -2);
-    title.Position = UDim2.new(0, 8, 0, 2);
-    title.Font = uiFont;
-    title.TextSize = 14;
-    title.TextXAlignment = Enum.TextXAlignment.Left;
-    title.Text = "Cosmetic Changer";
-    title.Parent = top;
-    pcall(function()
-        Library:SetAccentTitle(title, 'Cosmetic Changer', 'Changer');
-    end);
-    local closeBtn = Instance.new("TextButton");
-    closeBtn.AnchorPoint = Vector2.new(1, 0.5);
-    closeBtn.Size = UDim2.fromOffset(24, 24);
-    closeBtn.Position = UDim2.new(1, -8, 0.5, 1);
-    closeBtn.Text = "X";
-    closeBtn.Font = uiFont;
-    closeBtn.TextSize = 14;
-    closeBtn.AutoButtonColor = false;
-    closeBtn.BackgroundTransparency = 1;
-    closeBtn.Parent = top;
-    closeBtn.MouseButton1Click:Connect(function()
-        local st = getgenv().elisium_cosmetic_state;
-        if st then
-            st.dismissedThisSession = true;
-            if st.frame then
-                st.frame.Visible = false;
-            end;
-        end;
-    end);
-    local FOOTER_H = 112;
-    local GRID_COLS = 3;
-    local GRID_GAP = 4;
-    local GRID_PAD = 6;
-    local GRID_LABEL_H = 14;
-    local GRID_SELECT_BG = Color3.fromRGB(0, 0, 0);
-    local leftHolder = Instance.new("Frame");
-    leftHolder.Size = UDim2.new(0.46, -12, 1, -(40 + FOOTER_H));
-    leftHolder.Position = UDim2.new(0, 10, 0, 40);
-    leftHolder.BorderSizePixel = 0;
-    leftHolder.Parent = panel;
-    local rightHolder = Instance.new("Frame");
-    rightHolder.Size = UDim2.new(0.54, -12, 1, -(40 + FOOTER_H));
-    rightHolder.Position = UDim2.new(0.46, 2, 0, 40);
-    rightHolder.BorderSizePixel = 0;
-    rightHolder.Parent = panel;
-    local function styleSearchBox(box)
-        box.BorderSizePixel = 1;
-        box.BorderMode = Enum.BorderMode.Inset;
-        box.ClipsDescendants = true;
-        local pad = Instance.new("UIPadding");
-        pad.PaddingLeft = UDim.new(0, 8);
-        pad.PaddingRight = UDim.new(0, 8);
-        pad.Parent = box;
-    end;
-    local weaponSearch = Instance.new("TextBox");
-    weaponSearch.Size = UDim2.new(1, -8, 0, 24);
-    weaponSearch.Position = UDim2.new(0, 4, 0, 4);
-    weaponSearch.ClearTextOnFocus = false;
-    weaponSearch.Text = "";
-    weaponSearch.PlaceholderText = "filter weapons...";
-    weaponSearch.Font = uiFont;
-    weaponSearch.TextSize = 13;
-    weaponSearch.TextXAlignment = Enum.TextXAlignment.Left;
-    weaponSearch.Parent = leftHolder;
-    styleSearchBox(weaponSearch);
-    local cosmeticSearch = Instance.new("TextBox");
-    cosmeticSearch.Size = UDim2.new(1, -8, 0, 24);
-    cosmeticSearch.Position = UDim2.new(0, 4, 0, 4);
-    cosmeticSearch.ClearTextOnFocus = false;
-    cosmeticSearch.Text = "";
-    cosmeticSearch.PlaceholderText = "filter cosmetics...";
-    cosmeticSearch.Font = uiFont;
-    cosmeticSearch.TextSize = 13;
-    cosmeticSearch.TextXAlignment = Enum.TextXAlignment.Left;
-    cosmeticSearch.Parent = rightHolder;
-    styleSearchBox(cosmeticSearch);
-    local weaponFilterLbl = Instance.new("TextLabel");
-    weaponFilterLbl.BackgroundTransparency = 1;
-    weaponFilterLbl.Size = UDim2.new(1, -8, 0, 14);
-    weaponFilterLbl.Position = UDim2.new(0, 4, 0, 2);
-    weaponFilterLbl.Font = Enum.Font.Code;
-    weaponFilterLbl.TextSize = 12;
-    weaponFilterLbl.TextXAlignment = Enum.TextXAlignment.Left;
-    weaponFilterLbl.Text = "weapon filter";
-    weaponFilterLbl.Parent = leftHolder;
-    weaponSearch.Position = UDim2.new(0, 4, 0, 18);
-    local cosmeticFilterLbl = Instance.new("TextLabel");
-    cosmeticFilterLbl.BackgroundTransparency = 1;
-    cosmeticFilterLbl.Size = UDim2.new(1, -8, 0, 14);
-    cosmeticFilterLbl.Position = UDim2.new(0, 4, 0, 2);
-    cosmeticFilterLbl.Font = Enum.Font.Code;
-    cosmeticFilterLbl.TextSize = 12;
-    cosmeticFilterLbl.TextXAlignment = Enum.TextXAlignment.Left;
-    cosmeticFilterLbl.Text = "cosmetic filter";
-    cosmeticFilterLbl.Parent = rightHolder;
-    cosmeticSearch.Position = UDim2.new(0, 4, 0, 18);
-    local weaponList = Instance.new("ScrollingFrame");
-    weaponList.Position = UDim2.new(0, 6, 0, 46);
-    weaponList.Size = UDim2.new(1, -12, 1, -52);
-    weaponList.CanvasSize = UDim2.fromOffset(0, 0);
-    weaponList.ScrollBarThickness = 4;
-    weaponList.ScrollBarImageTransparency = 0.35;
-    weaponList.BorderSizePixel = 1;
-    weaponList.BorderMode = Enum.BorderMode.Inset;
-    weaponList.BackgroundTransparency = 0;
-    weaponList.Parent = leftHolder;
-    local wl = Instance.new("UIGridLayout", weaponList);
-    wl.SortOrder = Enum.SortOrder.LayoutOrder;
-    wl.FillDirectionMaxCells = 3;
-    local wlPad = Instance.new("UIPadding", weaponList);
-    wlPad.PaddingTop = UDim.new(0, GRID_PAD);
-    wlPad.PaddingBottom = UDim.new(0, GRID_PAD);
-    wlPad.PaddingLeft = UDim.new(0, GRID_PAD);
-    wlPad.PaddingRight = UDim.new(0, GRID_PAD);
-    local typeBar = Instance.new("Frame");
-    typeBar.Size = UDim2.new(1, -12, 0, 28);
-    typeBar.Position = UDim2.new(0, 6, 0, 46);
-    typeBar.BackgroundTransparency = 1;
-    typeBar.BorderSizePixel = 0;
-    typeBar.Parent = rightHolder;
-    local cosmeticList = Instance.new("ScrollingFrame");
-    cosmeticList.Position = UDim2.new(0, 6, 0, 78);
-    cosmeticList.Size = UDim2.new(1, -12, 1, -84);
-    cosmeticList.CanvasSize = UDim2.fromOffset(0, 0);
-    cosmeticList.ScrollBarThickness = 4;
-    cosmeticList.ScrollBarImageTransparency = 0.35;
-    cosmeticList.BorderSizePixel = 1;
-    cosmeticList.BorderMode = Enum.BorderMode.Inset;
-    cosmeticList.Parent = rightHolder;
-    local cl = Instance.new("UIGridLayout", cosmeticList);
-    cl.SortOrder = Enum.SortOrder.LayoutOrder;
-    cl.FillDirectionMaxCells = 3;
-    local clPad = Instance.new("UIPadding", cosmeticList);
-    clPad.PaddingTop = UDim.new(0, GRID_PAD);
-    clPad.PaddingBottom = UDim.new(0, GRID_PAD);
-    clPad.PaddingLeft = UDim.new(0, GRID_PAD);
-    clPad.PaddingRight = UDim.new(0, GRID_PAD);
-    local bottomBar = Instance.new("Frame");
-    bottomBar.Name = "CosmeticBottomBar";
-    bottomBar.Size = UDim2.new(1, 0, 0, FOOTER_H);
-    bottomBar.Position = UDim2.new(0, 0, 1, -FOOTER_H);
-    bottomBar.BackgroundTransparency = 1;
-    bottomBar.BorderSizePixel = 0;
-    bottomBar.Parent = panel;
-    local bottomDivider = Instance.new("Frame");
-    bottomDivider.Name = "BottomDivider";
-    bottomDivider.Size = UDim2.new(1, -20, 0, 1);
-    bottomDivider.Position = UDim2.new(0, 10, 0, 4);
-    bottomDivider.BorderSizePixel = 0;
-    bottomDivider.BackgroundTransparency = 0.5;
-    bottomDivider.Parent = bottomBar;
-    local skinHint = Instance.new("TextLabel");
-    skinHint.Name = "SkinHint";
-    skinHint.BackgroundTransparency = 1;
-    skinHint.Size = UDim2.fromOffset(168, 46);
-    skinHint.Position = UDim2.fromOffset(12, 8);
-    skinHint.Font = Enum.Font.Code;
-    skinHint.TextSize = 13;
-    skinHint.TextXAlignment = Enum.TextXAlignment.Left;
-    skinHint.TextYAlignment = Enum.TextYAlignment.Center;
-    skinHint.TextWrapped = true;
-    skinHint.Text = "right click weapon to remove skin";
-    skinHint.Parent = bottomBar;
-    local wrapToggleRow = Instance.new("Frame");
-    wrapToggleRow.Name = "WrapToggleRow";
-    wrapToggleRow.Size = UDim2.fromOffset(176, 50);
-    wrapToggleRow.Position = UDim2.fromOffset(188, 6);
-    wrapToggleRow.BackgroundTransparency = 1;
-    wrapToggleRow.Visible = false;
-    wrapToggleRow.Parent = bottomBar;
-    local wrapToggleLayout = Instance.new("UIListLayout", wrapToggleRow);
-    wrapToggleLayout.FillDirection = Enum.FillDirection.Horizontal;
-    wrapToggleLayout.Padding = UDim.new(0, 16);
-    wrapToggleLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center;
-    wrapToggleLayout.VerticalAlignment = Enum.VerticalAlignment.Center;
-    wrapToggleLayout.SortOrder = Enum.SortOrder.LayoutOrder;
-    local actionRow = Instance.new("Frame");
-    actionRow.Name = "ActionRow";
-    actionRow.AnchorPoint = Vector2.new(1, 1);
-    actionRow.Size = UDim2.fromOffset(340, 30);
-    actionRow.Position = UDim2.new(1, -12, 1, -10);
-    actionRow.BackgroundTransparency = 1;
-    actionRow.Parent = bottomBar;
-    local actionLayout = Instance.new("UIListLayout", actionRow);
-    actionLayout.FillDirection = Enum.FillDirection.Horizontal;
-    actionLayout.Padding = UDim.new(0, 8);
-    actionLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right;
-    actionLayout.VerticalAlignment = Enum.VerticalAlignment.Center;
-    local applyBtn = Instance.new("TextButton");
-    applyBtn.Name = "ApplyBtn";
-    applyBtn.Size = UDim2.fromOffset(72, 28);
-    applyBtn.Text = "apply";
-    applyBtn.Font = Enum.Font.Code;
-    applyBtn.TextSize = 12;
-    applyBtn.BorderSizePixel = 1;
-    applyBtn.AutoButtonColor = false;
-    applyBtn.Parent = actionRow;
-    local fallback = Instance.new("TextButton");
-    fallback.Name = "UnlockAllBtn";
-    fallback.Size = UDim2.fromOffset(88, 28);
-    fallback.Text = "unlock all";
-    fallback.Font = Enum.Font.Code;
-    fallback.TextSize = 12;
-    fallback.BorderSizePixel = 1;
-    fallback.AutoButtonColor = false;
-    fallback.Parent = actionRow;
-    fallback.MouseButton1Click:Connect(function()
-        unlockAllActive = true;
-        pcall(function()
-            data_ctrl.CurrentData:Replicate("CosmeticInventory");
-            data_ctrl.CurrentData:Replicate("WeaponInventory");
-            data_ctrl.CurrentData:Replicate("FavoritedCosmetics");
-        end);
-    end);
-    local function getWeapons()
-        local out, seen = {}, {};
-        local function addWeapon(name)
-            if type(name) ~= "string" then return end;
-            name = name:gsub("^%s+", ""):gsub("%s+$", "");
-            if name == "" then return end;
-            if not seen[name] then
-                seen[name] = true;
-                table.insert(out, name);
-            end;
-        end;
-        local function harvestTable(tbl)
-            if type(tbl) ~= "table" then return end;
-            for k, v in eli_pairs(tbl) do
-                if type(k) == "string" then
-                    addWeapon(k);
-                end;
-                if type(v) == "table" then
-                    addWeapon(v.Name);
-                    addWeapon(v.Weapon);
-                    addWeapon(v.WeaponName);
-                elseif type(v) == "string" then
-                    addWeapon(v);
-                end;
-            end;
-        end;
-        local weaponInv = data_ctrl and data_ctrl.Get and data_ctrl:Get("WeaponInventory");
-        harvestTable(weaponInv);
-        harvestTable(equipped);
-        harvestTable(favorites);
-        if item_library then
-            harvestTable(item_library.Weapons);
-            harvestTable(item_library.WeaponData);
-            harvestTable(item_library.Items);
-            harvestTable(item_library.Guns);
-        end;
-        pcall(function()
-            local mods = local_player.PlayerScripts:FindFirstChild("Modules");
-            local vmFolder = mods and mods:FindFirstChild("ViewModels");
-            if not vmFolder then return end;
-            for _, mod in eli_ipairs(vmFolder:GetChildren()) do
-                addWeapon((mod.Name:gsub("^Base", "")));
-            end;
-        end);
-        for _, cdata in eli_pairs(cosmetic_lib.Cosmetics or {}) do
-            if type(cdata) == "table" and type(cdata.Weapons) == "table" then
-                for _, wn in eli_ipairs(cdata.Weapons) do
-                    addWeapon(wn);
-                end;
-            end;
-        end;
-        table.sort(out);
-        return out;
-    end;
-    local weaponSkinSeedRaw = {
-        ["Assault Rifle"] = {"AKEY-47", "AUG", "Gingerbread AUG", "Tommy Gun", "AK-47", "Boneclaw Rifle", "Glorious Assault Rifle", "Phoenix Rifle", "10B Visits"},
-        ["Battle Axe"] = {"Ban Axe", "Nordic Axe", "Cerulean Axe", "Balloon Axe", "Mimic Axe", "Street Sign", "The Shred", "Glorious Battle Axe", "Keyttle Axe"},
-        ["Burst Rifle"] = {"Keyst Rifle", "Spectral Burst", "Pine Burst", "Glorious Burst Rifle", "Pixel Burst", "Electro Rifle", "Electro Burst", "FAMAS", "Aqua Burst"},
-        Chainsaw = {"Glorious Chainsaw", "Buzzsaw", "Festive Chainsaw", "Handsaws", "Mega Drill", "Blobsaw"},
-        Bow = {"Key Bow", "Raven Bow", "Dream Bow", "Glorious Bow", "Bat Bow", "Compound Bow", "Beloved Bow", "Balloon Bow", "Frostbite Bow"},
-        Crossbow = {"Glorious Crossbow", "Crossbone", "Pixel Crossbow", "Arch Crossbow", "Harpoon Crossbow", "Violin Crossbow", "Frostbite Crossbow"},
-        Daggers = {"Aces", "Bat daggers", "Toaster", "Cookies", "Keynais", "Paper Planes", "Crystal Daggers", "Broken Hearts", "Glorious Daggers", "Shurikans", "Pumpkin Claws"},
-        ["Energy Rifle"] = {"Hacker Rifle", "Apex Rifle", "Glorious Energy Rifle", "New Year Energy Rifle", "Void Rifle", "Soul Rifle", "Hydro Rifle"},
-        ["Energy Pistols"] = {"Hacker Pistols", "Hyperlaser Guns", "New Year Energy Pistols", "Hydro Pistols", "Soul Pistols", "Void Pistols", "Glorious Energy Pistols", "Apex Pistols"},
-        Exogun = {"Wondergun", "Ray Gun", "Exogourd", "Repulsor", "Glorious Exogun", "Midnight Festive Exogun", "Singularity"},
-        Fists = {"Festive Fists", "Spy Gloves", "Fists of Hurt", "Brass Knuckles", "Boxing Gloves", "Pumpkin Claws", "Fist", "Glorious Fists"},
-        Flamethrower = {"Rainbowthrower", "Extinguisher", "Keythrower", "Snowblower", "Lamethrower", "Glitterthrower", "Glorious Flamethrower", "Pixel Flamethrower", "Jack O'Thrower"},
-        ["Flare Gun"] = {"Vexed Flare Gun", "Wrapped Flare Gun", "Banana Flare Gun", "Banana Flare", "Glorious Flare Gun", "Firework Gun", "Dynamite Gun"},
-        ["Freeze Ray"] = {"Gum Ray", "Glorious Freeze Ray", "Spider Ray", "Temporal Ray", "Bubble Ray", "Wrapped Freeze Ray"},
-        Grenade = {"Glorious Grenade", "Water balloon", "Water Balloon", "Dynamite", "Whoopee Cushion", "Jingle Grenade", "Keynade", "Frozen Grenade", "Cuddle Bomb", "Soul Grenade"},
-        ["Grenade Launcher"] = {"Uranium Launcher", "Swashbuckler", "Balloon Launcher", "Skull Launcher", "Snowball Launcher", "Gearnade Launcher", "Firework Launcher", "Pumpkin Launcher", "Pencil Launcher", "Glorious Grenade Launcher"},
-        Gunblade = {"Elf's Gunblade", "Hyper Gunblade", "Glorious Gunblade", "Boneblade", "Keyblade", "Crude Gunblade", "Gunsaw"},
-        Handgun = {"Towerstone Handgun", "Blaster", "Stealth Handgun", "Gingerbread Handgun", "Pumpkin Handgun", "Gumball Handgun", "Hand Gun", "Glorious Handgun", "Pixel Handgun", "Warp Handgun"},
-        Katana = {"Pixel Katana", "Evil Tridant", "Devil's Trident", "Linked Sword", "New Year Katana", "Glorious Katana", "Crystal Katana", "Stellar Katana", "Keytana", "Saber", "Lightning Bolt", "Arch Katana", "Thunderbolt Katana"},
-        Knife = {"Balisong", "Machete", "Chancla", "Keyrambit", "Candy Cane", "Caladblog", "Glorious Knife", "Keylisong", "Armature.001", "pencil", "Karambit"},
-        Minigun = {"Fighter Jet", "Wrapped Minigun", "Pumpkin Minigun", "Glorious Minigun", "Pixel Minigun", "Lazergun 3000", "Lasergun 3000"},
-        ["Riot Shield"] = {"Tombstone Shield", "Masterpiece", "Door", "Glorious Riot Shield", "Sled", "Energy Shield"},
-        Molotov = {"Arch Molotov", "Coffee", "Lava Lamp", "Torch", "Hot Coals", "Vexed Candle", "Glorious Molotov"},
-        ["Paintball Gun"] = {"Slime Gun", "Ketchup Gun", "Glorious Paintball Gun", "Boba Gun", "Snowball Gun", "Brain Gun", "Paintballoon Gun"},
-        Revolver = {"Peppermint sheriff", "Peppermint Sheriff", "Desert Eagle", "Deagle", "Boneclaw Revolver", "Glorious Revolver", "Keyvolver", "Sheriff", "Peppergun"},
-        RPG = {"Rocket launcher", "Rocket Launcher", "Spaceship launcher", "Spaceship Launcher", "Firework Launcher", "Pencil Launcher", "RPKEY", "RPKey", "Squid Launcher", "Pumpkin Launcher", "Glorious RPG"},
-        Scythe = {"Scythe of Death", "Anchor", "Sakura Scythe", "Keythe", "Bat Scythe", "Cryo Scythe", "Crystal Scythe", "Glorious Scythe", "Bug Net"},
-        Shorty = {"Shorty", "Lovely Shorty", "Demon Shorty", "Not So Shorty", "Balloon Shorty", "Too Shorty", "Glorious Shorty", "Wrapped Shorty"},
-        Shotgun = {"Broomstick", "Wrapped Shotgun", "Hyper Shotgun", "Balloon Shotgun", "Cactus Shotgun", "Glorious Shotgun", "Shotkey", "Witch Shotgun"},
-        Slingshot = {"Lucky Horseshoe", "Reindeer Slingshot", "Keyshot", "Boneshot", "Stick", "Glorious Slingshot", "Harp", "Goalpost"},
-        ["Smoke Grenade"] = {"Hourglass", "SnowGlobe", "Snowglobe", "Glorious Smoke Grenade", "Emoji Cloud", "Eyeball", "Balence", "Balance"},
-        Sniper = {"Keyper", "Gingerbread Sniper", "Glorious Sniper", "Hyper Sniper", "Event Horizon", "Eyething Sniper", "Pixel Sniper"},
-        ["Subspace Tripmine"] = {"Dev-in-the-Box", "Glorious subspace Tripmine", "Glorious Subspace Tripmine", "Pot o'Keys", "Trick or Treat", "DIY Tripmine", "Spring", "Don't Press"},
-        Spray = {"Pine spray", "Pine Spray", "Glorious Spray", "Spray Bottle", "Nail Gun", "Lovely Spray", "Boneclaw Spray", "Key Spray"},
-        Trowel = {"Pumpkin Carver", "Paintbrush", "Glorious Trowl", "Glorious Trowel", "Plastic Shovel", "Garden Shovel", "Snow Shovel"},
-        Uzi = {"Glorious Uzi", "Keyzi", "Money Gun", "Pine Uzi", "Water Uzi", "Water Gun", "Electro Uzi", "Arch Uzi", "Demon Uzi"},
-        Flashbang = {"Lightbulb", "Pixel Flashbang", "Glorious Flashbang", "Skullbang", "Camera", "Disco Ball", "Shiny Star", "Shining Star"},
-        Medkit = {"Glorious Medkit", "Bucket of Candy", "Box of Chocolates", "Breifcase", "Briefcase", "Laptop", "Medkitty", "Milk&cookies", "Sandwich"},
-        ["Jump Pad"] = {"Bounce House", "Shady Chicken Sandwich", "Trampoline", "Spider Web", "Glorious Jump Pad", "Jolly Man"},
-        ["War Horn"] = {"Trumpet", "Boneclaw Horn", "Megaphone", "Mammoth Horn", "Air Horn", "Glorious Air Horn", "Glorious War Horn"},
-        Permafrost = {"Ice Permafrost", "Snowman Permafrost", "Glorious Permafrost"},
-        Distortion = {"Plasma Distortion", "Electropunk Distortion", "Sleighstortion", "Glorious Distortion", "Magma Distortion", "Cyber Distortion", "Experimental D15"},
-        Satchel = {"Pizza Box", "Suspicious Gift", "Advanced Satchel", "Notebook Satchel", "Potion Satchel", "Glorious Satchel", "Bag o'Money"},
-        Warper = {"Frost Warper", "Hotel Bell", "Arcane Warper", "Electropunk Warper", "Glitter Warper", "Experiment W4", "Glorious Warper"},
-        Warpstone = {"Electropunk Warpstone", "Glorious Warpstone", "Warpbone", "Unstable Warpstone", "Cyber Warpstone", "Warpeye", "Warpstar", "Teleport Disc"},
-        Maul = {"Glorious Maul", "Sleigh Maul", "Ban Hammer", "Ice Maul"},
-        Spear = {"Giant Pencil", "Glorious Spear", "Studio Light"},
-        Grappler = {"Lasso", "Glorious Grappler"},
-    };
-    local weaponSkinSeed = {};
-    for weaponName, skinList in eli_pairs(weaponSkinSeedRaw) do
-        local wn = cosmeticNorm(weaponName);
-        weaponSkinSeed[wn] = weaponSkinSeed[wn] or {};
-        if type(skinList) == "table" then
-            for _, skinName in eli_ipairs(skinList) do
-                local sn = cosmeticNorm(skinName);
-                if sn ~= "" then
-                    weaponSkinSeed[wn][sn] = true;
-                end;
-            end;
-        end;
-    end;
-    pcall(function()
-        local mods = local_player.PlayerScripts:FindFirstChild("Modules");
-        local vmFolder = mods and mods:FindFirstChild("ViewModels");
-        if not vmFolder then return end;
-        for _, mod in eli_ipairs(vmFolder:GetChildren()) do
-            local weaponName = (mod.Name:gsub("^Base", ""));
-            local wn = cosmeticNorm(weaponName);
-            if wn ~= "" then
-                weaponSkinSeed[wn] = weaponSkinSeed[wn] or {};
-                for _, skin in eli_ipairs(mod:GetChildren()) do
-                    local sn = cosmeticNorm(skin.Name);
-                    if sn ~= "" then
-                        weaponSkinSeed[wn][sn] = true;
-                    end;
-                end;
-            end;
-        end;
-    end);
-    local function getCosmeticsFor(weaponName, cosmeticType)
-        local results = {};
-        cosmeticType = cosmeticType or "Skin";
-        local weaponNorm = cosmeticNorm(weaponName);
-        local seededList = weaponSkinSeed[weaponNorm];
-        local function matchesWeapon(cdata)
-            local st = getgenv().elisium_cosmetic_state;
-            if st and st.anyModel then
-                return true;
-            end;
-            if type(cdata) ~= "table" then return false end;
-            if cosmeticType == "Skin" and seededList then
-                local n = cosmeticNorm(cdata.Name);
-                if n == "" then return false end;
-                return seededList[n] == true;
-            end;
-            local hasRestriction = false;
-            local lists = { cdata.Weapons, cdata.WeaponList, cdata.AllowedWeapons, cdata.WhitelistWeapons };
-            for _, list in eli_ipairs(lists) do
-                if type(list) == "table" then
-                    hasRestriction = true;
-                    for _, wn in eli_ipairs(list) do
-                        if cosmeticNorm(wn) == weaponNorm then
-                            return true;
-                        end;
-                    end;
-                end;
-            end;
-            if cosmeticNorm(cdata.Weapon) == weaponNorm or cosmeticNorm(cdata.WeaponName) == weaponNorm or cosmeticNorm(cdata.Gun) == weaponNorm then
-                return true;
-            end;
-            if (cosmeticType == "Wrap" or cosmeticType == "Charm") and not hasRestriction then
-                return true;
-            end;
-            return false;
-        end;
-        for cname, cdata in eli_pairs(cosmetic_lib.Cosmetics or {}) do
-            if type(cname) == "string" and type(cdata) == "table" and cdata.Type == cosmeticType and not cname:find("MISSING_") then
-                cdata.Name = cdata.Name or cname;
-                if matchesWeapon(cdata) then
-                    table.insert(results, cname);
-                end;
-            end;
-        end;
-        table.sort(results);
-        return results;
-    end;
-    local typeButtons = {};
-    local function addTypeButton(typeName, order)
-        local btn = Instance.new("TextButton");
-        btn.Size = UDim2.fromOffset(74, 26);
-        btn.Position = UDim2.new(0, (order - 1) * 78, 0, 1);
-        btn.Text = typeName:lower();
-        btn.Font = uiFont;
-        btn.TextSize = 12;
-        btn.AutoButtonColor = false;
-        btn.BorderSizePixel = 1;
-        btn.BorderMode = Enum.BorderMode.Inset;
-        btn.Parent = typeBar;
-        btn.MouseButton1Click:Connect(function()
-            uiState.selectedType = typeName;
-            if uiState.refreshCosmetics then uiState.refreshCosmetics() end;
-        end);
-        typeButtons[typeName] = btn;
-    end;
-    addTypeButton("Skin", 1);
-    addTypeButton("Wrap", 2);
-    addTypeButton("Charm", 3);
-    uiState.pendingWrapOpts = uiState.pendingWrapOpts or {};
-    local wrapOptionToggles = {};
-    local function getActiveWrapName(weaponName)
-        if not weaponName then return nil end;
-        local pending = uiState.pendingCosmetics and uiState.pendingCosmetics[weaponName];
-        if pending and pending.Wrap and pending.Wrap ~= "" then
-            return pending.Wrap;
-        end;
-        local eq = equipped[weaponName] and equipped[weaponName].Wrap;
-        return eq and eq.Name or nil;
-    end;
-    local function getWrapEquipOptions(weaponName)
-        uiState.pendingWrapOpts[weaponName] = uiState.pendingWrapOpts[weaponName] or {};
-        local pend = uiState.pendingWrapOpts[weaponName];
-        if pend.inverted ~= nil then
-            return { IsInverted = pend.inverted == true };
-        end;
-        local wrap = equipped[weaponName] and equipped[weaponName].Wrap;
-        return { IsInverted = wrap and wrap.Inverted == true or false };
-    end;
-    local function fireEquipCosmetic(weaponName, ctype, cname, extraOpts)
-        extraOpts = extraOpts or {};
-        if ctype == "Wrap" then
-            local wrapOpts = getWrapEquipOptions(weaponName);
-            extraOpts.IsInverted = wrapOpts.IsInverted;
-        end;
-        equipped[weaponName] = equipped[weaponName] or {};
-        if not cname or cname == "None" or cname == "" then
-            equipped[weaponName][ctype] = nil;
-            if not next(equipped[weaponName]) then
-                equipped[weaponName] = nil;
-            end;
-        else
-            local cosmetic_data = clone_cosmetic(cname, ctype, { inverted = extraOpts.IsInverted });
-            if cosmetic_data then
-                equipped[weaponName][ctype] = cosmetic_data;
-            end;
-        end;
-        saveSkins();
-        pcall(function()
-            data_ctrl.CurrentData:Replicate("CosmeticInventory");
-            data_ctrl.CurrentData:Replicate("WeaponInventory");
-            data_ctrl.CurrentData:Replicate("FavoritedCosmetics");
-        end);
-    end;
-    local function styleThemedToggle(toggleData, isOn)
-        local main = toggleData.main;
-        local accent = toggleData.accent;
-        local font = toggleData.font;
-        local outline = toggleData.outline;
-        if not main or not accent then
-            return
-        end;
-        toggleData.container.BackgroundTransparency = 1;
-        toggleData.label.TextColor3 = font;
-        toggleData.switch.BackgroundColor3 = isOn and accent or main;
-        toggleData.switch.BorderColor3 = isOn and accent or outline;
-    end;
-    local function syncWrapOptionToggles()
-        for key, toggleData in eli_pairs(wrapOptionToggles) do
-            local isOn = false;
-            local weaponName = uiState.selectedWeapon;
-            local wrapName = getActiveWrapName(weaponName);
-            if key == "Inverted" and weaponName then
-                local pend = uiState.pendingWrapOpts[weaponName];
-                if pend and pend.inverted ~= nil then
-                    isOn = pend.inverted == true;
-                elseif equipped[weaponName] and equipped[weaponName].Wrap then
-                    isOn = equipped[weaponName].Wrap.Inverted == true;
-                end;
-            elseif key == "Favorited" and weaponName and wrapName then
-                isOn = favorites[weaponName] and favorites[weaponName][wrapName] == true;
-            end;
-            toggleData.isOn = isOn;
-            styleThemedToggle(toggleData, isOn);
-        end;
-    end;
-    local function syncWrapOptionsBar()
-        local ctype = uiState.selectedType or "Skin";
-        local show = ctype == "Wrap" and uiState.selectedWeapon ~= nil;
-        wrapToggleRow.Visible = show;
-        if show then
-            syncWrapOptionToggles();
-        end;
-    end;
-    local function makeThemedToggle(optionKey, labelText, layoutOrder)
-        local container = Instance.new("TextButton");
-        container.Name = optionKey .. "Toggle";
-        container.Size = UDim2.fromOffset(96, 18);
-        container.LayoutOrder = layoutOrder or 1;
-        container.Text = "";
-        container.AutoButtonColor = false;
-        container.BackgroundTransparency = 1;
-        container.BorderSizePixel = 0;
-        container.Parent = wrapToggleRow;
-        local switch = Instance.new("Frame");
-        switch.Name = "Switch";
-        switch.Size = UDim2.fromOffset(13, 13);
-        switch.Position = UDim2.new(0, 0, 0.5, -7);
-        switch.BorderSizePixel = 1;
-        switch.BorderMode = Enum.BorderMode.Inset;
-        switch.Parent = container;
-        local lbl = Instance.new("TextLabel");
-        lbl.BackgroundTransparency = 1;
-        lbl.Size = UDim2.new(1, -19, 1, 0);
-        lbl.Position = UDim2.fromOffset(19, 0);
-        lbl.Font = uiFont;
-        lbl.TextSize = 12;
-        lbl.TextXAlignment = Enum.TextXAlignment.Left;
-        lbl.TextYAlignment = Enum.TextYAlignment.Center;
-        lbl.Text = string.lower(labelText);
-        lbl.Parent = container;
-        local toggleData = {
-            container = container,
-            label = lbl,
-            switch = switch,
-            isOn = false,
-        };
-        wrapOptionToggles[optionKey] = toggleData;
-        container.MouseButton1Click:Connect(function()
-            local weaponName = uiState.selectedWeapon;
-            if not weaponName then return end;
-            local wrapName = getActiveWrapName(weaponName);
-            local checked = not toggleData.isOn;
-            toggleData.isOn = checked;
-            styleThemedToggle(toggleData, checked);
-            if optionKey == "Inverted" then
-                uiState.pendingWrapOpts[weaponName] = uiState.pendingWrapOpts[weaponName] or {};
-                uiState.pendingWrapOpts[weaponName].inverted = checked;
-                if wrapName and wrapName ~= "" then
-                    pcall(function()
-                        fireEquipCosmetic(weaponName, "Wrap", wrapName, { IsInverted = checked });
-                    end);
-                end;
-            elseif optionKey == "Favorited" then
-                if wrapName and wrapName ~= "" then
-                    favorites[weaponName] = favorites[weaponName] or {};
-                    favorites[weaponName][wrapName] = checked or nil;
-                    saveSkins();
-                    pcall(function()
-                        data_ctrl.CurrentData:Replicate("FavoritedCosmetics");
-                    end);
-                end;
-            end;
-        end);
-        return toggleData;
-    end;
-    makeThemedToggle("Inverted", "inverted", 1);
-    makeThemedToggle("Favorited", "favorited", 2);
-    local styleCosmeticActionButton;
-    task.defer(function()
-        pcall(function() if styleCosmeticActionButton then styleCosmeticActionButton(fallback) end end);
-        pcall(function() if styleCosmeticActionButton then styleCosmeticActionButton(applyBtn) end end);
-    end);
-    local weaponImageCache = {};
-    local cosmeticImageCache = {};
-    local function clearChildren(sf)
-        for _, c in eli_ipairs(sf:GetChildren()) do
-            if not c:IsA("UIGridLayout") and not c:IsA("UIListLayout") and not c:IsA("UIPadding") then
-                c:Destroy();
-            end;
-        end;
-    end;
-    local function resizeGridCanvas(sf, gridLayout)
-        task.defer(function()
-            if sf and gridLayout and gridLayout.Parent then
-                local pad = sf:FindFirstChildOfClass("UIPadding");
-                local extra = GRID_PAD * 2;
-                if pad then
-                    extra = pad.PaddingTop.Offset + pad.PaddingBottom.Offset;
-                end;
-                sf.CanvasSize = UDim2.fromOffset(0, gridLayout.AbsoluteContentSize.Y + extra);
-            end;
-        end);
-    end;
-    local function fitGridToFrame(sf, gridLayout)
-        if not sf or not gridLayout then return end;
-        local pad = sf:FindFirstChildOfClass("UIPadding");
-        local padX = pad and (pad.PaddingLeft.Offset + pad.PaddingRight.Offset) or GRID_PAD * 2;
-        local scrollInset = sf.ScrollBarThickness + 2;
-        local innerW = math.max(sf.AbsoluteSize.X - padX - scrollInset, 72);
-        local totalGap = GRID_GAP * (GRID_COLS - 1);
-        local cellW = math.floor((innerW - totalGap) / GRID_COLS);
-        cellW = math.max(cellW, 52);
-        local cellH = cellW + GRID_LABEL_H;
-        gridLayout.CellSize = UDim2.fromOffset(cellW, cellH);
-        gridLayout.CellPadding = UDim2.fromOffset(GRID_GAP, GRID_GAP);
-    end;
-    local function getSkinImageId(skinName, highRes)
-        if not skinName or skinName == "" then return "" end;
-        local vm = item_library.ViewModels and item_library.ViewModels[skinName];
-        if type(vm) == "table" then
-            return vm[highRes and "ImageHighResolution" or "Image"] or vm.Image or "";
-        end;
-        local cdata = cosmetic_lib.Cosmetics and cosmetic_lib.Cosmetics[skinName];
-        if type(cdata) == "table" then
-            return cdata.Image or cdata.Icon or cdata.Thumbnail or "";
-        end;
-        return "";
-    end;
-    local function getWeaponSkinName(weaponName, weapon_data)
-        local preview = uiState and uiState.previewSkin;
-        if preview and preview.weapon == weaponName and preview.name then
-            return preview.name;
-        end;
-        local equipped_name = resolveEquippedWeaponName(weaponName, weapon_data);
-        if equipped_name and equipped[equipped_name] and equipped[equipped_name].Skin and equipped[equipped_name].Skin.Name then
-            return equipped[equipped_name].Skin.Name;
-        end;
-        local pending = uiState.pendingCosmetics and uiState.pendingCosmetics[weaponName];
-        if pending and pending.Skin and pending.Skin ~= "" then
-            return pending.Skin;
-        end;
-        return nil;
-    end;
-    local function buildWeaponDataForImage(weaponName)
-        local wd;
-        pcall(function()
-            wd = data_ctrl:GetWeaponData(weaponName);
-        end);
-        if type(wd) ~= "table" then
-            wd = { Name = weaponName, Weapon = weaponName, WeaponName = weaponName };
-        else
-            wd = table.clone(wd);
-            wd.Name = weaponName;
-        end;
-        local skinName = getWeaponSkinName(weaponName, wd);
-        if skinName and skinName ~= "" then
-            local skinData = clone_cosmetic(skinName, "Skin");
-            if skinData then
-                wd.Skin = skinData;
-            end;
-        end;
-        return wd;
-    end;
-    local function resolveWeaponImage(weaponName)
-        local wd = buildWeaponDataForImage(weaponName);
-        local skinName = getWeaponSkinName(weaponName, wd) or "";
-        local cacheKey = weaponName .. "\0" .. skinName;
-        if weaponImageCache[cacheKey] ~= nil then
-            return weaponImageCache[cacheKey];
-        end;
-        local imageId = "";
-        pcall(function()
-            if item_library.GetViewModelImageFromWeaponData then
-                imageId = item_library:GetViewModelImageFromWeaponData(wd, true) or "";
-            end;
-            if imageId == "" and item_library.GetWeaponImageFromWeaponData then
-                imageId = item_library:GetWeaponImageFromWeaponData(wd, true) or "";
-            end;
-            if imageId == "" and item_library.GetImageFromWeaponData then
-                imageId = item_library:GetImageFromWeaponData(wd, true) or "";
-            end;
-            if imageId == "" and item_library.GetWeaponImage then
-                imageId = item_library:GetWeaponImage(weaponName, true) or "";
-            end;
-        end);
-        if imageId == "" and skinName ~= "" then
-            imageId = getSkinImageId(skinName, true);
-        end;
-        if imageId == "" then
-            local wn = cosmeticNorm(weaponName);
-            for _, cdata in eli_pairs(cosmetic_lib.Cosmetics or {}) do
-                if type(cdata) == "table" and cdata.Image and cdata.Type == "Skin" then
-                    if type(cdata.Weapons) == "table" then
-                        for _, w in eli_ipairs(cdata.Weapons) do
-                            if cosmeticNorm(w) == wn then
-                                imageId = cdata.Image;
-                                break;
-                            end;
-                        end;
-                    end;
-                    if imageId ~= "" then break end;
-                end;
-            end;
-        end;
-        weaponImageCache[cacheKey] = imageId;
-        return imageId;
-    end;
-    local function resolveCosmeticImage(cname, cosmeticType)
-        cosmeticType = cosmeticType or "Skin";
-        local cacheKey = cname .. "\0" .. cosmeticType;
-        if cosmeticImageCache[cacheKey] ~= nil then
-            return cosmeticImageCache[cacheKey];
-        end;
-        local imageId = "";
-        local base = cosmetic_lib.Cosmetics and cosmetic_lib.Cosmetics[cname];
-        if type(base) == "table" then
-            imageId = base.Image or base.Icon or base.Thumbnail or base.TextureId or base.PreviewImage or base.WrapImage or base.ItemImage or "";
-        end;
-        if imageId == "" and cosmeticType == "Wrap" then
-            imageId = getSkinImageId(cname, true);
-        end;
-        if imageId == "" and cosmeticType == "Wrap" and uiState.selectedWeapon then
-            pcall(function()
-                local wd = buildWeaponDataForImage(uiState.selectedWeapon);
-                local wrapData = clone_cosmetic(cname, "Wrap");
-                if wrapData then
-                    wd.Wrap = wrapData;
-                    local pend = uiState.pendingWrapOpts and uiState.pendingWrapOpts[uiState.selectedWeapon];
-                    if pend and pend.inverted ~= nil then
-                        wrapData.Inverted = pend.inverted;
-                    end;
-                end;
-                if item_library.GetViewModelImageFromWeaponData then
-                    imageId = item_library:GetViewModelImageFromWeaponData(wd, true) or "";
-                end;
-                if imageId == "" and item_library.GetWeaponImageFromWeaponData then
-                    imageId = item_library:GetWeaponImageFromWeaponData(wd, true) or "";
-                end;
-            end);
-        end;
-        cosmeticImageCache[cacheKey] = imageId;
-        return imageId;
-    end;
-    local function makeGridTile(parent, displayName, imageId, isActive, palette, onActivated, onRightClick)
-        local main, _, font, outline, _, _, _, inactiveText = palette();
-        local _, accent = palette();
-        local tile = Instance.new("TextButton");
-        tile.Text = "";
-        tile.AutoButtonColor = false;
-        tile.BackgroundColor3 = isActive and GRID_SELECT_BG or main;
-        tile.BackgroundTransparency = 0;
-        tile.BorderSizePixel = 1;
-        tile.BorderMode = Enum.BorderMode.Inset;
-        tile.BorderColor3 = isActive and accent or outline;
-        tile.Parent = parent;
-        local iconHolder = Instance.new("Frame");
-        iconHolder.Name = "IconHolder";
-        iconHolder.BackgroundTransparency = 1;
-        iconHolder.Size = UDim2.new(1, -6, 1, -(GRID_LABEL_H + 4));
-        iconHolder.Position = UDim2.fromOffset(3, 3);
-        iconHolder.Parent = tile;
-        local icon = Instance.new("ImageLabel");
-        icon.Name = "Icon";
-        icon.BackgroundTransparency = 1;
-        icon.Size = UDim2.new(1, 0, 1, 0);
-        icon.ScaleType = Enum.ScaleType.Fit;
-        icon.Image = (imageId and imageId ~= "") and imageId or "";
-        icon.Parent = iconHolder;
-        local lbl = Instance.new("TextLabel");
-        lbl.BackgroundTransparency = 1;
-        lbl.Size = UDim2.new(1, -4, 0, GRID_LABEL_H);
-        lbl.Position = UDim2.new(0, 2, 1, -(GRID_LABEL_H + 2));
-        lbl.Font = Enum.Font.Code;
-        lbl.TextSize = 8;
-        lbl.TextWrapped = true;
-        lbl.TextXAlignment = Enum.TextXAlignment.Center;
-        lbl.TextYAlignment = Enum.TextYAlignment.Top;
-        lbl.Text = string.lower(displayName or "");
-        lbl.TextColor3 = isActive and font or inactiveText;
-        lbl.Parent = tile;
-        tile.MouseButton1Click:Connect(onActivated);
-        if onRightClick then
-            tile.MouseButton2Click:Connect(onRightClick);
-        end;
-        return tile;
-    end;
-    fitGridToFrame(weaponList, wl);
-    fitGridToFrame(cosmeticList, cl);
-    weaponList:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-        fitGridToFrame(weaponList, wl);
-        resizeGridCanvas(weaponList, wl);
-    end);
-    cosmeticList:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-        fitGridToFrame(cosmeticList, cl);
-        resizeGridCanvas(cosmeticList, cl);
-    end);
-    uiState.pendingCosmetics = uiState.pendingCosmetics or {};
-    local function getUiPalette()
-        local main = makeThemeColor("MainColor", Color3.fromRGB(30, 30, 30));
-        local accent = makeThemeColor("AccentColor", Color3.fromRGB(107, 72, 255));
-        local font = makeThemeColor("FontColor", Color3.fromRGB(235, 235, 235));
-        local outline = makeThemeColor("OutlineColor", Color3.fromRGB(60, 60, 60));
-        local inactiveText = Color3.new(math.clamp(font.R * 0.85, 0, 1), math.clamp(font.G * 0.85, 0, 1), math.clamp(font.B * 0.85, 0, 1));
-        local activeBg = accent;
-        local activeBorder = accent;
-        local activeText = font;
-        local activeBgTransparency = 0;
-        return main, accent, font, outline, activeBg, activeBorder, activeText, inactiveText, activeBgTransparency;
-    end;
-    styleCosmeticActionButton = function(btn)
-        if not btn then return end;
-        local main, accent, font, outline = getUiPalette();
-        btn.AutoButtonColor = false;
-        btn.BorderSizePixel = 1;
-        btn.BorderMode = Enum.BorderMode.Inset;
-        btn.BackgroundColor3 = main;
-        btn.BackgroundTransparency = 0;
-        btn.BorderColor3 = outline;
-        btn.TextColor3 = font;
-        btn.Font = uiFont;
-    end;
-    uiState.previewSkin = uiState.previewSkin or nil;
-    uiState.refreshWeapons = function()
-        table.clear(weaponImageCache);
-        fitGridToFrame(weaponList, wl);
-        clearChildren(weaponList);
-        local filter = string.lower(weaponSearch.Text or "");
-        for _, w in eli_ipairs(getWeapons()) do
-            if filter == "" or string.find(string.lower(w), filter, 1, true) then
-                local isActive = uiState.selectedWeapon == w;
-                makeGridTile(weaponList, w, resolveWeaponImage(w), isActive, getUiPalette, function()
-                    uiState.selectedWeapon = w;
-                    uiState.previewSkin = nil;
-                    uiState.pendingCosmetics[w] = uiState.pendingCosmetics[w] or {};
-                    if uiState.refreshWeapons then uiState.refreshWeapons() end;
-                    if uiState.refreshCosmetics then uiState.refreshCosmetics() end;
-                    if syncWrapOptionsBar then syncWrapOptionsBar() end;
-                end, function()
-                    local ctype = uiState.selectedType or "Skin";
-                    uiState.pendingCosmetics[w] = uiState.pendingCosmetics[w] or {};
-                    uiState.pendingCosmetics[w][ctype] = nil;
-                    pcall(function()
-                        fireEquipCosmetic(w, ctype, "", {});
-                    end);
-                    uiState.previewSkin = nil;
-                    task.defer(function()
-                        if uiState.refreshWeapons then uiState.refreshWeapons() end;
-                        if uiState.refreshCosmetics then uiState.refreshCosmetics() end;
-                    end);
-                end);
-            end;
-        end;
-        resizeGridCanvas(weaponList, wl);
-    end;
-    uiState.refreshCosmetics = function()
-        table.clear(cosmeticImageCache);
-        fitGridToFrame(cosmeticList, cl);
-        clearChildren(cosmeticList);
-        local selectedWeapon = uiState.selectedWeapon;
-        if not selectedWeapon then
-            local t = Instance.new("TextLabel");
-            t.BackgroundTransparency = 1;
-            t.Size = UDim2.new(1, -4, 0, 20);
-            t.Text = "select a weapon first";
-            t.Font = Enum.Font.Code;
-            t.TextSize = 13;
-            t.Parent = cosmeticList;
-            return
-        end;
-        local filter = string.lower(cosmeticSearch.Text or "");
-        local ctype = uiState.selectedType or "Skin";
-        local main, _, _, outline, activeBg, activeBorder, activeText, inactiveText, activeBgTransparency = getUiPalette();
-        local equippedName = equipped[selectedWeapon] and equipped[selectedWeapon][ctype] and equipped[selectedWeapon][ctype].Name;
-        uiState.pendingCosmetics[selectedWeapon] = uiState.pendingCosmetics[selectedWeapon] or {};
-        local pendingName = uiState.pendingCosmetics[selectedWeapon][ctype];
-        for _, cname in eli_ipairs(getCosmeticsFor(selectedWeapon, ctype)) do
-            if filter == "" or string.find(string.lower(cname), filter, 1, true) then
-                local isActive = (equippedName == cname) or (pendingName == cname);
-                makeGridTile(cosmeticList, cname, resolveCosmeticImage(cname, ctype), isActive, getUiPalette, function()
-                    uiState.pendingCosmetics[selectedWeapon][ctype] = cname;
-                    if ctype == "Skin" then
-                        uiState.previewSkin = { weapon = selectedWeapon, name = cname };
-                        if uiState.refreshWeapons then uiState.refreshWeapons() end;
-                    end;
-                    if ctype == "Wrap" then
-                        uiState.pendingWrapOpts[selectedWeapon] = uiState.pendingWrapOpts[selectedWeapon] or {};
-                        if uiState.pendingWrapOpts[selectedWeapon].inverted == nil then
-                            local eqWrap = equipped[selectedWeapon] and equipped[selectedWeapon].Wrap;
-                            uiState.pendingWrapOpts[selectedWeapon].inverted = eqWrap and eqWrap.Inverted == true or false;
-                        end;
-                    end;
-                    pcall(function()
-                        fireEquipCosmetic(selectedWeapon, ctype, cname, {});
-                    end);
-                    task.delay(0.05, function()
-                        if uiState.refreshCosmetics then uiState.refreshCosmetics() end;
-                        if ctype == "Skin" and uiState.refreshWeapons then uiState.refreshWeapons() end;
-                        if syncWrapOptionsBar then syncWrapOptionsBar() end;
-                    end);
-                end);
-            end;
-        end;
-        resizeGridCanvas(cosmeticList, cl);
-        local mainTab, accentTab, _, outlineTab, _, _, _, inactiveTextTab = getUiPalette();
-        for tn, b in eli_pairs(typeButtons) do
-            local active = tn == ctype;
-            b.TextTransparency = active and 0 or 0.15;
-            b.BackgroundColor3 = mainTab;
-            b.BackgroundTransparency = 0;
-            b.BorderColor3 = active and accentTab or outlineTab;
-            b.TextColor3 = active and accentTab or inactiveTextTab;
-        end;
-        if syncWrapOptionsBar then syncWrapOptionsBar() end;
-    end;
-    applyBtn.MouseButton1Click:Connect(function()
-        local selectedWeapon = uiState.selectedWeapon;
-        local ctype = uiState.selectedType or "Skin";
-        if not selectedWeapon then return end;
-        local pendingByWeapon = uiState.pendingCosmetics[selectedWeapon];
-        local cname = pendingByWeapon and pendingByWeapon[ctype];
-        if not cname then return end;
-        pcall(function()
-            fireEquipCosmetic(selectedWeapon, ctype, cname, {});
-        end);
-        task.delay(0.05, function()
-            if uiState.refreshCosmetics then uiState.refreshCosmetics() end;
-            if uiState.refreshWeapons then uiState.refreshWeapons() end;
-            if syncWrapOptionsBar then syncWrapOptionsBar() end;
-        end);
-    end);
-    weaponSearch:GetPropertyChangedSignal("Text"):Connect(function()
-        if uiState.refreshWeapons then uiState.refreshWeapons() end;
-    end);
-    cosmeticSearch:GetPropertyChangedSignal("Text"):Connect(function()
-        if uiState.refreshCosmetics then uiState.refreshCosmetics() end;
-    end);
-    uiState.gui = gui;
-    uiState.frame = outer;
-    uiState.inner = inner;
-    uiState.panel = panel;
-    uiState.accentBar = accentBar;
-    uiState.selectedWeapon = uiState.selectedWeapon or nil;
-    uiState.selectedType = uiState.selectedType or "Skin";
-    uiState.dismissedThisSession = not showUi;
-    uiState.refreshWeapons();
-    uiState.refreshCosmetics();
-    syncCosmeticChangerVisibility();
-    local function applyCosmeticUiTheme()
-        local main = makeThemeColor("MainColor", Color3.fromRGB(30, 30, 30));
-        local bg = makeThemeColor("BackgroundColor", Color3.fromRGB(22, 22, 22));
-        local accent = makeThemeColor("AccentColor", Color3.fromRGB(107, 72, 255));
-        local font = makeThemeColor("FontColor", Color3.fromRGB(235, 235, 235));
-        local outline = makeThemeColor("OutlineColor", Color3.fromRGB(60, 60, 60));
-        outer.BackgroundColor3 = Color3.new(0, 0, 0);
-        inner.BackgroundColor3 = main;
-        panel.BackgroundColor3 = bg;
-        if uiState.accentBar then
-            uiState.accentBar.BackgroundColor3 = accent;
-        end;
-        resizer.BackgroundColor3 = accent;
-        top.BackgroundColor3 = main;
-        title.TextColor3 = font;
-        closeBtn.BackgroundColor3 = main;
-        closeBtn.TextColor3 = font;
-        leftHolder.BackgroundColor3 = bg;
-        rightHolder.BackgroundColor3 = bg;
-        weaponSearch.BackgroundColor3 = main;
-        weaponSearch.TextColor3 = font;
-        weaponSearch.PlaceholderColor3 = Color3.new(font.R * 0.7, font.G * 0.7, font.B * 0.7);
-        weaponSearch.BorderColor3 = outline;
-        cosmeticSearch.BackgroundColor3 = main;
-        cosmeticSearch.TextColor3 = font;
-        cosmeticSearch.PlaceholderColor3 = Color3.new(font.R * 0.7, font.G * 0.7, font.B * 0.7);
-        cosmeticSearch.BorderColor3 = outline;
-        weaponList.BackgroundColor3 = main;
-        weaponList.BorderColor3 = outline;
-        cosmeticList.BackgroundColor3 = main;
-        cosmeticList.BorderColor3 = outline;
-        local ctypeNow = uiState.selectedType or "Skin";
-        for tn, b in eli_pairs(typeButtons) do
-            local active = tn == ctypeNow;
-            b.BackgroundColor3 = main;
-            b.BackgroundTransparency = 0;
-            b.BorderColor3 = active and accent or outline;
-            b.TextColor3 = active and accent or Color3.new(font.R * 0.85, font.G * 0.85, font.B * 0.85);
-        end;
-        bottomDivider.BackgroundColor3 = outline;
-        skinHint.TextColor3 = Color3.new(font.R * 0.88, font.G * 0.88, font.B * 0.88);
-        for _, key in eli_ipairs({ "Inverted", "Favorited" }) do
-            local toggleData = wrapOptionToggles[key];
-            if toggleData then
-                toggleData.main = main;
-                toggleData.accent = accent;
-                toggleData.font = font;
-                toggleData.outline = outline;
-                styleThemedToggle(toggleData, toggleData.isOn == true);
-            end;
-        end;
-        styleCosmeticActionButton(fallback);
-        styleCosmeticActionButton(applyBtn);
-        for _, d in eli_ipairs(panel:GetDescendants()) do
-            if d:IsA("TextButton") and d ~= fallback and d ~= applyBtn then
-                local skipBtn = d.Parent == weaponList or d.Parent == cosmeticList or d:IsDescendantOf(wrapToggleRow);
-                if not skipBtn then
-                    for _, tabBtn in eli_pairs(typeButtons) do
-                        if d == tabBtn then
-                            skipBtn = true;
-                            break;
-                        end;
-                    end;
-                end;
-                if not skipBtn then
-                    d.BorderColor3 = outline;
-                    d.TextColor3 = font;
-                    d.BackgroundColor3 = main;
-                end;
-            elseif d:IsA("TextLabel") and not d:IsDescendantOf(weaponList) and not d:IsDescendantOf(cosmeticList) then
-                d.TextColor3 = font;
-            end;
-        end;
-    end;
-    applyCosmeticUiTheme();
-    getgenv().elisium_apply_cosmetic_theme = applyCosmeticUiTheme;
-end;
-
-v555:AddButton("cosmetic changer", function()
-    openCosmeticChanger(true);
-end);
-task.defer(function()
-    pcall(function()
-        openCosmeticChanger(false);
-    end);
-end);
-end
-
-;(function()
-    local spoof_box = Tabs.misc_tab:AddLeftTabbox();
-    local localTab = spoof_box:AddTab("local");
-    local otherTab = spoof_box:AddTab("other");
-
-    local http = game:GetService("HttpService");
-
-    ELI.profile = ELI.profile or {};
-    local prof = ELI.profile;
-    if prof.spoof_local == nil then prof.spoof_local = false end;
-    if prof.spoof_local_name == nil then prof.spoof_local_name = "" end;
-    if prof.spoof_other == nil then prof.spoof_other = false end;
-    if prof.spoof_other_name == nil then prof.spoof_other_name = "" end;
-
-    local userCache = {};
-
-    local function fetchUser(username)
-        if not username or username == "" then return nil end;
-        if userCache[username] then return userCache[username] end;
-        local id;
-        local ok = pcall(function()
-            id = players:GetUserIdFromNameAsync(username);
-        end);
-        if not ok or not id then return nil end;
-        local data = { id = id, name = username, displayName = username };
-        pcall(function()
-            local raw = game:HttpGet("https://users.roblox.com/v1/users/" .. tostring(id), true);
-            local dec = http:JSONDecode(raw);
-            if type(dec) == "table" and dec.id then
-                data = { id = dec.id, name = dec.name, displayName = dec.displayName };
-            end;
-        end);
-        userCache[username] = data;
-        return data;
-    end;
-
-    local function applyIdentity(player, data)
-        pcall(function() player.Name = data.name end);
-        pcall(function() player.UserId = data.id end);
-        pcall(function() player.CharacterAppearanceId = data.id end);
-        pcall(function() player.DisplayName = data.displayName end);
-        local char = player.Character;
-        if char then
-            pcall(function() char.Name = data.name end);
-            local h = char:FindFirstChildOfClass("Humanoid");
-            if h then
-                pcall(function()
-                    h.DisplayName = data.displayName;
-                    local old = h.DisplayDistanceType;
-                    h.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None;
-                    h.DisplayDistanceType = old;
-                end);
-            end;
-        end;
-    end;
-
-    local function applyAppearance(player, victimId)
-        local character = player.Character;
-        if not character then return end;
-        local humanoid = character:FindFirstChildOfClass("Humanoid");
-        if not humanoid then return end;
-        local ok, appearance = pcall(function() return players:GetCharacterAppearanceAsync(victimId) end);
-        if not ok or not appearance then return end;
-        for _, v in eli_pairs(character:GetChildren()) do
-            if v:IsA("Accessory") or v:IsA("Shirt") or v:IsA("Pants") or v:IsA("BodyColors") or v:IsA("CharacterMesh") or v:IsA("ShirtGraphic") then
-                v:Destroy();
-            end;
-        end;
-        for _, v in eli_pairs(appearance:GetChildren()) do
-            if v:IsA("Shirt") or v:IsA("Pants") or v:IsA("BodyColors") or v:IsA("CharacterMesh") then
-                v.Parent = character;
-            elseif v:IsA("Accessory") then
-                pcall(function() humanoid:AddAccessory(v) end);
-            end;
-        end;
-        pcall(function() appearance:Destroy() end);
-        local targetHead = character:FindFirstChild("Head");
-        if targetHead then
-            pcall(function()
-                local json = game:HttpGet("https://avatar.roblox.com/v1/users/" .. tostring(victimId) .. "/avatar", true);
-                local info = http:JSONDecode(json);
-                local faceId, hasDynamic = nil, false;
-                for _, asset in eli_pairs(info.assets or {}) do
-                    if asset.assetType then
-                        if asset.assetType.id == 18 then
-                            faceId = asset.id;
-                        elseif asset.assetType.id == 79 then
-                            hasDynamic = true;
-                        end;
-                    end;
-                end;
-                if faceId then
-                    local tex;
-                    local objs = game:GetObjects("rbxassetid://" .. tostring(faceId));
-                    for _, obj in eli_pairs(objs) do
-                        if obj:IsA("Decal") then
-                            tex = obj.Texture;
-                        else
-                            for _, ch in eli_pairs(obj:GetDescendants()) do
-                                if ch:IsA("Decal") then
-                                    tex = ch.Texture;
-                                    break;
-                                end;
-                            end;
-                        end;
-                        if tex then break end;
-                    end;
-                    if tex then
-                        local face = targetHead:FindFirstChild("face");
-                        if face then
-                            face.Texture = tex;
-                        else
-                            local nf = Instance.new("Decal");
-                            nf.Name = "face";
-                            nf.Texture = tex;
-                            nf.Parent = targetHead;
-                        end;
-                    end;
-                elseif not hasDynamic then
-                    if targetHead:FindFirstChild("face") then targetHead.face:Destroy() end;
-                    targetHead.Transparency = 1;
-                    local mesh = targetHead:FindFirstChildOfClass("SpecialMesh");
-                    if mesh then mesh.Scale = Vector3.new(0, 0, 0) end;
-                end;
-            end);
-        end;
-    end;
-
-    local applied = {};
-
-    local function spoofPlayer(player, username)
-        task.spawn(function()
-            local data = fetchUser(username);
-            if not data then return end;
-            applied[player] = data;
-            applyIdentity(player, data);
-            applyAppearance(player, data.id);
-        end);
-    end;
-
-    local function doLocal()
-        if not prof.spoof_local or prof.spoof_local_name == "" then return end;
-        spoofPlayer(local_player, prof.spoof_local_name);
-    end;
-
-    local function doOtherPlayer(plr)
-        if not prof.spoof_other or prof.spoof_other_name == "" then return end;
-        if plr == local_player then return end;
-        spoofPlayer(plr, prof.spoof_other_name);
-    end;
-
-    local function doOtherAll()
-        for _, plr in eli_ipairs(players:GetPlayers()) do
-            doOtherPlayer(plr);
-        end;
-    end;
-
-    localTab:AddToggle("SpoofLocal", {
-        Text = "local",
-        Default = false,
-        Callback = function(val)
-            prof.spoof_local = val;
-            if val then doLocal() end;
-        end
-    });
-
-    local localNameStamp = 0;
-    localTab:AddInput("SpoofLocalName", {
-        Text = "name",
-        Default = "",
-        Placeholder = "username...",
-        Callback = function(val)
-            prof.spoof_local_name = val or "";
-            localNameStamp = tick();
-            local stamp = localNameStamp;
-            task.delay(0.6, function()
-                if stamp == localNameStamp and prof.spoof_local then
-                    doLocal();
-                end;
-            end);
-        end
-    });
-
-    otherTab:AddToggle("SpoofOther", {
-        Text = "other",
-        Default = false,
-        Callback = function(val)
-            prof.spoof_other = val;
-            if val then doOtherAll() end;
-        end
-    });
-
-    local otherNameStamp = 0;
-    otherTab:AddInput("SpoofOtherName", {
-        Text = "name",
-        Default = "",
-        Placeholder = "username...",
-        Callback = function(val)
-            prof.spoof_other_name = val or "";
-            otherNameStamp = tick();
-            local stamp = otherNameStamp;
-            task.delay(0.6, function()
-                if stamp == otherNameStamp and prof.spoof_other then
-                    doOtherAll();
-                end;
-            end);
-        end
-    });
-
-    trove:Add(local_player.CharacterAdded:Connect(function()
-        task.wait(0.5);
-        doLocal();
-    end));
-
-    local function hookOther(plr)
-        trove:Add(plr.CharacterAdded:Connect(function()
-            task.wait(0.5);
-            doOtherPlayer(plr);
-        end));
-    end;
-
-    for _, plr in eli_ipairs(players:GetPlayers()) do
-        if plr ~= local_player then
-            hookOther(plr);
-        end;
-    end;
-
-    trove:Add(players.PlayerAdded:Connect(function(plr)
-        hookOther(plr);
-        doOtherPlayer(plr);
-    end));
-
-    local lastReapply = 0;
-    trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-        local now = tick();
-        if now - lastReapply < 1 then return end;
-        lastReapply = now;
-        if prof.spoof_local and prof.spoof_local_name ~= "" and applied[local_player] then
-            applyIdentity(local_player, applied[local_player]);
-        end;
-        if prof.spoof_other and prof.spoof_other_name ~= "" then
-            for _, plr in eli_ipairs(players:GetPlayers()) do
-                if plr ~= local_player and applied[plr] then
-                    applyIdentity(plr, applied[plr]);
-                end;
-            end;
-        end;
-    end)));
-end)()
-
-;(function()
-    local cfg = ELI;
-    local material_presets = getgenv().elisium_materials.presets;
-    local material_preset_names = getgenv().elisium_materials.names;
-    local enhance_box = Tabs.visualstab:AddLeftTabbox();
-    local chams_tab = enhance_box:AddTab("chams");
-    local crosshair_tab = Tabs.visualstab:AddRightTabbox();
-
-    local highlights = {};
-    local body_parts = {};
-
-    local function drop_highlight(plr)
-        if highlights[plr] then
-            pcall(function() highlights[plr]:Destroy() end);
-            highlights[plr] = nil;
-        end;
-    end;
-
-    local function restore_body(plr)
-        local saved = body_parts[plr];
-        if not saved then return end;
-        for part, props in eli_pairs(saved) do
-            if part.Parent then
-                part.Material = props.material;
-                part.Color = props.color;
-                part.Reflectance = props.reflectance;
-                part.Transparency = props.transparency;
-                for tex, transparency in eli_pairs(props.textures) do
-                    if tex.Parent then tex.Transparency = transparency end;
-                end;
-            end;
-        end;
-        body_parts[plr] = nil;
-    end;
-
-    local function drop_chams(plr)
-        drop_highlight(plr);
-        restore_body(plr);
-    end;
-
-    local function clear_chams()
-        for plr in eli_pairs(highlights) do drop_highlight(plr) end;
-        for plr in eli_pairs(body_parts) do restore_body(plr) end;
-    end;
-
-    local function apply_highlight(plr, char)
-        local hl = highlights[plr];
-        if not hl or not hl.Parent then
-            hl = Instance.new("Highlight");
-            hl.Name = "elisium_chams";
-            hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop;
-            highlights[plr] = hl;
-            hl.Parent = char;
-        end;
-        hl.Adornee = char;
-        hl.FillColor = cfg.chams.fill_color;
-        hl.FillTransparency = cfg.chams.fill_transparency;
-        hl.OutlineColor = cfg.chams.outline_color;
-        hl.OutlineTransparency = cfg.chams.outline_transparency;
-    end;
-
-    local function apply_body(plr, char)
-        local preset = material_presets[cfg.chams.material] or material_presets.Neon;
-        local saved = body_parts[plr];
-        if not saved then
-            saved = {};
-            body_parts[plr] = saved;
-        end;
-        local transparency = preset.transparency or 0;
-        if cfg.chams.ghost then transparency = math.max(transparency, 0.55) end;
-        for _, part in eli_ipairs(char:GetDescendants()) do
-            if part:IsA("BasePart") and part.Transparency < 1 then
-                if not saved[part] then
-                    local textures = {};
-                    for _, tex in eli_ipairs(part:GetChildren()) do
-                        if tex:IsA("Decal") or tex:IsA("Texture") then
-                            textures[tex] = tex.Transparency;
-                        end;
-                    end;
-                    saved[part] = {
-                        material = part.Material,
-                        color = part.Color,
-                        reflectance = part.Reflectance,
-                        transparency = part.Transparency,
-                        textures = textures,
-                    };
-                end;
-                part.Material = preset.material;
-                part.Color = cfg.chams.fill_color;
-                part.Reflectance = preset.reflectance or 0;
-                part.Transparency = transparency;
-                if cfg.chams.strip_textures then
-                    for tex in eli_pairs(saved[part].textures) do
-                        if tex.Parent then tex.Transparency = 1 end;
-                    end;
-                end;
-            end;
-        end;
-    end;
-
-    local function apply_chams(plr)
-        if plr == local_player then return end;
-        local char = plr.Character;
-        if not char then return drop_chams(plr) end;
-        local humanoid = char:FindFirstChildOfClass("Humanoid");
-        if not humanoid or humanoid.Health <= 0 then
-            return drop_chams(plr);
-        end;
-        if cfg.chams.team_check and plr:GetAttribute("TeamID") == local_player:GetAttribute("TeamID") then
-            return drop_chams(plr);
-        end;
-        if cfg.chams.mode == "chams" then
-            drop_highlight(plr);
-            apply_body(plr, char);
-        else
-            restore_body(plr);
-            apply_highlight(plr, char);
-        end;
-    end;
-
-    local chams_last = 0;
-    trove:Add(run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-        if not cfg.chams.enable then
-            if next(highlights) or next(body_parts) then clear_chams() end;
-            return
-        end;
-        local now = tick();
-        if now - chams_last < 0.2 then return end;
-        chams_last = now;
-        for _, plr in eli_ipairs(players:GetPlayers()) do
-            apply_chams(plr);
-        end;
-        for plr in eli_pairs(highlights) do
-            if not plr.Parent then drop_highlight(plr) end;
-        end;
-        for plr in eli_pairs(body_parts) do
-            if not plr.Parent then body_parts[plr] = nil end;
-        end;
-    end)));
-    trove:Add(clear_chams);
-
-    local function sync_chams_visibility()
-        local body_mode = cfg.chams.mode == "chams";
-        Options.ChamsMaterial:SetVisible(body_mode);
-        Options.ChamsStripTextures:SetVisible(body_mode);
-        Options.ChamsGhost:SetVisible(body_mode);
-    end;
-
-    chams_tab:AddToggle("ChamsEnable", {
-        Text = "enable",
-        Default = false,
-        Callback = function(v)
-            cfg.chams.enable = v;
-            if not v then clear_chams() end;
-        end
-    });
-
-    chams_tab:AddToggle("ChamsTeamCheck", {
-        Text = "team check",
-        Default = false,
-        Callback = function(v)
-            cfg.chams.team_check = v;
-        end
-    });
-
-    chams_tab:AddDropdown("ChamsMode", {
-        Text = "type",
-        Default = "highlight",
-        Values = { "highlight", "chams" },
-        Callback = function(v)
-            clear_chams();
-            cfg.chams.mode = v;
-            sync_chams_visibility();
-        end
-    });
-
-    chams_tab:AddLabel("fill"):AddColorPicker("ChamsFill", {
-        Default = Color3.fromRGB(0, 170, 255),
-        Transparency = 0.5,
-        Callback = function(color, transparency)
-            cfg.chams.fill_color = color;
-            cfg.chams.fill_transparency = transparency or cfg.chams.fill_transparency;
-        end
-    });
-
-    chams_tab:AddLabel("outline"):AddColorPicker("ChamsOutline", {
-        Default = Color3.fromRGB(255, 255, 255),
-        Transparency = 0,
-        Callback = function(color, transparency)
-            cfg.chams.outline_color = color;
-            cfg.chams.outline_transparency = transparency or cfg.chams.outline_transparency;
-        end
-    });
-
-    chams_tab:AddDropdown("ChamsMaterial", {
-        Text = "material",
-        Default = "Neon",
-        Values = material_preset_names,
-        Visible = false,
-        Callback = function(v)
-            cfg.chams.material = v;
-        end
-    });
-
-    chams_tab:AddToggle("ChamsStripTextures", {
-        Text = "strip textures",
-        Default = false,
-        Visible = false,
-        Callback = function(v)
-            cfg.chams.strip_textures = v;
-        end
-    });
-
-    chams_tab:AddToggle("ChamsGhost", {
-        Text = "ghost",
-        Default = false,
-        Visible = false,
-        Callback = function(v)
-            cfg.chams.ghost = v;
-        end
-    });
-
-    local ch_lines, ch_line_outlines = {}, {};
-    for i = 1, 4 do
-        local outline = Drawing.new("Line");
-        outline.Visible = false;
-        outline.Thickness = 3;
-        outline.Transparency = 1;
-        outline.Color = Color3.new(0, 0, 0);
-        ch_line_outlines[i] = outline;
-
-        local l = Drawing.new("Line");
-        l.Visible = false;
-        l.Thickness = 1;
-        l.Transparency = 1;
-        ch_lines[i] = l;
-    end;
-    local ch_ring_outline = Drawing.new("Circle");
-    ch_ring_outline.Filled = false;
-    ch_ring_outline.NumSides = 48;
-    ch_ring_outline.Thickness = 3;
-    ch_ring_outline.Transparency = 1;
-    ch_ring_outline.Color = Color3.new(0, 0, 0);
-    ch_ring_outline.Visible = false;
-    local ch_ring = Drawing.new("Circle");
-    ch_ring.Filled = false;
-    ch_ring.NumSides = 48;
-    ch_ring.Thickness = 1;
-    ch_ring.Transparency = 1;
-    ch_ring.Visible = false;
-    local ch_dot_outline = Drawing.new("Circle");
-    ch_dot_outline.Filled = true;
-    ch_dot_outline.NumSides = 24;
-    ch_dot_outline.Radius = 1;
-    ch_dot_outline.Transparency = 1;
-    ch_dot_outline.Color = Color3.new(0, 0, 0);
-    ch_dot_outline.Visible = false;
-    local ch_dot = Drawing.new("Circle");
-    ch_dot.Filled = true;
-    ch_dot.NumSides = 24;
-    ch_dot.Radius = 1;
-    ch_dot.Transparency = 1;
-    ch_dot.Visible = false;
-
-    local ch_text_gui = Instance.new("ScreenGui");
-    ch_text_gui.Name = "elisium_crosshair_text";
-    ch_text_gui.ResetOnSpawn = false;
-    ch_text_gui.IgnoreGuiInset = true;
-    ch_text_gui.DisplayOrder = 999;
-    ch_text_gui.Parent = gethui();
-    local ch_text = Instance.new("TextLabel");
-    ch_text.BackgroundTransparency = 1;
-    ch_text.AnchorPoint = Vector2.new(0.5, 0);
-    ch_text.Size = UDim2.fromOffset(0, 0);
-    ch_text.AutomaticSize = Enum.AutomaticSize.XY;
-    ch_text.TextXAlignment = Enum.TextXAlignment.Center;
-    ch_text.Visible = false;
-    ch_text.Parent = ch_text_gui;
-
-    local ch_text_fonts = {};
-    local function ch_get_font(name)
-        if ch_text_fonts[name] then return ch_text_fonts[name] end;
-        local font;
-        if name == "Inconsolata" then
-            local ok, f = pcall(Font.fromName, "Inconsolata");
-            font = ok and f or Font.fromEnum(Enum.Font.Code);
-        elseif name == "UI" then
-            font = Font.fromEnum(Enum.Font.GothamMedium);
-        elseif name == "System" then
-            font = Font.fromEnum(Enum.Font.SourceSans);
-        elseif name == "Monospace" then
-            font = Font.fromEnum(Enum.Font.RobotoMono);
-        else
-            font = Font.fromEnum(Enum.Font.Code);
-        end;
-        ch_text_fonts[name] = font;
-        return font;
-    end;
-
-    local function hide_ch_lines()
-        for i = 1, 4 do
-            ch_lines[i].Visible = false;
-            ch_line_outlines[i].Visible = false;
-        end;
-    end;
-    local function hide_crosshair()
-        hide_ch_lines();
-        ch_ring.Visible = false;
-        ch_ring_outline.Visible = false;
-        ch_dot.Visible = false;
-        ch_dot_outline.Visible = false;
-        ch_text.Visible = false;
-    end;
-
-    local ch_spin = 0;
-    local ch_clock = 0;
-
-    local function ch_anchor()
-        local c = cfg.crosshair;
-        if c.follow_target then
-            if c.follow_source == "gunpoint" and GetMuzzlePos then
-                local mp = GetMuzzlePos();
-                if mp then return mp end;
-            else
-                local t = (getclosest and getclosest()) or (getclosest2 and getclosest2());
-                if t and t.Character then
-                    local part = t.Character:FindFirstChild(ELI.targeting.part) or t.Character:FindFirstChild("HumanoidRootPart");
-                    if part then
-                        local sp, on = camera:WorldToViewportPoint(part.Position);
-                        if on then return Vector2.new(sp.X, sp.Y) end;
-                    end;
-                end;
-            end;
-        end;
-        local vp = camera.ViewportSize;
-        return Vector2.new(vp.X / 2, vp.Y / 2);
-    end;
-
-    local function ch_arms(style, gap, length)
-        if style == "t" then
-            return {
-                { Vector2.new(0, gap), Vector2.new(0, gap + length), "bottom_line" },
-                { Vector2.new(-gap, 0), Vector2.new(-gap - length, 0), "left_line" },
-                { Vector2.new(gap, 0), Vector2.new(gap + length, 0), "right_line" },
-            };
-        elseif style == "x" then
-            local d = 0.70710678;
-            return {
-                { Vector2.new(-d, -d) * gap, Vector2.new(-d, -d) * (gap + length), "top_line" },
-                { Vector2.new(d, d) * gap, Vector2.new(d, d) * (gap + length), "bottom_line" },
-                { Vector2.new(-d, d) * gap, Vector2.new(-d, d) * (gap + length), "left_line" },
-                { Vector2.new(d, -d) * gap, Vector2.new(d, -d) * (gap + length), "right_line" },
-            };
-        end;
-        return {
-            { Vector2.new(0, -gap), Vector2.new(0, -gap - length), "top_line" },
-            { Vector2.new(0, gap), Vector2.new(0, gap + length), "bottom_line" },
-            { Vector2.new(-gap, 0), Vector2.new(-gap - length, 0), "left_line" },
-            { Vector2.new(gap, 0), Vector2.new(gap + length, 0), "right_line" },
-        };
-    end;
-
-    local function local_speed()
-        local char = local_player.Character;
-        local root = char and char:FindFirstChild("HumanoidRootPart");
-        if not root then return 0 end;
-        local vel = root.AssemblyLinearVelocity;
-        return Vector2.new(vel.X, vel.Z).Magnitude;
-    end;
-
-    trove:Add(run_service.RenderStepped:Connect(LPH_NO_VIRTUALIZE(function(dt)
-        local c = cfg.crosshair;
-        if not c.enable then
-            hide_crosshair();
-            return
-        end;
-
-        ch_clock += dt;
-        if c.rotating then
-            ch_spin = (ch_spin + c.rotating_speed * dt) % 360;
-        end;
-        local rad = math.rad(c.rotation + (c.rotating and ch_spin or 0));
-        local cosv, sinv = math.cos(rad), math.sin(rad);
-
-        local anchor = ch_anchor();
-
-        local length = c.length;
-        local gap = c.gap;
-        if c.animation then
-            local wave = (math.sin(ch_clock * c.animation_speed) + 1) * 0.5;
-            if c.animation_mode == "breathe" then
-                gap = gap + wave * length * 0.6;
-            else
-                length = length * (0.55 + wave * 0.45);
-            end;
-        end;
-        if c.spread then
-            gap = gap + math.clamp(local_speed() * 0.12 * c.spread_scale, 0, 60);
-        end;
-
-        local color = c.color;
-        if c.fade then
-            color = c.color:Lerp(c.fade_color, (math.sin(ch_clock * 1.5) + 1) * 0.5);
-        end;
-        local transparency = 1;
-        if c.shimmer then
-            transparency = 0.45 + (math.sin(ch_clock * c.shimmer_speed) + 1) * 0.5 * 0.55;
-        end;
-        local thick = c.thickness;
-
-        if c.style == "circle" then
-            hide_ch_lines();
-            ch_dot.Visible = false;
-            ch_dot_outline.Visible = false;
-            if c.outline then
-                ch_ring_outline.Position = anchor;
-                ch_ring_outline.Radius = length;
-                ch_ring_outline.Color = c.outline_color;
-                ch_ring_outline.Thickness = thick + 2;
-                ch_ring_outline.Transparency = transparency;
-                ch_ring_outline.Visible = true;
-            else
-                ch_ring_outline.Visible = false;
-            end;
-            ch_ring.Position = anchor;
-            ch_ring.Radius = length;
-            ch_ring.Color = color;
-            ch_ring.Thickness = thick;
-            ch_ring.Transparency = transparency;
-            ch_ring.Visible = true;
-        elseif c.style == "dot" then
-            hide_ch_lines();
-            ch_ring.Visible = false;
-            ch_ring_outline.Visible = false;
-        else
-            ch_ring.Visible = false;
-            ch_ring_outline.Visible = false;
-            local arms = ch_arms(c.style, gap, length);
-            for i = 1, 4 do
-                local arm = arms[i];
-                local l = ch_lines[i];
-                local o = ch_line_outlines[i];
-                if c.lines and arm and c[arm[3]] then
-                    local f, t = arm[1], arm[2];
-                    local fr = Vector2.new(f.X * cosv - f.Y * sinv, f.X * sinv + f.Y * cosv);
-                    local tr = Vector2.new(t.X * cosv - t.Y * sinv, t.X * sinv + t.Y * cosv);
-                    local from = anchor + fr;
-                    local to = anchor + tr;
-                    if c.outline then
-                        o.From = from;
-                        o.To = to;
-                        o.Color = c.outline_color;
-                        o.Thickness = thick + 2;
-                        o.Transparency = transparency;
-                        o.Visible = true;
-                    else
-                        o.Visible = false;
-                    end;
-                    l.From = from;
-                    l.To = to;
-                    l.Color = color;
-                    l.Thickness = thick;
-                    l.Transparency = transparency;
-                    l.Visible = true;
-                else
-                    l.Visible = false;
-                    o.Visible = false;
-                end;
-            end;
-        end;
-
-        if c.dot or c.style == "dot" then
-            local radius = math.max(thick, 1);
-            if c.outline then
-                ch_dot_outline.Position = anchor;
-                ch_dot_outline.Color = c.outline_color;
-                ch_dot_outline.Radius = radius + 1;
-                ch_dot_outline.Transparency = transparency;
-                ch_dot_outline.Visible = true;
-            else
-                ch_dot_outline.Visible = false;
-            end;
-            ch_dot.Position = anchor;
-            ch_dot.Color = color;
-            ch_dot.Radius = radius;
-            ch_dot.Transparency = transparency;
-            ch_dot.Visible = true;
-        else
-            ch_dot.Visible = false;
-            ch_dot_outline.Visible = false;
-        end;
-
-        if c.text_enable and c.text_content ~= "" then
-            local text_color = c.text_color;
-            if c.text_animation then
-                text_color = Color3.fromHSV((ch_clock * 0.15) % 1, 0.65, 1);
-            end;
-            ch_text.Text = c.text_content;
-            ch_text.FontFace = ch_get_font(c.text_font);
-            ch_text.TextSize = c.text_size;
-            ch_text.TextColor3 = text_color;
-            ch_text.TextStrokeTransparency = c.text_outline and 0 or 1;
-            ch_text.Position = UDim2.fromOffset(anchor.X, anchor.Y + gap + length + c.text_offset);
-            ch_text.Visible = true;
-        else
-            ch_text.Visible = false;
-        end;
-    end)));
-
-    trove:Add(function()
-        hide_crosshair();
-        for i = 1, 4 do
-            pcall(function() ch_lines[i]:Remove() end);
-            pcall(function() ch_line_outlines[i]:Remove() end);
-        end;
-        pcall(function() ch_ring:Remove() end);
-        pcall(function() ch_ring_outline:Remove() end);
-        pcall(function() ch_dot:Remove() end);
-        pcall(function() ch_dot_outline:Remove() end);
-        pcall(function() ch_text_gui:Destroy() end);
-    end);
-
-    local crosshair_box = crosshair_tab:AddTab("crosshair"); do
-        crosshair_box:AddToggle("CrosshairEnable", {
-            Text = "enabled",
-            Default = false,
-            Callback = function(v)
-                cfg.crosshair.enable = v;
-            end
-        }):AddColorPicker("CrosshairColor", {
-            Default = Color3.fromRGB(0, 255, 170),
-            Callback = function(v)
-                cfg.crosshair.color = v;
-            end
-        });
-
-        crosshair_box:AddDropdown("CrosshairStyle", {
-            Text = "style",
-            Default = "cross",
-            Values = { "cross", "t", "x", "circle", "dot" },
-            Callback = function(v)
-                cfg.crosshair.style = v;
-            end
-        });
-
-        crosshair_box:AddToggle("CrosshairLines", {
-            Text = "lines",
-            Default = true,
-            Callback = function(v)
-                cfg.crosshair.lines = v;
-            end
-        });
-
-        crosshair_box:AddSlider("CrosshairRotation", {
-            Text = "rotation",
-            Default = 0,
-            Min = 0,
-            Max = 360,
-            Rounding = 0,
-            Suffix = "°",
-            Callback = function(v)
-                cfg.crosshair.rotation = v;
-            end
-        });
-
-        crosshair_box:AddSlider("CrosshairLength", {
-            Text = "length",
-            Default = 6,
-            Min = 0,
-            Max = 40,
-            Rounding = 0,
-            Callback = function(v)
-                cfg.crosshair.length = v;
-            end
-        });
-
-        crosshair_box:AddSlider("CrosshairThickness", {
-            Text = "thickness",
-            Default = 1,
-            Min = 1,
-            Max = 6,
-            Rounding = 0,
-            Callback = function(v)
-                cfg.crosshair.thickness = v;
-            end
-        });
-
-        crosshair_box:AddSlider("CrosshairGap", {
-            Text = "gap",
-            Default = 3,
-            Min = 0,
-            Max = 20,
-            Rounding = 0,
-            Callback = function(v)
-                cfg.crosshair.gap = v;
-            end
-        });
-
-        crosshair_box:AddToggle("CrosshairOutline", {
-            Text = "outline",
-            Default = false,
-            Callback = function(v)
-                cfg.crosshair.outline = v;
-            end
-        }):AddColorPicker("CrosshairOutlineColor", {
-            Default = Color3.fromRGB(0, 0, 0),
-            Callback = function(v)
-                cfg.crosshair.outline_color = v;
-            end
-        });
-
-        crosshair_box:AddToggle("CrosshairTopLine", {
-            Text = "top line",
-            Default = true,
-            Callback = function(v)
-                cfg.crosshair.top_line = v;
-            end
-        });
-
-        crosshair_box:AddToggle("CrosshairBottomLine", {
-            Text = "bottom line",
-            Default = true,
-            Callback = function(v)
-                cfg.crosshair.bottom_line = v;
-            end
-        });
-    end;
-
-    local lines_box = crosshair_tab:AddTab("lines"); do
-        lines_box:AddToggle("CrosshairDot", {
-            Text = "center dot",
-            Default = false,
-            Callback = function(v)
-                cfg.crosshair.dot = v;
-            end
-        });
-
-        lines_box:AddToggle("CrosshairLineOutline", {
-            Text = "outline",
-            Default = false,
-            Callback = function(v)
-                cfg.crosshair.outline = v;
-            end
-        });
-
-        lines_box:AddToggle("CrosshairTop", {
-            Text = "top line",
-            Default = true,
-            Callback = function(v)
-                cfg.crosshair.top_line = v;
-            end
-        });
-
-        lines_box:AddToggle("CrosshairBottom", {
-            Text = "bottom line",
-            Default = true,
-            Callback = function(v)
-                cfg.crosshair.bottom_line = v;
-            end
-        });
-
-        lines_box:AddToggle("CrosshairLeft", {
-            Text = "left line",
-            Default = true,
-            Callback = function(v)
-                cfg.crosshair.left_line = v;
-            end
-        });
-
-        lines_box:AddToggle("CrosshairRight", {
-            Text = "right line",
-            Default = true,
-            Callback = function(v)
-                cfg.crosshair.right_line = v;
-            end
-        });
-    end;
-
-    local effects_box = crosshair_tab:AddTab("effects"); do
-        effects_box:AddToggle("CrosshairRotating", {
-            Text = "rotating",
-            Default = false,
-            Callback = function(v)
-                cfg.crosshair.rotating = v;
-            end
-        });
-
-        effects_box:AddSlider("CrosshairRotatingSpeed", {
-            Text = "speed",
-            Default = 120,
-            Min = 0,
-            Max = 720,
-            Rounding = 0,
-            Suffix = "°/s",
-            Callback = function(v)
-                cfg.crosshair.rotating_speed = v;
-            end
-        });
-
-        effects_box:AddToggle("CrosshairSpread", {
-            Text = "spread",
-            Default = false,
-            Callback = function(v)
-                cfg.crosshair.spread = v;
-            end
-        });
-
-        effects_box:AddSlider("CrosshairSpreadScale", {
-            Text = "spread scale",
-            Default = 1,
-            Min = 0,
-            Max = 4,
-            Rounding = 2,
-            Callback = function(v)
-                cfg.crosshair.spread_scale = v;
-            end
-        });
-
-        effects_box:AddToggle("CrosshairAnimation", {
-            Text = "animation",
-            Default = false,
-            Callback = function(v)
-                cfg.crosshair.animation = v;
-            end
-        });
-
-        effects_box:AddDropdown("CrosshairAnimationMode", {
-            Text = "mode",
-            Default = "pulse",
-            Values = { "pulse", "breathe" },
-            Callback = function(v)
-                cfg.crosshair.animation_mode = v;
-            end
-        });
-
-        effects_box:AddSlider("CrosshairAnimationSpeed", {
-            Text = "speed",
-            Default = 3,
-            Min = 0.1,
-            Max = 12,
-            Rounding = 1,
-            Callback = function(v)
-                cfg.crosshair.animation_speed = v;
-            end
-        });
-
-        effects_box:AddToggle("CrosshairFade", {
-            Text = "fade color",
-            Default = false,
-            Callback = function(v)
-                cfg.crosshair.fade = v;
-            end
-        }):AddColorPicker("CrosshairFadeColor", {
-            Default = Color3.fromRGB(255, 0, 170),
-            Callback = function(v)
-                cfg.crosshair.fade_color = v;
-            end
-        });
-
-        effects_box:AddToggle("CrosshairFollowTarget", {
-            Text = "follow target",
-            Default = false,
-            Callback = function(v)
-                cfg.crosshair.follow_target = v;
-            end
-        });
-
-        effects_box:AddDropdown("CrosshairFollowSource", {
-            Text = "follow source",
-            Default = "target",
-            Values = { "target", "gunpoint" },
-            Callback = function(v)
-                cfg.crosshair.follow_source = v;
-            end
-        });
-
-        effects_box:AddToggle("CrosshairShimmer", {
-            Text = "shimmer",
-            Default = false,
-            Callback = function(v)
-                cfg.crosshair.shimmer = v;
-            end
-        });
-
-        effects_box:AddSlider("CrosshairShimmerSpeed", {
-            Text = "shimmer speed",
-            Default = 4,
-            Min = 0.1,
-            Max = 12,
-            Rounding = 1,
-            Callback = function(v)
-                cfg.crosshair.shimmer_speed = v;
-            end
-        });
-    end;
-
-    local text_box = crosshair_tab:AddTab("text"); do
-        text_box:AddToggle("CrosshairTextEnable", {
-            Text = "enabled",
-            Default = false,
-            Callback = function(v)
-                cfg.crosshair.text_enable = v;
-            end
-        }):AddColorPicker("CrosshairTextColor", {
-            Default = Color3.fromRGB(255, 255, 255),
-            Callback = function(v)
-                cfg.crosshair.text_color = v;
-            end
-        });
-
-        text_box:AddInput("CrosshairTextContent", {
-            Text = "content",
-            Default = "elisium",
-            ClearTextOnFocus = false,
-            Callback = function(v)
-                cfg.crosshair.text_content = v;
-            end
-        });
-
-        text_box:AddDropdown("CrosshairTextFont", {
-            Text = "font",
-            Default = "Plex",
-            Values = { "UI", "System", "Plex", "Monospace", "Inconsolata" },
-            Callback = function(v)
-                cfg.crosshair.text_font = v;
-            end
-        });
-
-        text_box:AddSlider("CrosshairTextSize", {
-            Text = "size",
-            Default = 16,
-            Min = 8,
-            Max = 48,
-            Rounding = 0,
-            Callback = function(v)
-                cfg.crosshair.text_size = v;
-            end
-        });
-
-        text_box:AddSlider("CrosshairTextOffset", {
-            Text = "offset",
-            Default = 18,
-            Min = 0,
-            Max = 120,
-            Rounding = 0,
-            Callback = function(v)
-                cfg.crosshair.text_offset = v;
-            end
-        });
-
-        text_box:AddToggle("CrosshairTextOutline", {
-            Text = "outline",
-            Default = true,
-            Callback = function(v)
-                cfg.crosshair.text_outline = v;
-            end
-        });
-
-        text_box:AddToggle("CrosshairTextAnimation", {
-            Text = "animation",
-            Default = false,
-            Callback = function(v)
-                cfg.crosshair.text_animation = v;
-            end
-        });
-    end;
-end)();
-
-local character_tab = Tabs.character_tab; do
-    local movement_tab = Tabs.character_tab:AddRightGroupbox('movement'); do
-        keybind_slide_boost_enable = false;
-        keybind_infinite_double_jump_enable = false;
-
-        keybind_walkspeed_enable = false;
-        movement_tab:AddToggle('walkspeed_enable', {
-            Text = 'walkspeed',
-            Default = false,
-            Callback = function(v)
-                keybind_walkspeed_enable = v;
-                ELI.walkspeed.enable = v;
-            end;
-        }):AddKeyPicker('walkspeed_keybind', {
-            Default = '',
-            Text = 'walkspeed',
-            NoUI = false,
-            EnableCheck = function()
-                return ELI.walkspeed.enable;
-            end,
-            Callback = function(v)
-                ELI.walkspeed.enable = keybind_walkspeed_enable and v or false;
-            end;
-        });
-
-        movement_tab:AddSlider('walkspeed_multiplier', {
-            Text = 'multiplier',
-            Default = 1.5,
-            Min = 1,
-            Max = 10,
-            Rounding = 2,
-            Suffix = 'x',
-            Callback = function(v)
-                ELI.walkspeed.multiplier = v;
-            end;
-        });
-
-        movement_tab:AddToggle('infinite_double_jump_enable', {
-            Text = 'infinite double jump',
-            Default = false,
-            Callback = function(v)
-                keybind_infinite_double_jump_enable = v;
-                ELI.infinite_double_jump.enable = v;
-            end;
-        }):AddKeyPicker('infinite_double_jump_keybind', {
-            Default = '',
-            Text = 'infinite double jump',
-            NoUI = false,
-            EnableCheck = function()
-                return ELI.infinite_double_jump.enable;
-            end,
-            Callback = function(v)
-                ELI.infinite_double_jump.enable = keybind_infinite_double_jump_enable and v or false;
-            end;
-        });
-
-        movement_tab:AddToggle('slide_boost_enable', {
-            Text = 'slide boost',
-            Default = false,
-            Callback = function(v)
-                keybind_slide_boost_enable = v;
-                ELI.slide_boost.enable = v;
-            end;
-        }):AddKeyPicker('slide_boost_keybind', {
-            Default = '',
-            Text = 'slide boost',
-            NoUI = false,
-            EnableCheck = function()
-                return ELI.slide_boost.enable;
-            end,
-            Callback = function(v)
-                ELI.slide_boost.enable = keybind_slide_boost_enable and v or false;
-            end;
-        });
-
-        movement_tab:AddToggle('double_jump_height_enable', {
-            Text = 'double jump height',
-            Default = false,
-            Callback = function(v)
-                ELI.double_jump_height.enable = v;
-                if not v then
-                    mechanics_controller._original_jump_power = old_jump_fist;
-                end;
-            end;
-        });
-        movement_tab:AddSlider('slide_boost_spped', {
-            Text = 'height',
-            Default = 50,
-            Min = 1,
-            Max = 150,
-            Rounding = 1,
-            Callback = function(v)
-                ELI.double_jump_height.height = v;
-            end;
-        });
-
-        movement_tab:AddToggle('auto_slide_enable', {
-            Text = 'auto slide',
-            Default = false,
-            Callback = function(v)
-                ELI.auto_slide.enable = v;
-            end;
-        });
-    end;
-end;
-
-local character_tab1 = Tabs.character_tab:AddLeftGroupbox('character');
-
-character_tab1:AddToggle('fly_enable', {
-    Text = 'fly',
-    Default = false,
-    Callback = function(v)
-        keybind_fly_enable = v;
-        ELI.fly.enable = v;
-    end;
-}):AddKeyPicker('fly_keybind', {
-    Default = '',
-    Text = 'fly',
-    NoUI = false,
-    EnableCheck = function()
-        return ELI.fly.enable;
-    end,
-    Callback = function(v)
-        ELI.fly.enable = keybind_fly_enable and v or false;
-    end;
-});
-
-character_tab1:AddSlider('fly_speed_value', {
-    Text = 'fly speed',
-    Default = 50,
-    Min = 10,
-    Max = 200,
-    Rounding = 1,
-    Callback = function(v)
-        ELI.fly.speed = v;
-    end;
-});
-
-character_tab1:AddToggle('slide_boost_enable', {
-        Text = 'slide boost',
-        Default = false,
-        Callback = function(v)
-            keybind_slide_boost_enable = v;
-            ELI.slide_boost.enable = v;
-        end;
-        }):AddKeyPicker('slide_boost_keybind', {
-            Default = '',
-            Text = 'slide boost',
-            NoUI = false,
-            EnableCheck = function()
-                return ELI.slide_boost.enable;
-            end,
-            Callback = function(v)
-                ELI.slide_boost.enable = keybind_slide_boost_enable and v or false;
-            end;
-        });
-
-                character_tab1:AddSlider('slide_boost_spped', {
-            Text = 'speed',
-            Default = 60,
-            Min = 1,
-            Max = 100,
-            Rounding = 0,
-            Callback = function(v)
-                ELI.slide_boost.speed = v;
-            end;
-        });
-
-local anim_tab = Tabs.character_tab:AddLeftGroupbox('emote player'); do
-    anim_tab:AddToggle('animation_enable', {
-        Text = 'enable',
-        Default = false,
-        Callback = function(v)
-            ELI.animation.enable = v;
-        end
-    });
-
-    anim_tab:AddDropdown('animation_droadsa', {
-        Text = 'emote',
-        Values = {'Meditate','Orbit','Floss','OJ','Kicking Feet','Take the L','Hype',},
-        Default = 1,
-        Callback = function(v)
-            ELI.animation.select_animation = v;
-        end
-    });
-
-    anim_tab:AddInput('animation_custom_id', {
-        Text = 'custom id',
-        Default = '',
-        Placeholder = 'id..',
-        Callback = function(v)
-            ELI.animation.custom_id = v;
-        end
-    });
-
-    anim_tab:AddSlider('animation_speed', {
-        Text = 'speed',
-        Default = 2,
-        Min = 0.1,
-        Max = 10,
-        Rounding = 1,
-        Callback = function(v)
-            ELI.animation.speed = v;
-        end
-    });
-end;
-
-local animasdads;
-local anim_last_id = "";
-local anim_last_speed = 0;
-
-local function stopCustomAnimation()
-    if animasdads then
-        pcall(function() animasdads:Stop() end);
-        animasdads = nil;
-    end;
-    anim_last_id = "";
-end;
-
-run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
-    local ok = pcall(function()
-        if not ELI.animation.enable then
-            stopCustomAnimation();
-            return;
-        end;
-
-        local character = local_player.Character;
-        if not character then stopCustomAnimation(); return; end;
-        local humanoid = character:FindFirstChildOfClass("Humanoid");
-        if not humanoid then stopCustomAnimation(); return; end;
-        local animator = humanoid:FindFirstChildOfClass("Animator");
-        if not animator then stopCustomAnimation(); return; end;
-
-        if animasdads and not animasdads.IsPlaying then
-            animasdads = nil;
-            anim_last_id = "";
-        end;
-
-        local id = theanimationsd[ELI.animation.select_animation];
-        if not id then return; end;
-        local speed = ELI.animation.speed;
-
-        if id ~= anim_last_id then
-            if animasdads then pcall(function() animasdads:Stop() end); animasdads = nil; end;
-            anim_last_id = id;
-
-            local anim;
-            local okObjects, objects = pcall(function()
-                return game:GetObjects("rbxassetid://" .. id);
-            end);
-            if okObjects and objects and objects[1] then
-                anim = objects[1];
-            else
-                anim = Instance.new("Animation");
-                anim.AnimationId = "rbxassetid://" .. id;
-            end;
-
-            local okLoad, track = pcall(function()
-                return animator:LoadAnimation(anim);
-            end);
-            if not okLoad or not track then
-                anim_last_id = "";
-                return;
-            end;
-
-            animasdads = track;
-            pcall(function()
-                animasdads.Priority = Enum.AnimationPriority.Action4;
-                animasdads:Play();
-                animasdads:AdjustSpeed(speed);
-            end);
-            anim_last_speed = speed;
-        end;
-
-        if animasdads and speed ~= anim_last_speed then
-            pcall(function() animasdads:AdjustSpeed(speed) end);
-            anim_last_speed = speed;
-        end;
-    end);
-    if not ok then
-        anim_last_id = "";
-    end;
-end));
-
-local settings_tab = Tabs['UI Settings']; do
-    local menu = Tabs['UI Settings']:AddLeftGroupbox('menu'); do
-        menu:AddLabel("menu bind"):AddKeyPicker("MenuKeybind", {
-            Default = "RightShift";
-            NoUI = true;
-            Text = "menu keybind";
-        });
-
-        if Options.MenuKeybind then
-            Library.ToggleKeybind = Options.MenuKeybind;
-            Library.MenuBindPickers = Library.MenuBindPickers or {};
-            table.insert(Library.MenuBindPickers, Options.MenuKeybind);
-        end;
-
-        menu:AddToggle('menu_blur', {
-            Text = 'blur effect',
-            Default = true,
-            Callback = function(v)
-                Toggles.MenuBlurToggle = Toggles.MenuBlurToggle or { Value = v };
-                Toggles.MenuBlurToggle.Value = v;
-                pcall(function() Library:UpdateMenuBlur() end);
-            end;
-        });
-
-        menu:AddToggle('show_keybind_menu', {
-            Text = 'show keybind menu',
-            Default = true,
-            Callback = function(v)
-                if Library.KeybindOverlay and Library.KeybindOverlay.SetVisible then
-                    Library.KeybindOverlay:SetVisible(v);
-                elseif Library.KeybindOverlay and Library.KeybindOverlay.Outer then
-                    Library.KeybindOverlay.Outer.Visible = v;
-                end;
-            end
-        });
-
-        menu:AddButton('unload', function()
-            Library:Unload();
-        end);
-    end;
-
-local autoload = Tabs['UI Settings']:AddLeftGroupbox('auto load')
-
-do
-    autoload:AddToggle('auto_load_enable', {
-        Text = 'enable',
-        Default = false,
-        Callback = function(v)
-            getgenv().auto_load_enable = v;
-            if v then
-                if clearteleportqueue then
-                    clearteleportqueue();
-                elseif clear_teleport_queue then
-                    clear_teleport_queue();
-                end;
-
-                if getgenv().silent_load then
-                    queueonteleport([[
-                        repeat task.wait() until game:IsLoaded()
-
-                        getgenv().silent_load = true
-
-                        print("loading")
-
-                        script_key = "trial"
-
-                        loadstring(game:HttpGet("https://api.getpolsec.com/scripts/hosted/62a222f303b5c060e8d0a1b93ef272594f00e3a0ec3a1ab1890381cbdbb607f9.lua", true))()
-                    ]]);
-                else
-                    queueonteleport([[
-                        repeat task.wait() until game:IsLoaded()
-
-                        getgenv().silent_load = false
-
-                        print("loading")
-
-                        script_key = "trial"
-
-                        loadstring(game:HttpGet("https://api.getpolsec.com/scripts/hosted/62a222f303b5c060e8d0a1b93ef272594f00e3a0ec3a1ab1890381cbdbb607f9.lua", true))()
-                    ]]);
-                end;
-            else
-                getgenv().silent_load = false;
-
-                if Toggles and Toggles.silent_load_enable then
-                    Toggles.silent_load_enable:SetValue(false);
-                end;
-                if clearteleportqueue then
-                    clearteleportqueue();
-                elseif clear_teleport_queue then
-                    clear_teleport_queue();
-                end;
-            end;
-        end;
-    });
-
-    autoload:AddToggle('silent_load_enable', {
-        Text = 'silent load',
-        Default = false,
-        Callback = function(v)
-            if not getgenv().auto_load_enable then
-                getgenv().silent_load = false;
-
-                if v and Toggles and Toggles.silent_load_enable then
-                    Toggles.silent_load_enable:SetValue(false);
-                end;
-
-                return
-            end;
-
-            getgenv().silent_load = v;
-
-            if clearteleportqueue then
-                clearteleportqueue();
-            elseif clear_teleport_queue then
-                clear_teleport_queue();
-            end;
-
-            if v then
-                queueonteleport([[
-                    repeat task.wait() until game:IsLoaded()
-
-                    getgenv().silent_load = true
-
-                    print("loading")
-
-                    script_key = "trial"
-
-                    loadstring(game:HttpGet("https://api.getpolsec.com/scripts/hosted/62a222f303b5c060e8d0a1b93ef272594f00e3a0ec3a1ab1890381cbdbb607f9.lua", true))()
-                ]]);
-            else
-                queueonteleport([[
-                    repeat task.wait() until game:IsLoaded()
-
-                    getgenv().silent_load = false
-
-                    print("loading")
-
-                    script_key = "trial"
-
-                    loadstring(game:HttpGet("https://api.getpolsec.com/scripts/hosted/62a222f303b5c060e8d0a1b93ef272594f00e3a0ec3a1ab1890381cbdbb607f9.lua", true))()
-                ]]);
-            end;
-        end;
-    });
-end;
-
-pcall(function()
-    if getgenv().auto_load_enable and queueonteleport then
-        if clearteleportqueue then
-            pcall(clearteleportqueue);
-        elseif clear_teleport_queue then
-            pcall(clear_teleport_queue);
-        end;
-
-        local silent = getgenv().silent_load and "true" or "false";
-        queueonteleport([[
-            repeat task.wait() until game:IsLoaded()
-            getgenv().silent_load = ]] .. silent .. [[
-
-            getgenv().auto_load_enable = true
-            script_key = "trial"
-            for _attempt = 1, 6 do
-                local _ok, _src = pcall(function()
-                    return game:HttpGet("https://api.getpolsec.com/scripts/hosted/62a222f303b5c060e8d0a1b93ef272594f00e3a0ec3a1ab1890381cbdbb607f9.lua", true)
-                end)
-                if _ok and type(_src) == "string" and #_src > 0 then
-                    local _fn = loadstring(_src)
-                    if _fn then
-                        _fn()
-                        break
+                if type(args[1]) == 'string' then
+                    local a = string.lower(args[1])
+                    if a:find('kick', 1, true) or a:find('ban', 1, true) or a:find('anticheat', 1, true) then
+                        return
                     end
                 end
-                task.wait(_attempt * 2)
             end
-        ]]);
-    end;
-end)
-
-do
-    ELI.notifications = ELI.notifications or {
-        force_color = false,
-        color = Color3.fromRGB(96, 132, 220),
-        side = "Bottom",
-        alignment = "Center",
-        transparency = 0,
-        x = 50,
-        y = 90,
-    };
-    local NConfig = ELI.notifications;
-
-    local function GetNotifyArea()
-        return Library.NotificationArea;
-    end;
-
-    local function ApplyNotifySettings()
-        if NConfig.side == "Left" then
-            Library.NotifySide = "Left";
-        elseif NConfig.side == "Right" then
-            Library.NotifySide = "Right";
-        else
-            Library.NotifySide = "Bottom";
-        end;
-
-        local Area = GetNotifyArea();
-        if not Area then return end;
-
-        local AlignMap = {
-            Left = Enum.HorizontalAlignment.Left,
-            Center = Enum.HorizontalAlignment.Center,
-            Right = Enum.HorizontalAlignment.Right,
-        };
-
-        local X = math.clamp((NConfig.x or 50) / 100, 0, 1);
-        local Y = math.clamp((NConfig.y or 90) / 100, 0, 1);
-
-        if NConfig.side == "Top" then
-            Area.AnchorPoint = Vector2.new(0.5, 0);
-        elseif NConfig.side == "Left" then
-            Area.AnchorPoint = Vector2.new(0, 0.5);
-        elseif NConfig.side == "Right" then
-            Area.AnchorPoint = Vector2.new(1, 0.5);
-        else
-            Area.AnchorPoint = Vector2.new(0.5, 1);
-        end;
-
-        Area.Position = UDim2.fromScale(X, Y);
-
-        local Layout = Area:FindFirstChildOfClass("UIListLayout");
-        if Layout then
-            Layout.HorizontalAlignment = AlignMap[NConfig.alignment] or Enum.HorizontalAlignment.Center;
-            Layout.VerticalAlignment = (NConfig.side == "Top") and Enum.VerticalAlignment.Top or Enum.VerticalAlignment.Bottom;
-        end;
-    end;
-
-    local function StyleNotification()
-        local Area = GetNotifyArea();
-        if not Area then return end;
-
-        for _, Outer in eli_ipairs(Area:GetChildren()) do
-            if Outer:IsA("GuiObject") and not Outer:GetAttribute("ElisiumStyled") then
-                Outer:SetAttribute("ElisiumStyled", true);
-
-                if NConfig.force_color and NConfig.color then
-                    for _, Child in eli_ipairs(Outer:GetDescendants()) do
-                        if Child:IsA("Frame") then
-                            local Reg = Library.RegistryMap[Child];
-                            if Reg and Reg.Properties and Reg.Properties.BackgroundColor3 == "AccentColor" then
-                                Library:RemoveFromRegistry(Child);
-                                Child.BackgroundColor3 = NConfig.color;
-                            end;
-                        end;
-                    end;
-                end;
-
-                local Visible = 1 - math.clamp((NConfig.transparency or 0) / 100, 0, 1);
-                if Visible < 1 then
-                    local function Fade(Object)
-                        if Object:IsA("GuiObject") and Object.BackgroundTransparency < 1 then
-                            Object.BackgroundTransparency = 1 - (1 - Object.BackgroundTransparency) * Visible;
-                        end;
-                    end;
-                    Fade(Outer);
-                    for _, Object in eli_ipairs(Outer:GetDescendants()) do
-                        Fade(Object);
-                    end;
-                end;
-            end;
-        end;
-    end;
-
-    if not Library.__ElisiumNotifyHooked then
-        Library.__ElisiumNotifyHooked = true;
-        Library.__ElisiumOldNotify = Library.Notify;
-
-        function Library:Notify(...)
-            if getgenv().silent_load then
-                return setmetatable({}, {
-                    __index = function()
-                        return function() end;
-                    end,
-                });
-            end;
-
-            ApplyNotifySettings();
-            local Data = Library.__ElisiumOldNotify(self, ...);
-            task.defer(StyleNotification);
-            return Data;
-        end;
-    end;
-
-    ApplyNotifySettings();
-end
-
-do
-    local NConfig = ELI.notifications;
-
-    local function ApplyNotifySettings()
-        if NConfig.side == "Left" then
-            Library.NotifySide = "Left";
-        elseif NConfig.side == "Right" then
-            Library.NotifySide = "Right";
-        else
-            Library.NotifySide = "Bottom";
-        end;
-
-        local Area = Library.NotificationArea;
-
-        if not Area then return end;
-
-        local AlignMap = {
-            Left = Enum.HorizontalAlignment.Left,
-            Center = Enum.HorizontalAlignment.Center,
-            Right = Enum.HorizontalAlignment.Right,
-        };
-
-        local X = math.clamp((NConfig.x or 50) / 100, 0, 1);
-        local Y = math.clamp((NConfig.y or 90) / 100, 0, 1);
-
-        if NConfig.side == "Top" then
-            Area.AnchorPoint = Vector2.new(0.5, 0);
-        elseif NConfig.side == "Left" then
-            Area.AnchorPoint = Vector2.new(0, 0.5);
-        elseif NConfig.side == "Right" then
-            Area.AnchorPoint = Vector2.new(1, 0.5);
-        else
-            Area.AnchorPoint = Vector2.new(0.5, 1);
-        end;
-
-        Area.Position = UDim2.fromScale(X, Y);
-
-        local Layout = Area:FindFirstChildOfClass("UIListLayout");
-        if Layout then
-            Layout.HorizontalAlignment = AlignMap[NConfig.alignment] or Enum.HorizontalAlignment.Center;
-            Layout.VerticalAlignment = (NConfig.side == "Top") and Enum.VerticalAlignment.Top or Enum.VerticalAlignment.Bottom;
-        end;
+            return old(self, ...)
+        end))
     end
 
-    do
-        local notifications = Tabs['UI Settings']:AddRightGroupbox('notifications');
-
-    notifications:AddToggle('notify_force_color', {
-        Text = 'force color',
-        Default = false,
-        Callback = function(v)
-            NConfig.force_color = v;
-        end,
-    }):AddColorPicker('notify_color', {
-        Default = NConfig.color,
-        Title = 'notification color',
-        Callback = function(Color)
-            NConfig.color = Color;
-        end,
-    });
-
-    notifications:AddSlider('notify_x', {
-        Text = 'position x',
-        Default = NConfig.x,
-        Min = 0,
-        Max = 100,
-        Rounding = 0,
-        Suffix = '%',
-        Callback = function(v)
-            NConfig.x = v;
-            ApplyNotifySettings();
-        end,
-    });
-
-    notifications:AddSlider('notify_y', {
-        Text = 'position y',
-        Default = NConfig.y,
-        Min = 0,
-        Max = 100,
-        Rounding = 0,
-        Suffix = '%',
-        Callback = function(v)
-            NConfig.y = v;
-            ApplyNotifySettings();
-        end,
-    });
-
-    notifications:AddSlider('notify_transparency', {
-        Text = 'transparency',
-        Default = NConfig.transparency,
-        Min = 0,
-        Max = 100,
-        Rounding = 0,
-        Suffix = '%',
-        Callback = function(v)
-            NConfig.transparency = v;
-        end,
-    });
-
-    notifications:AddDropdown('notify_alignment', {
-        Text = 'alignment',
-        Values = { 'Left', 'Center', 'Right' },
-        Default = NConfig.alignment,
-        Callback = function(v)
-            NConfig.alignment = v;
-            ApplyNotifySettings();
-        end,
-    });
-
-    notifications:AddDropdown('notify_side', {
-        Text = 'position',
-        Values = { 'Top', 'Bottom', 'Left', 'Right' },
-        Default = NConfig.side,
-        Callback = function(v)
-            NConfig.side = v;
-            ApplyNotifySettings();
-        end,
-    });
-
-    notifications:AddButton('send notification', function()
-        Library:Notify('This is a test notification.', 5);
-    end);
-
-    ApplyNotifySettings();
-    end;
-end;
-
-Library.ToggleKeybind = Options.MenuKeybind;
-
-ThemeManager:SetLibrary(Library);
-SaveManager:SetLibrary(Library);
-SaveManager:IgnoreThemeSettings();
-SaveManager:SetIgnoreIndexes({ 'MenuKeybind' });
-ThemeManager:SetFolder('dva');
-SaveManager:SetFolder('dva/rivals');
-SaveManager:BuildConfigSection(Tabs['UI Settings'])
-ThemeManager:ApplyToTab(Tabs['UI Settings'])
-
-;(function()
-    local lua_tab = Tabs.lua;
-    local base_folder = SaveManager.Folder or 'elisium/rivals';
-    local lua_folder = base_folder .. '/luas';
     pcall(function()
-        if makefolder and isfolder then
-            if not isfolder(base_folder) then makefolder(base_folder) end;
-            if not isfolder(lua_folder) then makefolder(lua_folder) end;
-        end;
-    end);
-
-    local function listLuas()
-        local out = {};
-        local ok, list = pcall(listfiles, lua_folder);
-        if ok and type(list) == 'table' then
-            for i = 1, #list do
-                local f = list[i];
-                if f:sub(-4) == '.lua' or f:sub(-4) == '.txt' then
-                    local name = (f:gsub('%.lua$', ''):gsub('%.txt$', '')):match('([^/\\]+)$');
-                    if name and name ~= '' and name ~= 'autoload' then out[#out + 1] = name end;
-                end;
-            end;
-        end;
-        return out;
-    end;
-
-    local function pathFor(name)
-        local p = lua_folder .. '/' .. name .. '.lua';
-        if isfile and isfile(p) then return p end;
-        p = lua_folder .. '/' .. name .. '.txt';
-        if isfile and isfile(p) then return p end;
-        return nil;
-    end;
-
-    local function runCode(code)
-        if not code or code:gsub('%s', '') == '' then
-            return Library:Notify('nothing to execute', 2);
-        end;
-        local fn, err = loadstring(code);
-        if not fn then
-            return Library:Notify('compile error: ' .. tostring(err), 6);
-        end;
-        task.spawn(function()
-            local ok, rerr = pcall(fn);
-            if not ok then
-                Library:Notify('runtime error: ' .. tostring(rerr), 6);
-            else
-                Library:Notify('executed', 2);
-            end;
-        end);
-    end;
-
-    local exec_box = lua_tab:AddLeftGroupbox('executor');
-    local editor = Library:Create('TextBox', {
-        Size = UDim2.new(1, -4, 0, 210),
-        BackgroundColor3 = Library.BackgroundColor or Color3.fromRGB(20, 20, 20),
-        BorderColor3 = Library.OutlineColor or Color3.fromRGB(40, 40, 40),
-        BorderSizePixel = 1,
-        TextColor3 = Library.FontColor or Color3.new(1, 1, 1),
-        TextSize = 13,
-        Font = Enum.Font.Code,
-        Text = '',
-        PlaceholderText = '-- write or paste your lua here',
-        PlaceholderColor3 = Color3.fromRGB(120, 120, 120),
-        MultiLine = true,
-        ClearTextOnFocus = false,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextYAlignment = Enum.TextYAlignment.Top,
-        TextWrapped = true,
-        ZIndex = 5,
-        Parent = exec_box.Container,
-    });
-    local ipad = Instance.new('UIPadding', editor);
-    ipad.PaddingLeft = UDim.new(0, 6);
-    ipad.PaddingTop = UDim.new(0, 4);
-    pcall(function() exec_box:Resize() end);
-
-    local display = Instance.new('TextLabel');
-    display.BackgroundTransparency = 1;
-    display.Size = UDim2.new(1, 0, 1, 0);
-    display.Font = editor.Font;
-    display.TextSize = editor.TextSize;
-    display.TextColor3 = editor.TextColor3;
-    display.TextXAlignment = Enum.TextXAlignment.Left;
-    display.TextYAlignment = Enum.TextYAlignment.Top;
-    display.TextWrapped = true;
-    display.Text = '';
-    display.ZIndex = 6;
-    display.Visible = false;
-    display.Parent = editor;
-
-    local savedCode = '';
-    local function showMirror()
-        if savedCode ~= '' then
-            display.Text = savedCode;
-            display.Visible = true;
-            editor.TextTransparency = 1;
-        else
-            display.Visible = false;
-            editor.TextTransparency = 0;
-        end;
-    end;
-    local function hideMirror()
-        display.Visible = false;
-        editor.TextTransparency = 0;
-    end;
-    editor.Focused:Connect(function()
-        if savedCode ~= '' and editor.Text == '' then editor.Text = savedCode end;
-        hideMirror();
-    end);
-    editor.FocusLost:Connect(function()
-        if editor.Text ~= '' then savedCode = editor.Text end;
-        showMirror();
-    end);
-    editor:GetPropertyChangedSignal('Text'):Connect(function()
-        if editor.Text ~= '' then savedCode = editor.Text end;
-        if not editor:IsFocused() then showMirror() end;
-    end);
-    local function setCode(t)
-        savedCode = t or '';
-        editor.Text = savedCode;
-        if editor:IsFocused() then hideMirror() else showMirror() end;
-    end;
-    showMirror();
-
-    exec_box:AddButton('execute', function() runCode(editor.Text) end);
-    exec_box:AddButton('clear', function() setCode('') end);
-
-    local cfg_box = lua_tab:AddRightGroupbox('lua configs');
-    cfg_box:AddInput('lua_name', { Text = 'lua name', Placeholder = 'my script' });
-    cfg_box:AddDropdown('lua_list', { Text = 'saved luas', Values = listLuas(), AllowNull = true });
-
-    local function refreshLuas()
-        Options.lua_list:SetValues(listLuas());
-        Options.lua_list:SetValue(nil);
-    end;
-
-    local LuaAutoloadLabel;
-
-    cfg_box:AddButton('save lua', function()
-        local name = Options.lua_name and Options.lua_name.Value or '';
-        if name:gsub('%s', '') == '' then return Library:Notify('enter a lua name', 2) end;
-        if not writefile then return Library:Notify('no writefile support', 3) end;
-        pcall(function() writefile(lua_folder .. '/' .. name .. '.lua', editor.Text) end);
-        Library:Notify('saved lua ' .. name, 3);
-        refreshLuas();
-    end);
-
-    cfg_box:AddButton('load lua', function()
-        local name = Options.lua_list and Options.lua_list.Value;
-        if not name then return Library:Notify('no lua selected', 2) end;
-        local p = pathFor(name);
-        if p then setCode(readfile(p)); Library:Notify('loaded ' .. name, 2);
-        else Library:Notify('file not found', 3) end;
-    end);
-
-    cfg_box:AddButton('execute lua', function()
-        local name = Options.lua_list and Options.lua_list.Value;
-        if not name then return Library:Notify('no lua selected', 2) end;
-        local p = pathFor(name);
-        if p then runCode(readfile(p)) else Library:Notify('file not found', 3) end;
-    end);
-
-    cfg_box:AddButton('delete lua', function()
-        local name = Options.lua_list and Options.lua_list.Value;
-        if not name then return Library:Notify('no lua selected', 2) end;
-        pcall(delfile, lua_folder .. '/' .. name .. '.lua');
-        pcall(delfile, lua_folder .. '/' .. name .. '.txt');
-        Library:Notify('deleted ' .. name, 2);
-        refreshLuas();
-    end);
-
-    cfg_box:AddButton('refresh list', refreshLuas);
-
-    cfg_box:AddButton('set as autoload', function()
-        local name = Options.lua_list and Options.lua_list.Value;
-        if not name then return Library:Notify('no lua selected', 2) end;
-        pcall(function() writefile(lua_folder .. '/autoload.txt', name) end);
-        if LuaAutoloadLabel then LuaAutoloadLabel:SetText('autoload lua: ' .. name) end;
-        Library:Notify('set autoload lua ' .. name, 3);
-    end);
-
-    cfg_box:AddButton('clear autoload', function()
-        pcall(delfile, lua_folder .. '/autoload.txt');
-        if LuaAutoloadLabel then LuaAutoloadLabel:SetText('autoload lua: none') end;
-        Library:Notify('cleared lua autoload', 2);
-    end);
-
-    LuaAutoloadLabel = cfg_box:AddLabel('autoload lua: none', true);
-    pcall(function()
-        if isfile and isfile(lua_folder .. '/autoload.txt') then
-            local n = readfile(lua_folder .. '/autoload.txt');
-            if n and n ~= '' then LuaAutoloadLabel:SetText('autoload lua: ' .. n) end;
-        end;
-    end);
-
-    task.spawn(function()
-        pcall(function()
-            if isfile and isfile(lua_folder .. '/autoload.txt') then
-                local n = readfile(lua_folder .. '/autoload.txt');
-                local p = n and n ~= '' and pathFor(n);
-                if p then
-                    local fn = loadstring(readfile(p));
-                    if fn then pcall(fn) end;
-                end;
-            end;
-        end);
-    end);
-end)()
-
-;(function()
-    local BRAND_ACCENT = Color3.fromHex('a65d67');
-
-    local function detach(overlay)
-        if not overlay or not Library.Overlays then return end;
-        for i = #Library.Overlays, 1, -1 do
-            if Library.Overlays[i] == overlay then
-                table.remove(Library.Overlays, i);
-            end;
-        end;
-    end;
-
-    local function makeWidget(factory, cfg)
-        local ok, overlay = pcall(factory, Library, cfg or { Visible = false });
-        if not ok or type(overlay) ~= 'table' then return nil end;
-        detach(overlay);
-        return overlay;
-    end;
-
-    local function setWidgetVisible(overlay, v)
-        if not overlay then return end;
-        if overlay.SetVisible then
-            pcall(function() overlay:SetVisible(v) end);
-        elseif overlay.Outer then
-            overlay.Outer.Visible = v;
-            overlay.Visible = v;
-        end;
-        pcall(function() Library:UpdateOverlayGlow(overlay) end);
-    end;
-
-    local RadarWidget    = makeWidget(Library.CreateRadarOverlay,         { Visible = false });
-    local PlayerWidget   = makeWidget(Library.CreatePlayerListOverlay,    { Visible = false, Position = UDim2.fromOffset(230, 40) });
-    local VelocityWidget = makeWidget(Library.CreateVelocityGraphOverlay, { Visible = false });
-    local KeybindWidget  = makeWidget(Library.CreateKeybindsOverlay,      { Visible = false });
-    local TargetWidget   = makeWidget(Library.CreateClosestPlayerOverlay, { Visible = false });
-
-    local AppearanceWidget;
-    pcall(function()
-        AppearanceWidget = ThemeManager:BuildAppearanceOverlay({ Visible = false });
-        detach(AppearanceWidget);
-    end);
-
-    getgenv().elisium_widgets = {
-        Radar = RadarWidget,
-        PlayerList = PlayerWidget,
-        Velocity = VelocityWidget,
-        Keybind = KeybindWidget,
-        ClosestPlayer = TargetWidget,
-        Appearance = AppearanceWidget,
-        Watermark = Library.Watermark and { Outer = Library.Watermark } or nil,
-    };
-
-    pcall(function()
-        local box = Tabs['UI Settings']:AddLeftGroupbox('widgets');
-        box:AddToggle('WidgetWatermark', {
-            Text = 'watermark'; Default = true;
-            Callback = function(v) pcall(function() Library:SetWatermarkVisibility(v) end) end;
-        });
-        box:AddToggle('WidgetAppearance', {
-            Text = 'appearance'; Default = true;
-            Callback = function(v) setWidgetVisible(AppearanceWidget, v) end;
-        });
-        box:AddToggle('WidgetRadar', {
-            Text = 'radar'; Default = false;
-            Callback = function(v) setWidgetVisible(RadarWidget, v) end;
-        });
-        box:AddToggle('WidgetPlayerList', {
-            Text = 'player list'; Default = false;
-            Callback = function(v) setWidgetVisible(PlayerWidget, v) end;
-        });
-        box:AddToggle('WidgetVelocity', {
-            Text = 'velocity'; Default = false;
-            Callback = function(v) setWidgetVisible(VelocityWidget, v) end;
-        });
-        box:AddToggle('WidgetClosestPlayer', {
-            Text = 'closest player'; Default = false;
-            Callback = function(v) setWidgetVisible(TargetWidget, v) end;
-        });
-
-        local wmbox = Tabs['UI Settings']:AddRightGroupbox('watermark');
-        wmbox:AddToggle('WatermarkFps', {
-            Text = 'show fps'; Default = true;
-            Callback = function(v)
-                getgenv().elisium_wm = getgenv().elisium_wm or {};
-                getgenv().elisium_wm.fps = v;
-            end;
-        });
-        wmbox:AddToggle('WatermarkPing', {
-            Text = 'show ping'; Default = true;
-            Callback = function(v)
-                getgenv().elisium_wm = getgenv().elisium_wm or {};
-                getgenv().elisium_wm.ping = v;
-            end;
-        });
-        wmbox:AddToggle('WatermarkTime', {
-            Text = 'show time'; Default = true;
-            Callback = function(v)
-                getgenv().elisium_wm = getgenv().elisium_wm or {};
-                getgenv().elisium_wm.time = v;
-            end;
-        });
-        wmbox:AddToggle('WatermarkExecutor', {
-            Text = 'show executor'; Default = false;
-            Callback = function(v)
-                getgenv().elisium_wm = getgenv().elisium_wm or {};
-                getgenv().elisium_wm.executor = v;
-            end;
-        });
-    end);
-
-    pcall(function()
-        local UIS = game:GetService('UserInputService');
-        local toggleGui = Instance.new('ScreenGui');
-        toggleGui.Name = 'DvA_MenuToggle';
-        toggleGui.ResetOnSpawn = false;
-        toggleGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
-        toggleGui.DisplayOrder = 100000;
-        toggleGui.IgnoreGuiInset = true;
-        pcall(function()
-            if syn and syn.protect_gui then syn.protect_gui(toggleGui); end;
-        end);
-        local parented = pcall(function()
-            toggleGui.Parent = (gethui and gethui()) or cloneref(game:GetService('CoreGui'));
-        end);
-        if not parented then
-            pcall(function() toggleGui.Parent = cloneref(game:GetService('CoreGui')); end);
-        end;
-        getgenv().elisium_toggle_gui = toggleGui;
-        getgenv().__DvA_MenuLocked = getgenv().__DvA_MenuLocked or false;
-
-        local panel = Instance.new('Frame');
-        panel.Name = 'DvAHookPanel';
-        panel.Size = UDim2.fromOffset(128, 58);
-        panel.Position = UDim2.fromOffset(12, 12);
-        panel.BackgroundColor3 = Library.MainColor or Color3.fromRGB(18, 18, 22);
-        panel.BorderSizePixel = 0;
-        panel.Active = true;
-        panel.Parent = toggleGui;
-        Instance.new('UICorner', panel).CornerRadius = UDim.new(0, 8);
-        local stroke = Instance.new('UIStroke', panel);
-        stroke.Color = Library.AccentColor or Color3.fromRGB(166, 93, 103);
-        stroke.Thickness = 1.2;
-        local accent = Instance.new('Frame', panel);
-        accent.Size = UDim2.new(1, 0, 0, 2);
-        accent.BackgroundColor3 = Library.AccentColor or Color3.fromRGB(166, 93, 103);
-        accent.BorderSizePixel = 0;
-
-        local btn = Library:Create('TextButton', {
-            Name = 'DvAMobileToggle';
-            Size = UDim2.new(1, -8, 0, 24);
-            Position = UDim2.fromOffset(4, 6);
-            BackgroundColor3 = Library.MainColor;
-            BorderColor3 = Library.OutlineColor;
-            BorderSizePixel = 0;
-            AutoButtonColor = false;
-            Text = 'Dv.a premium';
-            TextColor3 = Library.FontColor;
-            TextSize = 12;
-            Font = Enum.Font.GothamBold;
-            ZIndex = 5000;
-            Parent = panel;
-        });
-        Library:AddToRegistry(btn, {
-            BackgroundColor3 = 'MainColor';
-            BorderColor3 = 'OutlineColor';
-            TextColor3 = 'FontColor';
-        });
-        Instance.new('UICorner', btn).CornerRadius = UDim.new(0, 5);
-
-        local lockBtn = Library:Create('TextButton', {
-            Name = 'DvALockBtn';
-            Size = UDim2.new(1, -8, 0, 20);
-            Position = UDim2.fromOffset(4, 32);
-            BackgroundColor3 = Library.MainColor;
-            BorderSizePixel = 0;
-            AutoButtonColor = false;
-            Text = 'Lock: OFF';
-            TextColor3 = Color3.fromRGB(180, 180, 190);
-            TextSize = 11;
-            Font = Enum.Font.Gotham;
-            ZIndex = 5000;
-            Parent = panel;
-        });
-        Instance.new('UICorner', lockBtn).CornerRadius = UDim.new(0, 5);
-
-        local function refreshLockUI()
-            local locked = getgenv().__DvA_MenuLocked == true;
-            lockBtn.Text = locked and 'Lock: ON' or 'Lock: OFF';
-            lockBtn.TextColor3 = locked and Color3.fromRGB(255, 120, 130) or Color3.fromRGB(180, 180, 190);
-            stroke.Color = locked and Color3.fromRGB(200, 70, 80) or (Library.AccentColor or Color3.fromRGB(166, 93, 103));
-        end;
-        refreshLockUI();
-
-        btn.MouseButton1Click:Connect(function()
-            pcall(function() Library:Toggle() end);
-        end);
-
-        lockBtn.MouseButton1Click:Connect(function()
-            getgenv().__DvA_MenuLocked = not getgenv().__DvA_MenuLocked;
-            refreshLockUI();
-        end);
-
-        -- panel drag (blocked when Lock ON — also freezes this button panel)
-        do
-            local dragging, dragInput, dragStart, startPos = false, nil, nil, nil;
-            panel.InputBegan:Connect(function(input)
-                if getgenv().__DvA_MenuLocked then return end;
-                if input.UserInputType == Enum.UserInputType.MouseButton1
-                    or input.UserInputType == Enum.UserInputType.Touch then
-                    dragging = true;
-                    dragStart = input.Position;
-                    startPos = panel.Position;
-                    input.Changed:Connect(function()
-                        if input.UserInputState == Enum.UserInputState.End then
-                            dragging = false;
-                        end;
-                    end);
-                end;
-            end);
-            panel.InputChanged:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseMovement
-                    or input.UserInputType == Enum.UserInputType.Touch then
-                    dragInput = input;
-                end;
-            end);
-            UIS.InputChanged:Connect(function(input)
-                if getgenv().__DvA_MenuLocked then return end;
-                if input == dragInput and dragging then
-                    local d = input.Position - dragStart;
-                    panel.Position = UDim2.new(
-                        startPos.X.Scale, startPos.X.Offset + d.X,
-                        startPos.Y.Scale, startPos.Y.Offset + d.Y
-                    );
-                end;
-            end);
-        end;
-
-        -- freeze main window position while locked
-        task.defer(function()
-            local RunService = game:GetService('RunService');
-            local lockedPos = nil;
-            local holder = Window and (Window.Holder or Window.Outer or Library.MainWindowOuter);
-            if not holder then holder = Library.MainWindowOuter end;
-            RunService.RenderStepped:Connect(function()
-                local h = Window and (Window.Holder or Library.MainWindowOuter) or Library.MainWindowOuter;
-                if not h then return end;
-                if getgenv().__DvA_MenuLocked then
-                    if lockedPos then
-                        if h.Position ~= lockedPos then
-                            h.Position = lockedPos;
-                        end;
-                    else
-                        lockedPos = h.Position;
-                    end;
-                else
-                    lockedPos = h.Position;
-                end;
-            end);
-        end);
-    end);
-
-    pcall(function()
-        local holder = Window and Window.Holder;
-        if not holder or holder:FindFirstChild('ElisiumMainResizer') then return end;
-        local uis = game:GetService('UserInputService');
-        local handle = Instance.new('Frame');
-        handle.Name = 'ElisiumMainResizer';
-        handle.AnchorPoint = Vector2.new(1, 1);
-        handle.Position = UDim2.new(1, 0, 1, 0);
-        handle.Size = UDim2.fromOffset(12, 12);
-        handle.BackgroundTransparency = 1;
-        handle.BorderSizePixel = 0;
-        handle.ZIndex = 9999;
-        handle.Active = true;
-        handle.Parent = holder;
-        local dragging, startPos, startSize = false, nil, nil;
-        local isTouchUi = uis.TouchEnabled and not uis.MouseEnabled;
-        local minResizeW = isTouchUi and 320 or 480;
-        local minResizeH = isTouchUi and 260 or 360;
-        handle.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true;
-                startPos = input.Position;
-                startSize = holder.AbsoluteSize;
-            end;
-        end);
-        uis.InputChanged:Connect(LPH_NO_VIRTUALIZE(function(input)
-            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
-                or input.UserInputType == Enum.UserInputType.Touch) then
-                local d = input.Position - startPos;
-                holder.Size = UDim2.fromOffset(
-                    math.max(minResizeW, startSize.X + d.X),
-                    math.max(minResizeH, startSize.Y + d.Y)
-                );
-            end;
-        end));
-        uis.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = false;
-            end;
-        end);
-    end);
-
-    pcall(function()
-        Library.AccentColor = BRAND_ACCENT;
-        if Options and Options.AccentColor and Options.AccentColor.SetValueRGB then
-            Options.AccentColor:SetValueRGB(BRAND_ACCENT);
-        end;
-        Library:UpdateColorsUsingRegistry();
-    end);
-    pcall(function() Library:SetOverlayGlowColor(Library.AccentColor) end);
-    local function widgetToggleOn(idx)
-        local t = Toggles and Toggles[idx];
-        return t ~= nil and t.Value == true;
-    end;
-    pcall(function() Library:SetWatermarkVisibility(widgetToggleOn('WidgetWatermark')) end);
-    setWidgetVisible(RadarWidget, widgetToggleOn('WidgetRadar'));
-    setWidgetVisible(PlayerWidget, widgetToggleOn('WidgetPlayerList'));
-    setWidgetVisible(VelocityWidget, widgetToggleOn('WidgetVelocity'));
-    setWidgetVisible(KeybindWidget, false);
-    setWidgetVisible(TargetWidget, widgetToggleOn('WidgetClosestPlayer'));
-    setWidgetVisible(AppearanceWidget, widgetToggleOn('WidgetAppearance'));
-end)();
-
-pcall(function() SaveManager:LoadAutoloadConfig() end);
-
--- force menu visible (Delta) + hit notify right
-task.defer(function()
-  pcall(function()
-    if Library and Library.SetNotificationSpot then Library:SetNotificationSpot('Top Right') end
-    if Library and Library.Toggle and not Library.MenuOpen then Library:Toggle() end
-    if Library and Library.ScreenGui then Library.ScreenGui.Enabled = true end
-    if Window and Window.Holder then Window.Holder.Visible = true end
-  end)
-  for _=1,8 do
-    task.wait(0.4)
-    pcall(function()
-      if Library and Library.ScreenGui then
-        Library.ScreenGui.Enabled = true
-        for _,d in ipairs(Library.ScreenGui:GetDescendants()) do
-          if d:IsA("Frame") and d.Name == "Main" or (d.Name and tostring(d.Name):find("Holder")) then
-            pcall(function() d.Visible = true end)
-          end
+        local ScriptContext = game:GetService('ScriptContext')
+        if ScriptContext and ScriptContext.Error then
+            ScriptContext.Error:Connect(function() end)
         end
-      end
     end)
-  end
+
+    pcall(function()
+        local last = 0
+        RunService.Heartbeat:Connect(function()
+            if tick() - last < 2.5 then return end
+            last = tick()
+            local char = LocalPlayer and LocalPlayer.Character
+            local hrp = char and char:FindFirstChild('HumanoidRootPart')
+            if hrp and hrp.SetNetworkOwner then
+                pcall(function() hrp:SetNetworkOwner(LocalPlayer) end)
+            end
+        end)
+    end)
 end)
 
+getgenv().__DvA_MenuLocked = false
+getgenv().DvA = getgenv().DvA or {
+    SilentAim = false,
+    SilentFOV = 120,
+    ShowFOV = false,
+    Aimbot = false,
+    Ragebot = false,
+    ESP = false,
+    ESPBox = false,
+    ESPName = false,
+    ESPHealth = false,
+}
 
-end;
-end;
+if Library and Library.Unload then
+    Library:Unload()
 end
+--
+local Workspace = game:GetService("Workspace")
+local HttpService = game:GetService("HttpService")
+local Debris = game:GetService("Debris")
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local TeleportService = game:GetService("TeleportService")
+local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Stats = game:GetService("Stats")
+local GuiService = game:GetService("GuiService")
+--
+local Client = Players.LocalPlayer
+local Camera = Workspace:FindFirstChildWhichIsA("Camera")
+local Viewport = Camera.ViewportSize
+--
+do -- Folders
+    if not isfolder("dva") then
+        makefolder("dva")
+    end
+    --
+    if not isfolder("dva/Configs") then
+        makefolder("dva/Configs")
+    end
+end
+--
+do -- Library
+    getgenv().Library = {
+        Connections = {},
+        Errors = {},
+        Tweens = {},
+        Objects = {},
+        Sections = {},
+        ThemeSections = {},
+        Flags = {},
+        UnnamedFlags = 0,
+        Build = "Beta",
+        UID = "1",
+        UnsafeMode = false,
+        InitTime = os.clock(),
+        Folder = "dva",
+        ConfigFolder = "dva/Configs",
+        UI = {
+            Name = "dva",
+            CloseBind = Enum.KeyCode.Insert,
+            SectionResizeIncrements = 1,
+            WatermarkRefreshRate = 1,
+            MainUI = nil,
+            Initialized = false,
+            Faded = false,
+            LastCopiedColor = nil,
+            TabIndex = 0,
+            Viewing = false,
+            CurrentSelectedColorPicker = nil,
+            CurrentSelectedColorPickerExtra = nil,
+            CurrentSelectedKeybindMode = nil,
+            TotalColorPickers = 0,
+            TotalKeybindModes = 0,
+            WatermarkPosition = "Top Right",
+            SectionZIndex = 100,
+            Resizing = false,
+            DropdownZIndex = 1,
+            OpenColorFrames = 0,
+            ScreenGUI = nil,
+            TweenSpeed = 0.15,
+            NewFont = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+            FontSize = 13,
+            DraggingGui = nil,
+            Notifications = {TopLeft = {}, Middle = {}},
+            Keys = {
+                [Enum.KeyCode.LeftShift] = "LSHF",
+                [Enum.KeyCode.RightShift] = "RSHF",
+                [Enum.KeyCode.LeftControl] = "LCTR",
+                [Enum.KeyCode.RightControl] = "RCTR",
+                [Enum.KeyCode.LeftAlt] = "LALT",
+                [Enum.KeyCode.RightAlt] = "RALT",
+                [Enum.KeyCode.CapsLock] = "CAPS",
+                [Enum.KeyCode.Space] = "SPCE",
+                [Enum.KeyCode.One] = "ONE",
+                [Enum.KeyCode.Two] = "TWO",
+                [Enum.KeyCode.Three] = "THREE",
+                [Enum.KeyCode.Four] = "FOUR",
+                [Enum.KeyCode.Five] = "FIVE",
+                [Enum.KeyCode.Six] = "SIX",
+                [Enum.KeyCode.Seven] = "SEVEN",
+                [Enum.KeyCode.Eight] = "EIGHT",
+                [Enum.KeyCode.Nine] = "NINE",
+                [Enum.KeyCode.Zero] = "ZERO",
+                [Enum.KeyCode.KeypadOne] = "NUM1",
+                [Enum.KeyCode.KeypadTwo] = "NUM2",
+                [Enum.KeyCode.KeypadThree] = "NUM3",
+                [Enum.KeyCode.KeypadFour] = "NUM4",
+                [Enum.KeyCode.KeypadFive] = "NUM5",
+                [Enum.KeyCode.KeypadSix] = "NUM6",
+                [Enum.KeyCode.KeypadSeven] = "NUM7",
+                [Enum.KeyCode.KeypadEight] = "NUM8",
+                [Enum.KeyCode.KeypadNine] = "NUM9",
+                [Enum.KeyCode.KeypadZero] = "NUM0",
+                [Enum.KeyCode.Insert] = "INS",
+                [Enum.KeyCode.Minus] = "-",
+                [Enum.KeyCode.Equals] = "=",
+                [Enum.KeyCode.Tilde] = "~",
+                [Enum.KeyCode.LeftBracket] = "[",
+                [Enum.KeyCode.RightBracket] = "]",
+                [Enum.KeyCode.RightParenthesis] = ")",
+                [Enum.KeyCode.LeftParenthesis] = "(",
+                [Enum.KeyCode.Semicolon] = ",",
+                [Enum.KeyCode.Quote] = "'",
+                [Enum.KeyCode.BackSlash] = "\\",
+                [Enum.KeyCode.Comma] = ",",
+                [Enum.KeyCode.Period] = ".",
+                [Enum.KeyCode.Slash] = "/",
+                [Enum.KeyCode.Asterisk] = "*",
+                [Enum.KeyCode.Plus] = "+",
+                [Enum.KeyCode.Period] = ".",
+                [Enum.KeyCode.Backquote] = "`",
+                [Enum.UserInputType.MouseButton1] = "M1",
+                [Enum.UserInputType.MouseButton2] = "M2",
+                [Enum.UserInputType.MouseButton3] = "M3"
+            },
+        },
+        Theme = {
+            Objects = {},
+            Default = {
+                Accent = Color3.fromRGB(153, 196, 39),
+                SecondAccent = Color3.fromRGB(124, 158, 32),
+                TextColor = Color3.fromRGB(205, 205, 205),
+                Risky = Color3.fromRGB(165, 165, 120),
+            }
+        }
+    }
+    --
+    function Library:Validate(Defaults, Options)
+        for Index, Value in Defaults do
+            if Options[Index] == nil then
+                Options[Index] = Value
+            end
+        end
+        --
+        return Options
+    end
+    --
+    function Library:Connection(Signal, Func, Name, Table)
+        Name = Name or "Unknown"
+        Table = Table or Library.Connections
+        --
+        local Connection; Connection = Signal:Connect(function(...)
+            local Args = {...}
+            --
+            local Success, Message = pcall(function() coroutine.wrap(Func)(unpack(Args)) end)
+            --
+            if not Success and not Library.Errors[Message] then
+                if Library.Notify then
+                    Library:Notify({Message = ("[ERROR] | An error has occurred:\n%s\nName: %s"):format(Message, Name), Delay = math.huge})
+                else
+                    warn(("[ERROR] | An error has occurred:\n%s\nName: %s"):format(Message, Name))
+                end
+                --
+                Library.Errors[Message] = Message
+                --
+                if Table[Connection] then
+                    Table[Connection] = nil
+                end
+                --
+                return Connection and Connection:Disconnect()
+            end
+        end)
+        --
+        if Connection and Table then
+            table.insert(Table, Connection)
+        end
+        --
+        return Connection
+    end
+    --
+    function Library:TweenObject(Object, Info, Goal, Callback)
+        if not Object then return end
+        --
+        local Tween = TweenService:Create(Object, Info, Goal)
+        --
+        Library:Connection(Tween.Completed, Callback or function() end)
+        --
+        Tween:Play()
+        --
+        Library.Tweens[#Library.Tweens + 1] = Tween
+    end
+    --
+    function Library:NewFlag()
+        Library.UnnamedFlags += 1
+        --
+        return ("UnknownFlag%s"):format(tostring(Library.UnnamedFlags))
+    end
+    --
+    function Library:ClampString(String, MaxWidth)
+        local Clamped = String
+        --
+        local TextLabel = Library:CreateObject("TextLabel", {
+            FontFace = Library.UI.NewFont,
+            TextStrokeTransparency = 0,
+            Text = String,
+            Size = UDim2.new(1, 0, 1, 0),
+            BorderSizePixel = 0,
+            TextScaled = false,
+            TextWrapped = false,
+            Visible = false,
+            TextSize = Library.UI.FontSize,
+            Parent = Client.PlayerGui
+        })
+        --
+        if TextLabel.TextBounds.X <= MaxWidth then
+            TextLabel:Destroy()
+            --
+            return String
+        end
+        --
+        while TextLabel.TextBounds.X > MaxWidth and #Clamped > 0 do
+            Clamped = Clamped:sub(1, #Clamped - 1)
+            --
+            TextLabel.Text = Clamped .. "..."
+            --
+            task.wait()
+        end
+        --
+        TextLabel:Destroy()
+        --
+        return Clamped .. "..."
+    end
+    --
+    function Library:GetConfig()
+        local Config = {}
+        --
+        for Index, Value in Library.Flags do
+            if Value.Get and not string.find(Index, "_Status") then
+                if typeof(Value:Get()) == "table" and Value:Get().Color and Value:Get().Transparency then
+                    local Transparency = Value:Get().Transparency
+                    local Hue, Saturation, Value = Value:Get().Color:ToHSV()
+                    --
+                    Config[Index] = {Hue, Saturation, Value, Transparency}
+                else
+                    Config[Index] = Value:Get()
+                end
+            end
+        end
+        --
+        return HttpService:JSONEncode(Config)
+    end
+    --
+    function Library:LoadConfig(Config)
+        local Config = HttpService:JSONDecode(Config)
+        --
+        for Index, Value in Config do
+            if Library.Flags[Index] and Library.Flags[Index].Set then
+                Library.Flags[Index]:Set(Value)
+            end
+        end
+    end
+    --
+    function Library:SectionDragging(Frame)
+        local MousePosition = UserInputService:GetMouseLocation()
+        local Position = Frame.AbsolutePosition
+        local Size = Frame.AbsoluteSize
+        --
+        local InsideX = MousePosition.X >= Position.X and MousePosition.X <= Position.X + Size.X
+        local InsideY = MousePosition.Y >= Position.Y and MousePosition.Y <= Position.Y + Size.Y
+        --
+        return InsideX and InsideY
+    end
+    --
+    function Library:CreateObject(Type, Properties, Hidden)
+        local Hidden = Hidden or false
+        local Object = Instance.new(Type)
+        --
+        for Index, Value in Properties do
+            if (not RunService:IsStudio()) and Index == "Name" and not string.match(Value, "%d") then
+                Value = "\0"
+            end
+            --
+            if Index == "TextStrokeTransparency" and Value == 0 then
+                local Stroke = Instance.new("UIStroke")
+                --
+                Stroke.Parent = Object
+                Stroke.LineJoinMode = Enum.LineJoinMode.Miter
+                --
+                Library.Objects[Stroke] = {Stroke, {Parent = Object, LineJoinMode = Enum.LineJoinMode.Miter}, Hidden}
+            else
+                Object[Index] = Value
+            end
+        end
+        --
+        Library.Objects[Object] = {Object, Properties, Hidden}
+        --
+        return Object
+    end
+    --
+    function Library:AddTheme(Object, Properties)
+        for Index, Value in Properties do
+            Library.Theme.Objects[Object] = Library.Theme.Objects[Object] or {}
+            Library.Theme.Objects[Object][Index] = Value
+        end
+    end
+    --
+    function Library:GetTableIndexes(Table, Custom)
+        local Table2 = {}
+        --
+        for Index, Value in Table do
+            Table2[Custom and Value[1] or #Table2 + 1] = Index 
+        end
+        --
+        return Table2
+    end
+    --
+    function Library:UpdateConfigList(List, Type)
+        for _, File in listfiles("dva/Configs") do
+            local FileName = File:gsub("\\", "/"):gsub("dva/Configs/", ""):gsub(".cfg", "")
+            --
+            if Type == "Remove" then
+                List:RemoveValue(FileName)
+            else
+                List:AddValue(FileName)
+            end
+        end
+    end
+    --
+    function Library:GetObjectsTable(MainUI, AddMain, Ignored)
+        local AddMain = AddMain or false
+        local Ignored = Ignored or {}
+        local DescendantTable = {}
+        local NewTable = {}
+        --
+        for _, Descendant in MainUI:GetDescendants() do
+            if table.find(Ignored, Descendant) then continue end
+            --
+            DescendantTable[#DescendantTable + 1] = Descendant
+        end
+        --
+        if AddMain then
+            DescendantTable[#DescendantTable + 1] = MainUI
+        end
+        --
+        for _, Descendant in DescendantTable do
+            local Found = Library.Objects[Descendant]
+            --
+            if Found then
+                local Properties = Found[2]
+                local HiddenValue = Found[3]
+                --
+                NewTable[#NewTable + 1] = {Descendant, Properties, HiddenValue}
+            end
+        end
+        --
+        return NewTable
+    end
+    --
+    function Library:SetTableVisible(Table, State, Ignored)
+        local Ignored = Ignored or {}
+        --
+        for _, Object in Table do
+            if table.find(Ignored, Object) then continue end
+            --
+            if typeof(Object) == "table" and Object.SetVisible then 
+                Object:SetVisible(State)
+            end
+        end
+    end
+    --
+    function Library:UpdateColor(ColorType, ColorValue)
+        Library.Theme.Default[ColorType] = ColorValue
+        --
+        for Object, Properties in Library.Theme.Objects do
+            for Property, ThemeKeys in Properties do
+                if typeof(ThemeKeys) == "table" then
+                    if Object:IsA("UIGradient") and Property == "Color" then
+                        if Library.Theme.Default[ThemeKeys[1]] then
+                            Object.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Library.Theme.Default[ThemeKeys[1]]), ColorSequenceKeypoint.new(1, Library.Theme.Default[ThemeKeys[2]])}
+                        end
+                    end
+                else
+                    if ThemeKeys == ColorType then
+                        Object[Property] = Library.Theme.Default[ThemeKeys]
+                    end
+                end
+            end
+        end
+    end
+    --
+    function Library:ViewPlayer(Player)
+        if not Library.UI.Viewing then
+            Camera.CameraSubject = Player.Character.Humanoid
+        else
+            Camera.CameraSubject = Client.Character.Humanoid
+        end
+        --
+        Library.UI.Viewing = not Library.UI.Viewing
+    end
+    --
+    function Library:GetTableLength(Table)
+        local Length = 0
+        --
+        for Index, Value in pairs(Table) do
+            Length += 1
+        end
+        --
+        return Length
+    end
+    --
+    function Library:ScrollingCheck(ScrollingFrame, Frame)
+        if not ScrollingFrame:IsA("ScrollingFrame") then return true end
+        --
+        local VisibleTopLeft = ScrollingFrame.CanvasPosition
+        local VisibleBottomRight = VisibleTopLeft + ScrollingFrame.AbsoluteWindowSize
+        --
+        local FrameTopLeft = Frame.AbsolutePosition - ScrollingFrame.AbsolutePosition + ScrollingFrame.CanvasPosition
+        local FrameBottomRight = FrameTopLeft + Frame.AbsoluteSize
+        --
+        return FrameBottomRight.X > VisibleTopLeft.X and FrameTopLeft.X < VisibleBottomRight.X and FrameBottomRight.Y > VisibleTopLeft.Y and FrameTopLeft.Y < VisibleBottomRight.Y
+    end
+    --
+    function Library:ClampPosition(Object, Position, Offset)
+        local ClampedX = math.clamp(Position.X.Offset, Offset, Viewport.X - Object.AbsoluteSize.X - Offset)
+        local ClampedY = math.clamp(Position.Y.Offset, Offset, Viewport.Y - Object.AbsoluteSize.Y - Offset)
+        --
+        return UDim2.new(Position.X.Scale, ClampedX, Position.Y.Scale, ClampedY)
+    end
+    --
+    function Library:Fade(State, Table, MainUI, Speed)
+        local IsMainUI = Table == Library.Objects
+        --
+        MainUI.Active = State
+        --
+        if State then
+            MainUI.Visible = true
+        end
+        --
+        if IsMainUI then
+            Library.UI.Faded = not State
+        end
+        --  handle toggle transparency when fading out since im not using fade out for now as it causes fps issues
+        if not State and IsMainUI then
+            -- find all toggle elements and force them transparent immediately instead of waiting since some things may not leave instantly
+            for _, obj in pairs(MainUI:GetDescendants()) do
+                if obj.ClassName == "Frame" then
+                    if obj.Name == "ToggleMain" then
+                        obj.BackgroundTransparency = 1
+                    end
+                end
+            end
+        end
+        --
+        for _, Object in Table do
+            if not Object[3] then
+                if Object[1].ClassName == "Frame" and (Object[2]["BackgroundTransparency"] or 0) ~= 1 then
+                    -- Library:TweenObject(Object[1], TweenInfo.new(Speed, Enum.EasingStyle.Linear, State and Enum.EasingDirection["Out"] or Enum.EasingDirection["In"]), {BackgroundTransparency = State and (Object[2]["BackgroundTransparency"] or 0) or 1})
+                    Object[1].BackgroundTransparency = State and (Object[2]["BackgroundTransparency"] or 0) or 1
+                elseif Object[1].ClassName == "ImageLabel" or Object[1].ClassName == "ImageButton" then
+                    if (Object[2]["BackgroundTransparency"] or 0) ~= 1 then
+                        -- Library:TweenObject(Object[1], TweenInfo.new(Speed, Enum.EasingStyle.Linear, State and Enum.EasingDirection["Out"] or Enum.EasingDirection["In"]), {BackgroundTransparency = State and (Object[2]["BackgroundTransparency"] or 0) or 1})
+                        Object[1].BackgroundTransparency = State and (Object[2]["BackgroundTransparency"] or 0) or 1
+                    end
+                    --
+                    if (Object[2]["ImageTransparency"] or 0) ~= 1 then
+                        -- Library:TweenObject(Object[1], TweenInfo.new(Speed, Enum.EasingStyle.Linear, State and Enum.EasingDirection["Out"] or Enum.EasingDirection["In"]), {ImageTransparency = State and (Object[2]["ImageTransparency"] or 0) or 1})
+                        Object[1].ImageTransparency = State and (Object[2]["ImageTransparency"] or 0) or 1
+                    end
+                elseif Object[1].ClassName == "TextLabel" or Object[1].ClassName == "TextButton" or Object[1].ClassName == "TextBox" then
+                    if (Object[2]["BackgroundTransparency"] or 0) ~= 1 then
+                        -- Library:TweenObject(Object[1], TweenInfo.new(Speed, Enum.EasingStyle.Linear, State and Enum.EasingDirection["Out"] or Enum.EasingDirection["In"]), {BackgroundTransparency = State and (Object[2]["BackgroundTransparency"] or 0) or 1})
+                        Object[1].BackgroundTransparency = State and (Object[2]["BackgroundTransparency"] or 0) or 1
+                    end
+                    --
+                    if (Object[2]["TextTransparency"] or 0) ~= 1 then
+                        -- Library:TweenObject(Object[1], TweenInfo.new(Speed, Enum.EasingStyle.Linear, State and Enum.EasingDirection["Out"] or Enum.EasingDirection["In"]), {TextTransparency = State and (Object[2]["TextTransparency"] or 0) or 1})
+                        Object[1].TextTransparency = State and (Object[2]["TextTransparency"] or 0) or 1
+                    end
+                elseif Object[1].ClassName == "ScrollingFrame" then
+                    if (Object[2]["BackgroundTransparency"] or 0) ~= 1 then
+                        -- Library:TweenObject(Object[1], TweenInfo.new(Speed, Enum.EasingStyle.Linear, State and Enum.EasingDirection["Out"] or Enum.EasingDirection["In"]), {BackgroundTransparency = State and (Object[2]["BackgroundTransparency"] or 0) or 1})
+                        Object[1].BackgroundTransparency = State and (Object[2]["BackgroundTransparency"] or 0) or 1
+                    end
+                    --
+                    if (Object[2]["ScrollBarImageTransparency"] or 0) ~= 1 then
+                        -- Library:TweenObject(Object[1], TweenInfo.new(Speed, Enum.EasingStyle.Linear, State and Enum.EasingDirection["Out"] or Enum.EasingDirection["In"]), {ScrollBarImageTransparency = State and (Object[2]["ScrollBarImageTransparency"] or 0) or 1})
+                        Object[1].ScrollBarImageTransparency = State and (Object[2]["ScrollBarImageTransparency"] or 0) or 1
+                    end
+                elseif Object[1].ClassName == "UIStroke" then
+                    -- Library:TweenObject(Object[1], TweenInfo.new(Speed, Enum.EasingStyle.Linear, State and Enum.EasingDirection["Out"] or Enum.EasingDirection["In"]), {Transparency = State and (Object[2]["Transparency"] or 0) or 1})
+                    Object[1].Transparency = State and (Object[2]["Transparency"] or 0) or 1
+                end
+            end
+        end
+        --
+        if not State then
+            task.delay(Speed, function()
+                if not MainUI.Parent then return end
+                MainUI.Visible = false
+            end)
+        end
+    end
+    --
+    function Library:CheckFrameFirst(FrameA, FrameB)
+        local Parent = FrameA.Parent
+        local Frames = {}
+        local IndexA, IndexB
+        --
+        for _, Child in Parent:GetChildren() do
+            if Child:IsA("Frame") then
+                table.insert(Frames, Child)
+            end
+        end
+        --
+        table.sort(Frames, function(a, b)
+            if a.LayoutOrder == b.LayoutOrder then
+                for _, Child in Parent:GetChildren() do
+                    if Child == a then return true end
+                    if Child == b then return false end
+                end
+            end
+            --
+            return a.LayoutOrder < b.LayoutOrder
+        end)
+        --
+        for i, Frame in Frames do
+            if Frame == FrameA then IndexA = i end
+            if Frame == FrameB then IndexB = i end
+        end
+        --
+        return IndexA and IndexB and IndexA < IndexB
+    end
+    --
+    function Library:Resizable(Object, DragFrame, MinResize, MaxResize, Increments, UseIcon, UseParent, Delay)
+        local StartingSize, ObjectSize, Dragging, MouseLocation, PerformanceDragUI, NewMouse, Hovering
+        --
+        local function UpdateSize()
+            if not MouseLocation then return end
+            --
+            Library.UI.Resizing = true
+            --
+            local CurrentMousePosition = UserInputService:GetMouseLocation()
+            local Delta = CurrentMousePosition - MouseLocation
+            local NewSizeX = StartingSize.X.Offset + Delta.X
+            local NewSizeY = StartingSize.Y.Offset + Delta.Y
+            local Parent = Object.Parent
+            local ParentSize = Parent.AbsoluteSize
+            --
+            if UseParent then
+                local OccupiedSpaceY = 0
+                local FrameCount = 0
+                --
+                for _, Child in Parent:GetChildren() do
+                    if Child:IsA("Frame") and Child ~= Object then
+                        FrameCount += 1
+                        --
+                        if Library:CheckFrameFirst(Object, Child) then
+                            if Child.AbsoluteSize.Y >= (ParentSize.Y - Object.AbsoluteSize.Y) - 57 then
+                                Child.Size = UDim2.new(Child.Size.X.Scale, Child.Size.X.Offset, 0, math.max(50, (ParentSize.Y - Object.AbsoluteSize.Y) - 57))
+                            end
+                        else
+                            OccupiedSpaceY += Child.AbsoluteSize.Y + 19
+                        end
+                    end
+                end
+                --
+                if OccupiedSpaceY == 0 then
+                    MaxResize = UDim2.new(0, 0, 0, (ParentSize.Y - OccupiedSpaceY) - (FrameCount * (50 + 19)) - 38)
+                else
+                    MaxResize = UDim2.new(0, 0, 0, (ParentSize.Y - OccupiedSpaceY) - 38)
+                end
+            end
+            --
+            if Increments then
+                NewSizeY = math.clamp(math.round(NewSizeY / Increments) * Increments, MinResize.Y.Offset, MaxResize.Y.Offset)
+            else
+                NewSizeY = math.clamp(NewSizeY, MinResize.Y.Offset, MaxResize.Y.Offset)
+                NewSizeX = math.clamp(NewSizeX, MinResize.X.Offset, MaxResize.X.Offset)
+            end
+            --
+            return UseParent and UDim2.new(1, 0, 0, NewSizeY) or UDim2.new(0, NewSizeX, 0, NewSizeY)
+        end
+        
+        --
+        Library:Connection(DragFrame.MouseEnter, function()
+            Hovering = true
+        end)
+        --
+        Library:Connection(DragFrame.MouseLeave, function()
+            if NewMouse then NewMouse:Destroy() NewMouse = nil end
+            --
+            UserInputService.MouseIconEnabled = true
+            Hovering = false
+        end)
+        --
+        Library:Connection(DragFrame.InputBegan, function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                Dragging = true
+                MouseLocation = UserInputService:GetMouseLocation()
+                StartingSize = Object.Size
+            end
+        end)
+        --
+        Library:Connection(RunService.PreRender, function()
+            if (Hovering or Dragging) and UseIcon then
+                local MousePosition = UserInputService:GetMouseLocation()
+                --
+                UserInputService.MouseIconEnabled = false
+                --
+                if not NewMouse then
+                    NewMouse = Library:CreateObject("ImageLabel", {
+                        BorderColor3 = Color3.fromRGB(0, 0, 0),
+                        Image = "rbxassetid://87982048533100",
+                        BackgroundTransparency = 1,
+                        AnchorPoint = Vector2.new(0.5, 0.5),
+                        Name = "Transparency",
+                        Size = UDim2.new(0, 35, 0, 35),
+                        ZIndex = 10000,
+                        BorderSizePixel = 0,
+                        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                        Parent = Library.UI.ScreenGUI
+                    }, true)
+                end
+                --
+                NewMouse.Position = UDim2.new(0, MousePosition.X, 0, MousePosition.Y)
+            end
+            --
+            if Dragging then
+                if Delay then task.delay(Delay, function()
+                        Object.Size = UpdateSize()
+                    end)
+                else
+                    Object.Size = UpdateSize()
+                end
+            end
+        end)
+        --
+        Library:Connection(UserInputService.InputEnded, function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 and Dragging then
+                if NewMouse then NewMouse:Destroy() NewMouse = nil end
+                --
+                if UseParent then
+                    for _, Child in Object.Parent:GetChildren() do
+                        if Child:IsA("Frame") and Child ~= Object then
+                            if Library:CheckFrameFirst(Object, Child) then
+                                if Child.AbsoluteSize.Y >= (Object.Parent.AbsoluteSize.Y - Object.AbsoluteSize.Y) - 57 then
+                                    Child.Size = UDim2.new(Child.Size.X.Scale, Child.Size.X.Offset, 0, math.max(50, (Object.Parent.AbsoluteSize.Y - Object.AbsoluteSize.Y) - 57))
+                                end
+                            end
+                        end
+                    end
+                end
+                --
+                UserInputService.MouseIconEnabled = true
+                Dragging = false
+                Library.UI.Resizing = false
+            end
+        end)
+    end
+    --
+    Library.__index = Library
+    Library.Sections.__index = Library.Sections
+    --
+    local Sections = Library.Sections
+    --
+    function Library:ColorPicker(Options)
+        Options = Library:Validate({
+            Name = "Preview Color Picker",
+            Default = Library.Theme.Default.Accent,
+            Alpha = 0,
+            AlphaBar = true,
+            Parent = nil,
+            MainUI = nil,
+            TabUI = nil,
+            Count = 1,
+            Keybind = false,
+            Flag = Library:NewFlag(),
+            Callback = function() end,
+        }, Options or {})
+        --
+        local Hue, Saturation, Value = Options.Default:ToHSV()
+        --
+        local ColorPicker = {
+            Hover = false,
+            Active = false,
+            MouseDown = false,
+            MainFrameHover = false,
+            Color = Options.Default,
+            SecondColor = Color3.fromRGB(math.max(math.floor(Options.Default.R * 255) - 14, 0), math.max(math.floor(Options.Default.G * 255) - 14, 0), math.max(math.floor(Options.Default.B * 255) - 14, 0)),
+            Saturation = {Saturation, Value},
+            Alpha = Options.Alpha,
+            Hue = Hue,
+            ActiveFrame = false,
+            LastCopiedColor = {self.Color, self.Alpha},
+            FrameOpened = false,
+        }
+        --
+        Library.Flags[Options.Flag] = ColorPicker
+        --
+        Library.UI.TotalColorPickers += 1
+        --
+        if Options.Keybind then
+            Options.Count += 1
+        end
+        --
+        local ColorPickerOutline_1 = Library:CreateObject("Frame", {
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            AnchorPoint = Vector2.new(1, 0),
+            Name = "ColorPickerOutline" .. Library.UI.TotalColorPickers,
+            Position = UDim2.new(1, 0 - (Options.Count - 1) * 22, 0, 0),
+            Size = UDim2.new(0, 17, 0, 9),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+            Parent = Options.Parent
+        })
+        --
+        local ColorPickerChecker = Library:CreateObject("Frame", {
+            AnchorPoint = Vector2.new(0, 1),
+            Position = UDim2.new(0, 0, 1, 4),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Size = UDim2.new(1, 0, 0, 1),
+            Visible = false,
+            BorderSizePixel = 0,
+            Parent = ColorPickerOutline_1
+        })
+        --
+        local Button_9 = Library:CreateObject("TextButton", {
+            FontFace = Library.UI.NewFont,
+            TextColor3 = Color3.fromRGB(0, 0, 0),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Name = "Button_9",
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 1, 0),
+            BorderSizePixel = 0,
+            TextTransparency = 1,
+            TextSize = Library.UI.FontSize,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = ColorPickerOutline_1
+        })
+        --
+        local ColorPickerTransparency = Library:CreateObject("ImageLabel", {
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Image = "rbxassetid://18249241978",
+            ImageColor3 = Color3.fromRGB(255, 255, 255),
+            BackgroundTransparency = 1,
+            Name = "Transparency",
+            Size = UDim2.new(1, -2, 1, -2),
+            Position = UDim2.new(0, 1, 0, 1),
+            BorderSizePixel = 0,
+            ZIndex = 3,
+            ScaleType = Enum.ScaleType.Tile,
+            TileSize = UDim2.new(0, 6, 0, 6),
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = ColorPickerOutline_1
+        })
+        --
+        local ColorPickerInline_1 = Library:CreateObject("Frame", {
+            Size = UDim2.new(1, -2, 1, -2),
+            Name = "ColorPickerInline_1",
+            Position = UDim2.new(0, 1, 0, 1),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundTransparency = 0,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = ColorPickerOutline_1
+        })
+        --
+        local UIGradient_24 = Library:CreateObject("UIGradient", {
+            Rotation = 90,
+            Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, ColorPicker.Color),
+                ColorSequenceKeypoint.new(1, ColorPicker.SecondColor)
+            },
+            Parent = ColorPickerInline_1
+        })
+        --
+        do -- Functions
+            function ColorPicker:SetVisible(Bool)
+                ColorPickerOutline_1.Visible = Bool
+                --
+                if Bool == false then
+                    ColorPicker:RemoveFrame()
+                end
+            end
+            --
+            function ColorPicker:AddFrame()
+                Library.UI.CurrentSelectedColorPicker = {ColorPicker = ColorPicker, ColorPickerOutline = ColorPickerOutline_1, Parent = Options.Parent}
+                --
+                Library.UI.OpenColorFrames += 1
+                --
+                local ColorPickerOutline = Library:CreateObject("Frame", {
+                    Size = UDim2.new(0, 180, 0, 175),
+                    Name = "ColorPickerFrame" .. Library.UI.TotalColorPickers,
+                    Position = UDim2.new(0, 0, 0, 0),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 250,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+                    Parent = Library.UI.ScreenGUI
+                })
+                --
+                ColorPickerOutline.BackgroundTransparency = 1
+                --
+                local ColorPickerInline = Library:CreateObject("Frame", {
+                    Size = UDim2.new(1, -2, 1, -2),
+                    Name = "ColorPickerInline",
+                    Position = UDim2.new(0, 1, 0, 1),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 250,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(60, 60, 60),
+                    Parent = ColorPickerOutline
+                })
+                --
+                ColorPickerInline.BackgroundTransparency = 1
+                --
+                local ColorPickerMain = Library:CreateObject("Frame", {
+                    Size = UDim2.new(1, -2, 1, -2),
+                    Name = "ColorPickerMain",
+                    Position = UDim2.new(0, 1, 0, 1),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 250,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+                    Parent = ColorPickerInline
+                })
+                --
+                ColorPickerMain.BackgroundTransparency = 1
+                --
+                local MainPicker = Library:CreateObject("Frame", {
+                    Size = UDim2.new(1, -24, 1, -19),
+                    Name = "MainPicker",
+                    Position = UDim2.new(0, 2, 0, 2),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 250,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+                    Parent = ColorPickerMain
+                })
+                --
+                MainPicker.BackgroundTransparency = 1
+                --
+                local Button_91 = Library:CreateObject("TextButton", {
+                    FontFace = Library.UI.NewFont,
+                    TextColor3 = Color3.fromRGB(0, 0, 0),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Name = "Button_9",
+                    BackgroundTransparency = 1,
+                    Size = UDim2.new(1, 0, 1, 0),
+                    BorderSizePixel = 0,
+                    TextTransparency = 1,
+                    ZIndex = 250,
+                    TextSize = Library.UI.FontSize,
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    Parent = MainPicker
+                })
+                --
+                local MainPickerColor = Library:CreateObject("Frame", {
+                    Size = UDim2.new(1, -2, 1, -2),
+                    Name = "MainPickerColor",
+                    Position = UDim2.new(0, 1, 0, 1),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 250,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    Parent = MainPicker
+                })
+                --
+                MainPickerColor.BackgroundTransparency = 1
+                --
+                local UIGradient_20 = Library:CreateObject("UIGradient", {
+                    Rotation = 180,
+                    Color = ColorSequence.new{
+                        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 4)),
+                        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255))
+                    },
+                    Parent = MainPickerColor
+                })
+                --
+                local BackImage = Library:CreateObject("ImageLabel", {
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Image = "rbxassetid://13966897785",
+                    BackgroundTransparency = 1,
+                    Name = "BackImage",
+                    Size = UDim2.new(1, 0, 1, 0),
+                    ZIndex = 250,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+                    Parent = MainPickerColor
+                })
+                --
+                BackImage.ImageTransparency = 1
+                --
+                local DraggingMainOutline = Library:CreateObject("Frame", {
+                    Size = UDim2.new(0, 4, 0, 4),
+                    Name = "DraggingMainOutline",
+                    Position = UDim2.new(0, 0, 0, 0),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 251,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+                    Parent = MainPicker
+                })
+                --
+                DraggingMainOutline.BackgroundTransparency = 1
+                --
+                local DraggingMain = Library:CreateObject("Frame", {
+                    Size = UDim2.new(1, -2, 1, -2),
+                    Name = "DraggingMain",
+                    Position = UDim2.new(0, 1, 0, 1),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 251,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    Parent = DraggingMainOutline
+                })
+                --
+                DraggingMain.BackgroundTransparency = 1
+                --
+                local SaturationSlider = Library:CreateObject("Frame", {
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    AnchorPoint = Vector2.new(0, 1),
+                    Name = "SaturationSlider",
+                    Position = UDim2.new(0, 2, 1, -2),
+                    Size = UDim2.new(1, -24, 0, 12),
+                    ZIndex = 250,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+                    Parent = ColorPickerMain
+                })
+                --
+                SaturationSlider.BackgroundTransparency = 1
+                --
+                local Button_915241 = Library:CreateObject("TextButton", {
+                    FontFace = Library.UI.NewFont,
+                    TextColor3 = Color3.fromRGB(0, 0, 0),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Name = "Button_9",
+                    BackgroundTransparency = 1,
+                    Size = UDim2.new(1, 0, 1, 0),
+                    BorderSizePixel = 0,
+                    TextTransparency = 1,
+                    ZIndex = 250,
+                    TextSize = Library.UI.FontSize,
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    Parent = SaturationSlider
+                })
+                --
+                local SaturationColor = Library:CreateObject("Frame", {
+                    Size = UDim2.new(1, -2, 1, -2),
+                    Name = "SaturationColor",
+                    Position = UDim2.new(0, 1, 0, 1),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 251,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    Parent = SaturationSlider
+                })
+                --
+                SaturationColor.BackgroundTransparency = 1
+                --
+                local UIGradient_21 = Library:CreateObject("UIGradient", {
+                    Color = ColorSequence.new{
+                        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 4)),
+                        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255))
+                    },
+                    Transparency = NumberSequence.new{
+                        NumberSequenceKeypoint.new(0, 0.10000000149011612),
+                        NumberSequenceKeypoint.new(0.5, 0.800000011920929),
+                        NumberSequenceKeypoint.new(1, 1)
+                    },
+                    Rotation = 180,
+                    Parent = SaturationColor
+                })
+                --
+                local BackImage_1 = Library:CreateObject("ImageLabel", {
+                    ScaleType = Enum.ScaleType.Tile,
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Name = "BackImage_1",
+                    TileSize = UDim2.new(0, 12, 0, 12),
+                    Image = "rbxassetid://18249241978",
+                    BackgroundTransparency = 1,
+                    Position = UDim2.new(0, 1, 0, 1),
+                    Size = UDim2.new(1, -2, 1, -2),
+                    ZIndex = 250,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+                    Parent = SaturationSlider
+                })
+                --
+                BackImage_1.ImageTransparency = 1
+                --
+                local DraggingSatOutline = Library:CreateObject("Frame", {
+                    Size = UDim2.new(0, 4, 1, 0),
+                    Name = "DraggingSatOutline",
+                    Position = UDim2.new(0, 0, 0, 0),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 251,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+                    Parent = SaturationSlider
+                })
+                --
+                DraggingSatOutline.BackgroundTransparency = 1
+                --
+                local DraggingSatMain = Library:CreateObject("Frame", {
+                    Size = UDim2.new(1, -2, 1, -2),
+                    Name = "DraggingSatMain",
+                    Position = UDim2.new(0, 1, 0, 1),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 251,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    Parent = DraggingSatOutline
+                })
+                --
+                DraggingSatMain.BackgroundTransparency = 1
+                --
+                local HueSlider = Library:CreateObject("Frame", {
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    AnchorPoint = Vector2.new(1, 0),
+                    Name = "HueSlider",
+                    Position = UDim2.new(1, -2, 0, 2),
+                    Size = UDim2.new(0, 17, 1, -19),
+                    ZIndex = 250,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+                    Parent = ColorPickerMain
+                })
+                --
+                HueSlider.BackgroundTransparency = 1
+                --
+                local Button_9141 = Library:CreateObject("TextButton", {
+                    FontFace = Library.UI.NewFont,
+                    TextColor3 = Color3.fromRGB(0, 0, 0),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Name = "Button_9",
+                    BackgroundTransparency = 1,
+                    Size = UDim2.new(1, 0, 1, 0),
+                    BorderSizePixel = 0,
+                    TextTransparency = 1,
+                    ZIndex = 250,
+                    TextSize = Library.UI.FontSize,
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    Parent = HueSlider
+                })
+                --
+                local BackImage_2 = Library:CreateObject("ImageLabel", {
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Name = "BackImage_2",
+                    TileSize = UDim2.new(0, 12, 0, 12),
+                    Image = "rbxassetid://8180989234",
+                    BackgroundTransparency = 1,
+                    Position = UDim2.new(0, 1, 0, 1),
+                    Size = UDim2.new(1, -2, 1, -2),
+                    ZIndex = 250,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+                    Parent = HueSlider
+                })
+                --
+                BackImage_2.ImageTransparency = 1
+                --
+                local DraggingHueOutline = Library:CreateObject("Frame", {
+                    Size = UDim2.new(1, 0, 0, 4),
+                    Name = "DraggingHueOutline",
+                    Position = UDim2.new(0, 0, 0, 0),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 251,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+                    Parent = HueSlider
+                })
+                --
+                DraggingHueOutline.BackgroundTransparency = 1
+                --
+                local DraggingHueMain = Library:CreateObject("Frame", {
+                    Size = UDim2.new(1, -2, 1, -2),
+                    Name = "DraggingHueMain",
+                    Position = UDim2.new(0, 1, 0, 1),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 251,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    Parent = DraggingHueOutline
+                })
+                --
+                DraggingHueMain.BackgroundTransparency = 1
+                --
+                do -- Functions
+                    function ColorPicker:UpdateSize()
+                        ColorPickerOutline.Position = UDim2.new(0, ColorPickerOutline_1.AbsolutePosition.X, 0, (ColorPickerOutline_1.AbsolutePosition.Y + ColorPickerOutline_1.AbsoluteSize.Y + GuiService:GetGuiInset().Y + 2))
+                    end
+                    --
+                    ColorPicker:UpdateSize()
+                    --
+                    Library:Connection(Options.MainUI:GetPropertyChangedSignal("AbsolutePosition"), ColorPicker.UpdateSize)
+                    --
+                    local StartingY = ColorPickerOutline_1.AbsolutePosition.Y
+                    local MainUIStartingY = Options.MainUI.AbsolutePosition.Y
+                    local StartingCanvasPosition = Options.Parent.Parent.CanvasPosition
+                    --
+                    Library:Connection(ColorPickerOutline_1:GetPropertyChangedSignal("AbsolutePosition"), function()
+                        local CurrentY = ColorPickerOutline_1.AbsolutePosition.Y
+                        local MainUICurrentY = Options.MainUI.AbsolutePosition.Y
+                        local CurrentCanvasPosition = Options.Parent.Parent.CanvasPosition
+                        --
+                        if MainUICurrentY ~= MainUIStartingY then
+                            MainUIStartingY = MainUICurrentY
+                            StartingY = CurrentY
+                            --
+                            return
+                        end
+                        --
+                        if CurrentCanvasPosition ~= StartingCanvasPosition then
+                            StartingCanvasPosition = CurrentCanvasPosition
+                            StartingY = CurrentY
+                            --
+                            return
+                        end
+                        --
+                        if Library.UI.Resizing then
+                            return
+                        end
+                        --
+                        if CurrentY ~= StartingY then
+                            ColorPicker:RemoveFrame(true)
+                        end
+                        --
+                        StartingY = CurrentY
+                    end)
+                    --
+                    Library:Connection(Options.MainUI:GetPropertyChangedSignal("AbsoluteSize"), function()
+                        if ColorPicker.Active then
+                            ColorPickerOutline.Visible = Library:ScrollingCheck(Options.Parent.Parent, ColorPickerChecker)
+                        end
+                        --
+                        ColorPicker:UpdateSize()
+                    end)
+                    --
+                    if Options.Parent.Parent:IsA("ScrollingFrame") then
+                        Library:Connection(Options.Parent.Parent:GetPropertyChangedSignal("CanvasPosition"), function()
+                            ColorPicker:UpdateSize()
+                            --
+                            if ColorPicker.Active then
+                                ColorPickerOutline.Visible = Library:ScrollingCheck(Options.Parent.Parent, ColorPickerChecker)
+                            end
+                        end)
+                    end
+                    --
+                    Library:Connection(Options.MainUI:GetPropertyChangedSignal("Visible"), function()
+                        if not Options.MainUI.Visible then
+                            ColorPickerOutline.Visible = false
+                        else
+                            ColorPickerOutline.Visible = ColorPicker.Active
+                        end
+                    end)
+                    --
+                    Library:Connection(Options.Parent.Parent:GetPropertyChangedSignal("Visible"), function()
+                        if not Options.Parent.Parent.Visible then
+                            ColorPickerOutline.Visible = false
+                        else
+                            ColorPickerOutline.Visible = ColorPicker.Active
+                        end
+                    end)
+                    --
+                    function ColorPicker:Update()
+                        ColorPicker.Color = Color3.fromHSV(ColorPicker.Hue, ColorPicker.Saturation[1], ColorPicker.Saturation[2])
+                        ColorPicker.SecondColor = Color3.fromRGB(math.max(math.floor(ColorPicker.Color.R * 255) - 23, 0), math.max(math.floor(ColorPicker.Color.G * 255) - 23, 0), math.max(math.floor(ColorPicker.Color.B * 255) - 23, 0))
+                        --
+                        UIGradient_24.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, ColorPicker.Color), ColorSequenceKeypoint.new(1, ColorPicker.SecondColor)}
+                        UIGradient_20.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, ColorPicker.Color), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255))}
+                        UIGradient_21.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, ColorPicker.Color), ColorSequenceKeypoint.new(1, ColorPicker.Color)}
+                        UIGradient_20.Color = ColorSequence.new{ColorSequenceKeypoint.new(0.000, Color3.fromHSV(ColorPicker.Hue, 1, 1)), ColorSequenceKeypoint.new(1.000, Color3.fromRGB(255, 255, 255))}
+                        --
+                        local MaxSaturationX = math.max(0, MainPickerColor.AbsoluteSize.X - DraggingMainOutline.AbsoluteSize.X) / MainPickerColor.AbsoluteSize.X
+                        local MaxSaturationY = math.max(0, MainPickerColor.AbsoluteSize.Y - DraggingMainOutline.AbsoluteSize.Y) / MainPickerColor.AbsoluteSize.Y
+                        local MaxAlpha = math.max(0, SaturationColor.AbsoluteSize.X - DraggingSatOutline.AbsoluteSize.X) / SaturationColor.AbsoluteSize.X
+                        local MaxHue = math.max(0, BackImage_2.AbsoluteSize.Y - DraggingHueOutline.AbsoluteSize.Y) / BackImage_2.AbsoluteSize.Y
+                        --
+                        Library:TweenObject(DraggingMainOutline, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Position = UDim2.fromScale(math.clamp(ColorPicker.Saturation[1], 0, MaxSaturationX), math.clamp(1 - ColorPicker.Saturation[2], 0, MaxSaturationY))})
+                        Library:TweenObject(DraggingSatOutline, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Position = UDim2.new(math.clamp(1 - ColorPicker.Alpha, 0, MaxAlpha), 0, 0, 0)})
+                        Library:TweenObject(DraggingHueOutline, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, math.clamp(ColorPicker.Hue, 0, MaxHue), 0)})
+                        --
+                        DraggingMain.BackgroundColor3 = ColorPicker.Color
+                        DraggingSatMain.BackgroundColor3 = ColorPicker.Color
+                        DraggingHueMain.BackgroundColor3 = ColorPicker.Color
+                        ColorPickerInline_1.BackgroundTransparency = ColorPicker.Alpha
+                        UIGradient_21.Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 0.304 + (0.604 - 0.304) * ColorPicker.Alpha), NumberSequenceKeypoint.new(0.5, 0.7), NumberSequenceKeypoint.new(1, 1)}
+                        --
+                        Options.Callback(ColorPicker.Color, ColorPicker.Alpha)
+                        Library.Flags[Options.Flag] = ColorPicker
+                    end
+                    --
+                    function ColorPicker:Set(Color, Transparency)
+                        if typeof(Color) == "table" then
+                            ColorPicker.Color = Color3.fromHSV(Color[1], Color[2], Color[3])
+                            ColorPicker.Alpha = Color[4]
+                            ColorPicker.Hue = Color[1]
+                            ColorPicker.Saturation[1] = Color[2]
+                            ColorPicker.Saturation[2] = Color[3]
+                            ColorPicker:Update()
+                            Options.Callback(ColorPicker.Color, ColorPicker.Alpha)
+                        elseif typeof(Color) == "Color3" then
+                            local h, s, v = Color:ToHSV()
+                            --
+                            ColorPicker.Color = Color3.fromHSV(h, s, v)
+                            ColorPicker.Alpha = Transparency or 1
+                            ColorPicker.Hue = h
+                            ColorPicker.Saturation[1] = s
+                            ColorPicker.Saturation[2] = v
+                            ColorPicker:Update()
+                            Options.Callback(ColorPicker.Color, ColorPicker.Alpha)
+                        end
+                    end
+                    --
+                    function ColorPicker:Get()
+                        return {Color = ColorPicker.Color, Transparency = ColorPicker.Alpha}
+                    end
+                    --
+                    function ColorPicker:UpdateHue(Percentage)
+                        local Percentage = typeof(Percentage == "number") and math.clamp(Percentage, 0, 1) or 0
+                        --
+                        ColorPicker.Hue = Percentage
+                        --
+                        ColorPicker:Update()
+                    end
+                    --
+                    function ColorPicker:UpdateAlpha(Percentage)
+                        local Percentage = typeof(Percentage == "number") and math.clamp(Percentage, 0, 1) or 0
+                        --
+                        ColorPicker.Alpha = Percentage
+                        --
+                        ColorPicker:Update()
+                    end
+                    --
+                    function ColorPicker:UpdateSaturation(PercentageX, PercentageY)
+                        local PercentageX = typeof(PercentageX == "number") and math.clamp(PercentageX, 0, 1) or 0
+                        local PercentageY = typeof(PercentageY == "number") and math.clamp(PercentageY, 0, 1) or 0
+                        --
+                        ColorPicker.Saturation[1] = PercentageX
+                        ColorPicker.Saturation[2] = 1 - PercentageY
+                        --
+                        ColorPicker:Update()
+                    end
+                end
+                --
+                do -- Connections
+                    Library:Connection(Button_91.InputBegan, function(Input)
+                        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                            Library.UI.DraggingGui = MainPickerColor
+                            --
+                            local InputPosition = Vector2.new(Input.Position.X, Input.Position.Y)
+                            local Percentage = (InputPosition - MainPickerColor.AbsolutePosition) / MainPickerColor.AbsoluteSize
+                            --
+                            ColorPicker:UpdateSaturation(Percentage.X, Percentage.Y)
+                        end
+                    end)
+                    --
+                    Library:Connection(Button_915241.InputBegan, function(Input)
+                        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                            Library.UI.DraggingGui = SaturationColor
+                            --
+                            local InputPosition = Vector2.new(Input.Position.X, Input.Position.Y)
+                            local GuiPosition = SaturationColor.AbsolutePosition.X
+                            local GuiSize = SaturationColor.AbsoluteSize.X
+                            local Percentage = ((GuiPosition + GuiSize - InputPosition.X) / GuiSize)
+                            --
+                            ColorPicker:UpdateAlpha(Percentage)
+                        end
+                    end)
+                    --
+                    Library:Connection(Button_9141.InputBegan, function(Input)
+                        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                            Library.UI.DraggingGui = BackImage_2
+                            --
+                            local InputPosition = Vector2.new(Input.Position.X, Input.Position.Y)
+                            local Percentage = (InputPosition - BackImage_2.AbsolutePosition) / BackImage_2.AbsoluteSize
+                            --
+                            ColorPicker:UpdateHue(Percentage.Y)
+                        end
+                    end)
+                    --
+                    Library:Connection(UserInputService.InputChanged, function(Input)
+                        if (Library.UI.DraggingGui ~= SaturationColor and Library.UI.DraggingGui ~= MainPickerColor and Library.UI.DraggingGui ~= BackImage_2) then return end
+                        --
+                        if not (UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)) then
+                            Library.UI.DraggingGui = nil
+                            return
+                        end
+                        --
+                        local InputPosition = Vector2.new(Input.Position.X, Input.Position.Y)
+                        --
+                        if (Input.UserInputType == Enum.UserInputType.MouseMovement) then
+                            if Library.UI.DraggingGui == MainPickerColor then
+                                local Percentage = (InputPosition - MainPickerColor.AbsolutePosition) / MainPickerColor.AbsoluteSize
+                                --
+                                ColorPicker:UpdateSaturation(Percentage.X, Percentage.Y)
+                            end
+                            --
+                            if Library.UI.DraggingGui == SaturationColor then
+                                local GuiPosition = SaturationColor.AbsolutePosition.X
+                                local GuiSize = SaturationColor.AbsoluteSize.X
+                                local Percentage = ((GuiPosition + GuiSize - InputPosition.X) / GuiSize)
+                                --
+                                ColorPicker:UpdateAlpha(Percentage)
+                            end
+                            --
+                            if Library.UI.DraggingGui == BackImage_2 then
+                                local Percentage = (InputPosition - BackImage_2.AbsolutePosition) / BackImage_2.AbsoluteSize
+                                --
+                                ColorPicker:UpdateHue(Percentage.Y)
+                            end
+                        end
+                    end)
+                end
+                --
+                ColorPicker:Update()
+                Library:Fade(true, Library:GetObjectsTable(ColorPickerOutline, true), ColorPickerOutline, 0.1)
+            end
+            --
+            function ColorPicker:RemoveFrame(Fast)
+                local Fast = Fast or false
+                --
+                for Index, Value in Library.UI.ScreenGUI:GetChildren() do
+                    if Value:IsA("Frame") and Value.Name == "ColorPickerFrame" .. Library.UI.TotalColorPickers then
+                        if Fast then
+                            Value:Destroy()
+                        else
+                            Library:Fade(false, Library:GetObjectsTable(Value, true), Value, 0.1)
+                            --
+                            task.delay(Library.UI.TweenSpeed, function()
+                                Value:Destroy()
+                            end)
+                        end
+                    end
+                end
+            end
+            --
+            function ColorPicker:FindFrame()
+                for Index, Value in Library.UI.ScreenGUI:GetChildren() do
+                    if Value:IsA("Frame") and Value.Name == "ColorPickerFrame" .. Library.UI.TotalColorPickers then
+                        return true
+                    end
+                end
+                --
+                return false
+            end
+            --
+            function ColorPicker:Toggle()
+                if Library.UI.CurrentSelectedColorPicker and Library.UI.CurrentSelectedColorPicker.ColorPickerOutline.Name ~= ColorPickerOutline_1.Name then
+                    Library.UI.CurrentSelectedColorPicker.ColorPicker:RemoveFrame()
+                end
+                --
+                if not ColorPicker:FindFrame() then
+                    ColorPicker.Active = true
+                    ColorPicker:AddFrame()
+                else
+                    ColorPicker.Active = false
+                    ColorPicker:RemoveFrame()
+                end
+            end
+            --
+            function ColorPicker:AddOtherFrame()
+                Library.UI.CurrentSelectedColorPickerExtra = {ColorPicker = ColorPicker, ColorPickerObject = ColorPickerOutline_1, Parent = Options.Parent}
+                --
+                local KeybindModePickerOutline = Library:CreateObject("Frame", {
+                    Name = "ColorPickerOutline" .. Library.UI.TotalColorPickers,
+                    Position = UDim2.new(0, 0, 0, 0),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Size = UDim2.new(0, 100, 0, 55),
+                    BorderSizePixel = 0,
+                    ZIndex = 25,
+                    AnchorPoint = Vector2.new(1, 0),
+                    BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+                    Parent = Library.UI.ScreenGUI
+                })
+                --
+                local KeybindModePickerMain = Library:CreateObject("Frame", {
+                    Name = "KeybindModePickerMain",
+                    Position = UDim2.new(0, 1, 0, 1),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Size = UDim2.new(1, -2, 1, -2),
+                    BorderSizePixel = 0,
+                    ZIndex = 25,
+                    BackgroundColor3 = Color3.fromRGB(35, 35, 35),
+                    Parent = KeybindModePickerOutline
+                })
+                --
+                KeybindModePickerOutline.BackgroundTransparency = 1
+                KeybindModePickerMain.BackgroundTransparency = 1
+                --
+                local UIListLayout_9 = Library:CreateObject("UIListLayout", {
+                    SortOrder = Enum.SortOrder.LayoutOrder,
+                    Parent = KeybindModePickerMain
+                })
+                --
+                function ColorPicker:UpdateSize()
+                    KeybindModePickerOutline.Position = UDim2.new(0, ColorPickerOutline_1.AbsolutePosition.X - 2, 0, ColorPickerOutline_1.AbsolutePosition.Y + ColorPickerOutline_1.AbsoluteSize.Y + KeybindModePickerOutline.AbsoluteSize.Y - 4)
+                end
+                --
+                ColorPicker:UpdateSize()
+                --
+                Library:Connection(Options.MainUI:GetPropertyChangedSignal("AbsolutePosition"), ColorPicker.UpdateSize)
+                --
+                local StartingY = ColorPickerOutline_1.AbsolutePosition.Y
+                local MainUIStartingY = Options.MainUI.AbsolutePosition.Y
+                local StartingCanvasPosition = Options.Parent.Parent.CanvasPosition
+                --
+                Library:Connection(ColorPickerOutline_1:GetPropertyChangedSignal("AbsolutePosition"), function()
+                    local CurrentY = ColorPickerOutline_1.AbsolutePosition.Y
+                    local MainUICurrentY = Options.MainUI.AbsolutePosition.Y
+                    local CurrentCanvasPosition = Options.Parent.Parent.CanvasPosition
+                    --
+                    if MainUICurrentY ~= MainUIStartingY then
+                        MainUIStartingY = MainUICurrentY
+                        StartingY = CurrentY
+                        --
+                        return
+                    end
+                    --
+                    if CurrentCanvasPosition ~= StartingCanvasPosition then
+                        StartingCanvasPosition = CurrentCanvasPosition
+                        StartingY = CurrentY
+                        --
+                        return
+                    end
+                    --
+                    if Library.UI.Resizing then
+                        return
+                    end
+                    --
+                    if CurrentY ~= StartingY then
+                        ColorPicker:RemoveOtherFrame(true)
+                    end
+                    --
+                    StartingY = CurrentY
+                end)
+                --
+                Library:Connection(Options.MainUI:GetPropertyChangedSignal("AbsoluteSize"), function()
+                    if ColorPicker.ActiveFrame then
+                        KeybindModePickerOutline.Visible = Library:ScrollingCheck(Options.Parent.Parent, ColorPickerChecker)
+                    end
+                    --
+                    ColorPicker:UpdateSize()
+                end)
+                --
+                if Options.Parent.Parent:IsA("ScrollingFrame") then
+                    Library:Connection(Options.Parent.Parent:GetPropertyChangedSignal("CanvasPosition"), function()
+                        ColorPicker:UpdateSize()
+                        --
+                        if ColorPicker.ActiveFrame then
+                            KeybindModePickerOutline.Visible = Library:ScrollingCheck(Options.Parent.Parent, ColorPickerChecker)
+                        end
+                    end)
+                end
+                --
+                for Index, Value in {"Copy", "Paste", "Reset"} do
+                    local ModeItem = {
+                        Active = false,
+                        Hovering = false,
+                    }
+                    --
+                    local Inactive = Library:CreateObject("TextLabel", {
+                        FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+                        TextColor3 = Color3.fromRGB(208, 208, 208),
+                        BorderColor3 = Color3.fromRGB(0, 0, 0),
+                        Name = Value,
+                        Text = Value,
+                        RichText = true,
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        Size = UDim2.new(1, 0, 0, 17),
+                        BorderSizePixel = 0,
+                        TextSize = Library.UI.FontSize,
+                        ZIndex = 25,
+                        BackgroundColor3 = Color3.fromRGB(35, 35, 35),
+                        Parent = KeybindModePickerMain
+                    })
+                    --
+                    local Button_4 = Library:CreateObject("TextButton", {
+                        FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+                        TextColor3 = Color3.fromRGB(0, 0, 0),
+                        BorderColor3 = Color3.fromRGB(0, 0, 0),
+                        Name = "Button_4",
+                        BackgroundTransparency = 1,
+                        Size = UDim2.new(1, 0, 1, 0),
+                        BorderSizePixel = 0,
+                        TextTransparency = 1,
+                        TextSize = Library.UI.FontSize,
+                        ZIndex = 25,
+                        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                        Parent = Inactive
+                    })
+                    --
+                    local UIPadding_48 = Library:CreateObject("UIPadding", {
+                        PaddingLeft = UDim.new(0, 8),
+                        Parent = Inactive
+                    })
+                    --
+                    Inactive.TextTransparency = 1
+                    --
+                    do -- Functions
+                        function ModeItem:Activate()
+                            if not ModeItem.Active then
+                                ModeItem.Active = true
+                                --
+                                Inactive.Text = "<b>" .. Value .. "</b>"
+                                Library:TweenObject(Inactive, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {TextColor3 = Library.Theme.Default.Accent})
+                                --
+                                if Value == "Copy" then
+                                    Library.UI.LastCopiedColor = {Color = ColorPicker.Color, Alpha = ColorPicker.Alpha}
+                                elseif Value == "Paste" then
+                                    if Library.UI.LastCopiedColor then
+                                        ColorPicker:Set(Library.UI.LastCopiedColor.Color, Library.UI.LastCopiedColor.Alpha)
+                                    end
+                                elseif Value == "Reset" then
+                                    ColorPicker:Set(Options.Default, Options.Alpha)
+                                end
+                                --
+                                ColorPicker:RemoveOtherFrame()
+                            end
+                        end
+                        --
+                        function ModeItem:Deactivate()
+                            if ModeItem.Active then
+                                ModeItem.Active = false
+                                ModeItem.Hovering = false
+                                Inactive.Text = Value
+                                Library:TweenObject(Inactive, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(205, 205, 205)})
+                            end
+                        end
+                    end
+                    --
+                    do -- Connections
+                        Library:Connection(Button_4.MouseButton1Click, function()
+                            ModeItem:Activate()
+                        end)
+                        --
+                        Library:Connection(Inactive.MouseEnter, function()
+                            Inactive.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+                            --
+                            if ModeItem.Active then return end
+                            --
+                            Inactive.Text = "<b>" .. Value .. "</b>"
+                        end)
+                        --
+                        Library:Connection(Inactive.MouseLeave, function()
+                            Inactive.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+                            --
+                            if ModeItem.Active then return end
+                            --
+                            Inactive.Text = Value
+                            Library:TweenObject(Inactive, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(205, 205, 205)})
+                        end)
+                    end
+                end
+                --
+                Library:Fade(true, Library:GetObjectsTable(KeybindModePickerOutline, true), KeybindModePickerOutline, 0.1)
+            end
+            --
+            function ColorPicker:RemoveOtherFrame(Fast)
+                local Fast = Fast or false
+                --
+                for Index, Value in Library.UI.ScreenGUI:GetChildren() do
+                    if Value:IsA("Frame") and Value.Name == "ColorPickerOutline" .. Library.UI.TotalColorPickers then
+                        if Fast then
+                            Value:Destroy()
+                        else
+                            Library:Fade(false, Library:GetObjectsTable(Value, true), Value, 0.1)
+                            --
+                            task.delay(Library.UI.TweenSpeed, function()
+                                Value:Destroy()
+                            end)
+                        end
+                    end
+                end
+            end
+            --
+            function ColorPicker:FindOtherFrame()
+                for Index, Value in Library.UI.ScreenGUI:GetChildren() do
+                    if Value:IsA("Frame") and Value.Name == "ColorPickerOutline" .. Library.UI.TotalColorPickers then
+                        return true
+                    end
+                end
+                --
+                return false
+            end
+            --
+            function ColorPicker:ToggleOtherFrame()
+                if Library.UI.CurrentSelectedColorPickerExtra and Library.UI.CurrentSelectedColorPickerExtra.ColorPickerObject.Name ~= ColorPickerOutline_1.Name then
+                    Library.UI.CurrentSelectedColorPickerExtra.ColorPicker:RemoveFrame()
+                end
+                --
+                if not ColorPicker:FindOtherFrame() then
+                    ColorPicker.ActiveFrame = true
+                    ColorPicker:AddOtherFrame()
+                else
+                    ColorPicker.ActiveFrame = false
+                    ColorPicker:RemoveOtherFrame()
+                end
+            end
+        end
+        --
+        do -- Connections
+            Library:Connection(Button_9.MouseButton2Click, function()
+                ColorPicker:ToggleOtherFrame()
+            end)
+            --
+            Library:Connection(Button_9.MouseButton1Click, function()
+                ColorPicker:Toggle()
+            end)
+        end
+        --
+        ColorPicker:AddFrame()
+        ColorPicker:Update()
+        ColorPicker:RemoveFrame()
+        --
+        return ColorPicker
+    end
+    --
+    function Library:Keybind(Options)
+        Options = Library:Validate({
+            Default = Enum.KeyCode.Backspace,
+            Mode = "Toggle",
+            UseMode = true,
+            HideFromList = false,
+            Blacklisted = {},
+            Parent = nil,
+            Toggle = nil,
+            MainUI = nil,
+            Hiding = false,
+            ToggleState = false,
+            Flag = Library.NewFlag(),
+            Count = 1,
+            ChangeToggle = false,
+            Callback = function() end,
+        }, Options or {})
+        --
+        if Options.Toggle == nil then return end
+        --
+        local Keybind = {
+            Hover = false,
+            ActiveFrame = false,
+            Keybind = Options.Default,
+            RegKeybind = nil,
+            State = false,
+            SelectingKeybind = false,
+            Toggle = false,
+            Connection = nil,
+            Mode = Options.Mode,
+            ConfigKeybind = nil,
+            Current = {},
+            CurrentMode = nil,
+            Hiding = false,
+        }
+        --
+        Library.Flags[Options.Flag] = Keybind
+        Library.UI.TotalKeybindModes += 1
+        --
+        local KeybindObject = Library:CreateObject("TextLabel", {
+            FontFace = Font.new("rbxassetid://12187371840", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+            TextColor3 = Color3.fromRGB(117, 117, 117),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Text = "[-]",
+            Name = "KeybindOutline" .. Library.UI.TotalKeybindModes,
+            AnchorPoint = Vector2.new(1, 0),
+            BorderSizePixel = 0,
+            Size = UDim2.new(0, 16, 0, 7),
+            BackgroundTransparency = 1,
+            Position = UDim2.new(1, 0 - (Options.Count - 1) * 22, 0, 0),
+            TextXAlignment = Enum.TextXAlignment.Right,
+            ZIndex = 3,
+            TextStrokeTransparency = 0,
+            TextSize = 9,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = Options.Parent
+        })
+        --
+        local KeybindChecker = Library:CreateObject("Frame", {
+            Position = UDim2.new(0, 0, 0, 0),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Size = UDim2.new(1, 0, 0, 1),
+            Visible = false,
+            BorderSizePixel = 0,
+            Parent = KeybindObject
+        })
+        --
+        local Button_4 = Library:CreateObject("TextButton", {
+            FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+            TextColor3 = Color3.fromRGB(0, 0, 0),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Name = "Button_4",
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 1, 0),
+            BorderSizePixel = 0,
+            TextTransparency = 1,
+            TextSize = Library.UI.FontSize,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = KeybindObject
+        })
+        --
+        local UserInputTypeBinds = {"MouseButton1", "MouseButton2", "MouseButton3"}
+        --
+        do -- Functions
+            function Keybind:SetVisible(Bool)
+                local OldValues = Library.Objects[KeybindObject]
+                --
+                Keybind.Hiding = not Bool
+                --
+                if Bool then
+                    Library.Objects[KeybindObject] = {KeybindObject, OldValues[2], true}
+                end
+                --
+                Library:Fade(Bool, Library:GetObjectsTable(KeybindObject), KeybindObject, 0.075)
+                Library:TweenObject(KeybindObject, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = Bool and UDim2.new(1, 0, 0, 8) or UDim2.new(1, 0, 0, -10)}, function()
+                    if not Bool then
+                        Library.Objects[KeybindObject] = {KeybindObject, OldValues[2], false}
+                    end
+                end)
+            end
+            --
+            function Keybind:Set(Key)
+                if Keybind.Hiding then return end
+                if typeof(Key) == "boolean" then return end
+                --
+                if typeof(Key) == "EnumItem" then
+                    Keybind.RegKeybind = Key
+                elseif typeof(Key) == "string" then
+                    if table.find(UserInputTypeBinds, Key) then
+                        Keybind.RegKeybind = Enum.UserInputType[Key]
+                        Key = Enum.UserInputType[Key]
+                    else
+                        Keybind.RegKeybind = Enum.KeyCode[Key]
+                        Key = Enum.KeyCode[Key]
+                    end
+                end
+                --
+                if typeof(Key) == "string" then
+                    if Key:find("KEY") then
+                        Key = Enum.KeyCode[Key:gsub("KEY_", "")]
+                    elseif Key:find("Input") then
+                        Key = Enum.UserInputType[Key:gsub("Input_", "")]
+                    end
+                end
+                --
+                local ValidKey = false
+                local KeyString = ""
+                --
+                if table.find(Options.Blacklisted, Key) then
+                    Key = nil
+                end
+                --
+                if Key then
+                    if ((Key.EnumType == Enum.KeyCode and UserInputService:GetStringForKeyCode(Key) ~= "") or Library.UI.Keys[Key]) then
+                        ValidKey = true
+                        KeyString = Library.UI.Keys[Key] or UserInputService:GetStringForKeyCode(Key)
+                    end
+                end
+                --
+                if ValidKey then
+                    Keybind.Keybind = KeyString
+                    KeybindObject.Text = "[" .. KeyString:upper() .. "]"
+                    --
+                    Options.Callback(Key)
+                    Library.Flags[Options.Flag] = Keybind
+                else
+                    Keybind.Keybind = "[-]"
+                    KeybindObject.Text = Keybind.Keybind
+                end
+                --
+                Library:TweenObject(KeybindObject, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(117, 117, 117)})
+                KeybindObject.Size = UDim2.new(0, KeybindObject.TextBounds.X + 2, 0, 7)
+            end
+            --
+            function Keybind:Toggle(Bool)
+                if Keybind.Hiding then return end
+                --
+                if Bool == nil then
+                    Keybind.State = not Keybind.State
+                else
+                    Keybind.State = Bool
+                end
+                --
+                if not Options.HideFromList then
+                    if Keybind.State then
+                        --Library:AddKeybindFrame(Keybind.Mode, Options.Toggle:GetName(), Keybind.Keybind, Options.Toggle:GetSection())
+                    else
+                        --Library:RemoveKeybindFrame(Options.Toggle:GetName(), Options.Toggle:GetSection())
+                    end
+                end
+                --
+                if Options.Toggle.GetFlag then
+                    Library.Flags[Options.Toggle:GetFlag()] = Keybind
+                end
+                --
+                if Options.ChangeToggle then
+                    -- viuslaly toggle the UI element and update its state
+                    Options.Toggle:Set(Keybind.State)
+                else
+                    Options.Toggle:GetCallback(Keybind.State)
+                end
+            end
+            --
+            task.delay(1, function()
+                Keybind:Set(Options.Default)
+            end)
+            --
+            function Keybind:Get()
+                local KeyString = Keybind.RegKeybind.EnumType == Enum.KeyCode and tostring(Keybind.RegKeybind):match("^Enum%.KeyCode%.(.+)$") or tostring(Keybind.RegKeybind):match("^Enum%.UserInputType%.(.+)$")
+                --
+                return KeyString
+            end
+            --
+            function Keybind:Active()
+                return (Keybind.Keybind:lower() == "[-]" and true or Keybind.State)
+            end
+            --
+            if Options.Mode == "Always on" then
+                Keybind:Toggle(true)
+            end
+            --
+            function Keybind:SetMode(Mode)
+                Keybind.Mode = Mode
+                --
+                if Mode == "Always on" then
+                    if Mode == "Always on" then
+                        Keybind:Toggle(true)
+                    end
+                    --
+                    if not Keybind.State then
+                        Keybind.State = true
+                        --
+                        --Library:AddKeybindFrame(Mode, Options.Toggle:GetName(), Keybind.Keybind, Options.Toggle:GetSection())
+                    else
+                        --Library:UpdateKeybindFrame(Mode, Options.Toggle:GetName(), Keybind.Keybind, Options.Toggle:GetSection())
+                    end
+                elseif Mode == "Toggle" then
+                    if Keybind.State then
+                        --Library:UpdateKeybindFrame(Mode, Options.Toggle:GetName(), Keybind.Keybind, Options.Toggle:GetSection())
+                    end
+                elseif Mode == "On hotkey" then
+                    Keybind.State = false
+                    --
+                    --Library:RemoveKeybindFrame(Options.Toggle:GetName(), Options.Toggle:GetSection())
+                end
+            end
+            --
+            function Keybind:AddFrame()
+                Library.UI.CurrentSelectedKeybindMode = {Keybind = Keybind, KeybindObject = KeybindObject, Parent = Options.Parent}
+                --
+                local KeybindModePickerOutline = Library:CreateObject("Frame", {
+                    Name = "KeybindModePickerOutline" .. Library.UI.TotalKeybindModes,
+                    Position = UDim2.new(0, 0, 0, 0),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Size = UDim2.new(0, 100, 0, 55),
+                    BorderSizePixel = 0,
+                    ZIndex = 25,
+                    AnchorPoint = Vector2.new(1, 0),
+                    BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+                    Parent = Library.UI.ScreenGUI
+                })
+                --
+                local KeybindModePickerMain = Library:CreateObject("Frame", {
+                    Name = "KeybindModePickerMain",
+                    Position = UDim2.new(0, 1, 0, 1),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Size = UDim2.new(1, -2, 1, -2),
+                    BorderSizePixel = 0,
+                    ZIndex = 25,
+                    BackgroundColor3 = Color3.fromRGB(35, 35, 35),
+                    Parent = KeybindModePickerOutline
+                })
+                --
+                KeybindModePickerOutline.BackgroundTransparency = 1
+                KeybindModePickerMain.BackgroundTransparency = 1
+                --
+                local UIListLayout_9 = Library:CreateObject("UIListLayout", {
+                    SortOrder = Enum.SortOrder.LayoutOrder,
+                    Parent = KeybindModePickerMain
+                })
+                --
+                function Keybind:UpdateSize()
+                    KeybindModePickerOutline.Position = UDim2.new(0, KeybindObject.AbsolutePosition.X , 0, KeybindObject.AbsolutePosition.Y + KeybindObject.AbsoluteSize.Y + KeybindModePickerOutline.AbsoluteSize.Y - 2)
+                end
+                --
+                Keybind:UpdateSize()
+                --
+                Library:Connection(Options.MainUI:GetPropertyChangedSignal("AbsolutePosition"), Keybind.UpdateSize)
+                --
+                local StartingY = KeybindObject.AbsolutePosition.Y
+                local MainUIStartingY = Options.MainUI.AbsolutePosition.Y
+                local StartingCanvasPosition = Options.Parent.Parent.CanvasPosition
+                --
+                Library:Connection(KeybindObject:GetPropertyChangedSignal("AbsolutePosition"), function()
+                    local CurrentY = KeybindObject.AbsolutePosition.Y
+                    local MainUICurrentY = Options.MainUI.AbsolutePosition.Y
+                    local CurrentCanvasPosition = Options.Parent.Parent.CanvasPosition
+                    --
+                    if MainUICurrentY ~= MainUIStartingY then
+                        MainUIStartingY = MainUICurrentY
+                        StartingY = CurrentY
+                        --
+                        return
+                    end
+                    --
+                    if CurrentCanvasPosition ~= StartingCanvasPosition then
+                        StartingCanvasPosition = CurrentCanvasPosition
+                        StartingY = CurrentY
+                        --
+                        return
+                    end
+                    --
+                    if Library.UI.Resizing then
+                        return
+                    end
+                    --
+                    if CurrentY ~= StartingY then
+                        Keybind:RemoveFrame(true)
+                    end
+                    --
+                    StartingY = CurrentY
+                end)
+                --
+                Library:Connection(Options.MainUI:GetPropertyChangedSignal("AbsoluteSize"), function()
+                    if Keybind.ActiveFrame then
+                        KeybindModePickerOutline.Visible = Library:ScrollingCheck(Options.Parent.Parent, KeybindChecker)
+                    end
+                    --
+                    Keybind:UpdateSize()
+                end)
+                --
+                Library:Connection(KeybindObject:GetPropertyChangedSignal("AbsoluteSize"), function()
+                    Keybind:UpdateSize()
+                end)
+                --
+                if Options.Parent.Parent:IsA("ScrollingFrame") then
+                    Library:Connection(Options.Parent.Parent:GetPropertyChangedSignal("CanvasPosition"), function()
+                        Keybind:UpdateSize()
+                        --
+                        if Keybind.ActiveFrame then
+                            KeybindModePickerOutline.Visible = Library:ScrollingCheck(Options.Parent.Parent, KeybindChecker)
+                        end
+                    end)
+                end
+                --
+                for Index, Value in {"Always on", "On hotkey", "Toggle"} do
+                    local ModeItem = {
+                        Active = false,
+                        Hovering = false,
+                    }
+                    --
+                    local Inactive = Library:CreateObject("TextLabel", {
+                        FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+                        TextColor3 = Color3.fromRGB(208, 208, 208),
+                        BorderColor3 = Color3.fromRGB(0, 0, 0),
+                        Name = Value,
+                        Text = Value,
+                        RichText = true,
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        Size = UDim2.new(1, 0, 0, 17),
+                        BorderSizePixel = 0,
+                        TextSize = Library.UI.FontSize,
+                        ZIndex = 25,
+                        BackgroundColor3 = Color3.fromRGB(35, 35, 35),
+                        Parent = KeybindModePickerMain
+                    })
+                    --
+                    local Button_4 = Library:CreateObject("TextButton", {
+                        FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+                        TextColor3 = Color3.fromRGB(0, 0, 0),
+                        BorderColor3 = Color3.fromRGB(0, 0, 0),
+                        Name = "Button_4",
+                        BackgroundTransparency = 1,
+                        Size = UDim2.new(1, 0, 1, 0),
+                        BorderSizePixel = 0,
+                        TextTransparency = 1,
+                        TextSize = Library.UI.FontSize,
+                        ZIndex = 25,
+                        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                        Parent = Inactive
+                    })
+                    --
+                    local UIPadding_48 = Library:CreateObject("UIPadding", {
+                        PaddingLeft = UDim.new(0, 8),
+                        Parent = Inactive
+                    })
+                    --
+                    Inactive.TextTransparency = 1
+                    --
+                    do -- Functions
+                        function ModeItem:Activate()
+                            if not ModeItem.Active then
+                                if Keybind.CurrentMode ~= nil then
+                                    Keybind.CurrentMode:Deactivate()
+                                end
+                                --
+                                ModeItem.Active = true
+                                --
+                                Keybind.Mode = Value
+                                Keybind.CurrentMode = ModeItem
+                                --
+                                Inactive.Text = "<b>" .. Value .. "</b>"
+                                Library:TweenObject(Inactive, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {TextColor3 = Library.Theme.Default.Accent})
+                                --
+                                if Value == "Always on" then
+                                    if Keybind.Mode == "Always on" then
+                                        Keybind:Toggle(true)
+                                    end
+                                    --
+                                    if not Keybind.State then
+                                        Keybind.State = true
+                                        --
+                                        --Library:AddKeybindFrame(Value, Options.Toggle:GetName(), Keybind.Keybind, Options.Toggle:GetSection())
+                                    else
+                                        --Library:UpdateKeybindFrame(Value, Options.Toggle:GetName(), Keybind.Keybind, Options.Toggle:GetSection())
+                                    end
+                                elseif Value == "Toggle" then
+                                    if Keybind.State then
+                                        --Library:UpdateKeybindFrame(Value, Options.Toggle:GetName(), Keybind.Keybind, Options.Toggle:GetSection())
+                                    end
+                                elseif Value == "On hotkey" then
+                                    Keybind.State = false
+                                    --
+                                    --Library:RemoveKeybindFrame(Options.Toggle:GetName(), Options.Toggle:GetSection())
+                                end
+                            end
+                        end
+                        --
+                        function ModeItem:Deactivate()
+                            if ModeItem.Active then
+                                ModeItem.Active = false
+                                ModeItem.Hovering = false
+                                Inactive.Text = Value
+                                Library:TweenObject(Inactive, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(205, 205, 205)})
+                            end
+                        end
+                    end
+                    --
+                    do -- Connections
+                        Library:Connection(Button_4.MouseButton1Click, function()
+                            ModeItem:Activate()
+                        end)
+                        --
+                        Library:Connection(Inactive.MouseEnter, function()
+                            Inactive.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+                            --
+                            if ModeItem.Active then return end
+                            --
+                            Inactive.Text = "<b>" .. Value .. "</b>"
+                        end)
+                        --
+                        Library:Connection(Inactive.MouseLeave, function()
+                            Inactive.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+                            --
+                            if ModeItem.Active then return end
+                            --
+                            Inactive.Text = Value
+                            Library:TweenObject(Inactive, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(205, 205, 205)})
+                        end)
+                    end
+                    --
+                    if Value == Keybind.Mode then
+                        ModeItem:Activate()
+                    end
+                end
+                --
+                Library:Fade(true, Library:GetObjectsTable(KeybindModePickerOutline, true), KeybindModePickerOutline, 0.1)
+            end
+            --
+            function Keybind:RemoveFrame(Fast)
+                local Fast = Fast or false
+                --
+                for Index, Value in Library.UI.ScreenGUI:GetChildren() do
+                    if Value:IsA("Frame") and Value.Name == "KeybindModePickerOutline" .. Library.UI.TotalKeybindModes then
+                        if Fast then
+                            Value:Destroy()
+                        else
+                            Library:Fade(false, Library:GetObjectsTable(Value, true), Value, 0.1)
+                            --
+                            task.delay(Library.UI.TweenSpeed, function()
+                                Value:Destroy()
+                            end)
+                        end
+                    end
+                end
+            end
+            --
+            function Keybind:FindFrame()
+                for Index, Value in Library.UI.ScreenGUI:GetChildren() do
+                    if Value:IsA("Frame") and Value.Name == "KeybindModePickerOutline" .. Library.UI.TotalKeybindModes then
+                        return true
+                    end
+                end
+                --
+                return false
+            end
+            --
+            function Keybind:ToggleFrame()
+                Library:TweenObject(KeybindObject, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(176, 176, 176)})
+                --
+                if Library.UI.CurrentSelectedKeybindMode and Library.UI.CurrentSelectedKeybindMode.KeybindObject.Name ~= KeybindObject.Name then
+                    Library.UI.CurrentSelectedKeybindMode.Keybind:RemoveFrame()
+                    --
+                    Library:TweenObject(Library.UI.CurrentSelectedKeybindMode.KeybindObject, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(117, 117, 117)})
+                end
+                --
+                if not Keybind:FindFrame() then
+                    Keybind.ActiveFrame = true
+                    Keybind:AddFrame()
+                else
+                    Keybind.ActiveFrame = false
+                    Keybind:RemoveFrame()
+                end
+            end
+        end
+        --
+        do -- Connections
+            Library:Connection(KeybindObject.MouseEnter, function()
+                if Keybind.SelectingKeybind then return end
+                --
+                Library:TweenObject(KeybindObject, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(176, 176, 176)})
+            end)
+            --
+            Library:Connection(KeybindObject.MouseLeave, function()
+                if Keybind.SelectingKeybind then return end
+                --
+                Library:TweenObject(KeybindObject, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(117, 117, 117)})
+            end)
+            --
+            Library:Connection(Button_4.MouseButton2Click, function()
+                if not Options.UseMode then return end
+                --
+                Keybind:ToggleFrame()
+            end)
+            --
+            Library:Connection(Button_4.MouseButton1Click, function()
+                if Keybind.Connection then
+                    Keybind.Connection:Disconnect()
+                end
+                --
+                Keybind.SelectingKeybind = true
+                --
+                Library:TweenObject(KeybindObject, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(255, 0, 0)})
+                --
+                Keybind.Connection = Library:Connection(UserInputService.InputBegan, function(Input)
+                    Keybind:Set(Input.UserInputType == Enum.UserInputType.Keyboard and Input.KeyCode or Input.UserInputType)
+                    --
+                    if Keybind.Connection then
+                        Keybind.Connection:Disconnect()
+                        --
+                        task.delay(0.1, function()
+                            Keybind.Connection = nil
+                            Keybind.SelectingKeybind = false
+                        end)
+                    end
+                end)
+            end)
+            --
+            Library:Connection(UserInputService.InputBegan, function(Input, Proccessed)
+                if Proccessed then return end
+                --
+                if (Input.UserInputType == Enum.UserInputType.Keyboard and Keybind.Keybind ~= "[-]" and Input.KeyCode == Keybind.RegKeybind) or (Input.UserInputType == Enum.UserInputType.MouseButton1 and Keybind.Keybind == "MB1") or (Input.UserInputType == Enum.UserInputType.MouseButton2 and Keybind.Keybind == "MB2") or (Input.UserInputType == Enum.UserInputType.MouseButton3 and Keybind.Keybind == "MMB") then
+                    if Keybind.Mode == "Always on" then
+                        Keybind:Toggle(true)
+                    else
+                        Keybind:Toggle()
+                    end
+                end
+            end)
+            --
+            Library:Connection(UserInputService.InputEnded, function(Input, Proccessed)
+                if Proccessed then return end
+                --
+                if Keybind.Mode == "On hotkey" then
+                    if (Input.UserInputType == Enum.UserInputType.Keyboard and Keybind.Keybind ~= "[-]" and Input.KeyCode == Keybind.RegKeybind) or (Input.UserInputType == Enum.UserInputType.MouseButton1 and Keybind.Keybind == "MB1") or (Input.UserInputType == Enum.UserInputType.MouseButton2 and Keybind.Keybind == "MB2") or (Input.UserInputType == Enum.UserInputType.MouseButton3 and Keybind.Keybind == "MMB") then
+                        Keybind:Toggle()
+                    end
+                end
+            end)
+        end
+        --
+        if Options.Hiding then
+            Keybind:SetVisible(false)
+        end
+        --
+        return Keybind
+    end
+    --
+    function Library:MultiBox(Options)
+        Options = Library:Validate({
+            Default = "None",
+            Name = "Preview MultiBox",
+            Content = {},
+            Parent = nil,
+            MainUI = nil,
+            Hiding = false,
+            TabUI = nil,
+            Risky = false,
+            Flag = Library.NewFlag(),
+            Callback = function() end
+        }, Options or {})
+        --
+        local MultiBox = {
+            Open = false,
+            Hover = false,
+            Items = Options.Content,
+            Scrollable = false,
+            Value = {},
+            SelectedOrder = {},
+            AllItems = {},
+        }
+        --
+        Library.Flags[Options.Flag] = MultiBox
+        Options.Callback(Options.Default)
+        --
+        local PreviewMultiBox_5 = Library:CreateObject("Frame", {
+            Name = "PreviewMultiBox_5",
+            BackgroundTransparency = 1,
+            Size = Options.Name == "" and UDim2.new(1, 0, 0, 20) or UDim2.new(1, 0, 0, 31),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = Options.Parent
+        })
+        --
+        local MultiBoxOutline_5 = Library:CreateObject("Frame", {
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            AnchorPoint = Vector2.new(0, 1),
+            Name = "MultiBoxOutline_5",
+            Position = UDim2.new(0, -1, 1, 0),
+            Size = UDim2.new(1, -19, 0, 20),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+            Parent = PreviewMultiBox_5
+        })
+        --
+        local MultiBoxChecker = Library:CreateObject("Frame", {
+            Name = "MultiBoxChecker",
+            Position = UDim2.new(0, 0, 1, 0),
+            Visible = false,
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Size = UDim2.new(1, 0, 0, 1),
+            BorderSizePixel = 0,
+            Parent = MultiBoxOutline_5
+        })
+        --
+        local MultiBoxBack_5 = Library:CreateObject("Frame", {
+            Size = UDim2.new(1, -2, 1, -2),
+            Name = "MultiBoxBack_5",
+            Position = UDim2.new(0, 1, 0, 1),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(220, 220, 220),
+            Parent = MultiBoxOutline_5
+        })
+        --
+        local MultiBoxArrow = Library:CreateObject("ImageLabel", {
+            ImageColor3 = Color3.fromRGB(151, 151, 151),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Name = "MultiBoxArrow",
+            Image = "rbxassetid://15556784588",
+            BackgroundTransparency = 1,
+            Position = UDim2.new(1, -11, 0, 6),
+            Size = UDim2.new(0, 5, 0, 4),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = MultiBoxBack_5
+        })
+        --
+        local UIGradient_34 = Library:CreateObject("UIGradient", {
+            Rotation = -90,
+            Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(39, 39, 39)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(35, 35, 35))
+            },
+            Parent = MultiBoxBack_5
+        })
+        --
+        local MultiBoxValue_5 = Library:CreateObject("TextLabel", {
+            FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+            TextColor3 = Color3.fromRGB(152, 152, 152),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Text = "None",
+            Name = "MultiBoxValue_5",
+            BorderSizePixel = 0,
+            BackgroundTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Size = UDim2.new(1, 0, 1, 0),
+            ZIndex = 3,
+            TextSize = Library.UI.FontSize,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = MultiBoxBack_5
+        })
+        --
+        local UIPadding_87 = Library:CreateObject("UIPadding", {
+            PaddingLeft = UDim.new(0, 5),
+            Parent = MultiBoxValue_5
+        })
+        --
+        local Button_44 = Library:CreateObject("TextButton", {
+            FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+            TextColor3 = Color3.fromRGB(0, 0, 0),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Name = "Button_44",
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 1, 0),
+            BorderSizePixel = 0,
+            TextTransparency = 1,
+            TextSize = 14,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = MultiBoxOutline_5
+        })
+        --
+        local MultiBoxName_5 = Library:CreateObject("TextLabel", {
+            FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+            TextColor3 = Library.Theme.Default.TextColor,
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Text = Options.Name,
+            Name = "MultiBoxName_5",
+            ZIndex = 3,
+            Size = UDim2.new(1, -19, 1, 0),
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, 0, 0, -4),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            BorderSizePixel = 0,
+            TextYAlignment = Enum.TextYAlignment.Top,
+            TextSize = Library.UI.FontSize,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = PreviewMultiBox_5
+        })
+        --
+        local UIPadding_88 = Library:CreateObject("UIPadding", {
+            PaddingLeft = UDim.new(0, 20),
+            Parent = PreviewMultiBox_5
+        })
+        --
+        local MultiBoxMainOutline = Library:CreateObject("Frame", {
+            Name = "MultiBoxMainOutline",
+            Position = UDim2.new(0, 0, 0, 0),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 10,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+            Parent = Library.UI.ScreenGUI
+        })
+        --
+        local MultiBoxMain = Library:CreateObject("Frame", {
+            Name = "MultiBoxMain",
+            Position = UDim2.new(0, 1, 0, 1),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Size = UDim2.new(1, -2, 1, -2),
+            BorderSizePixel = 0,
+            ZIndex = 10,
+            ClipsDescendants = true,
+            BackgroundColor3 = Color3.fromRGB(35, 35, 35),
+            Parent = MultiBoxMainOutline
+        })
+        --
+        MultiBoxMainOutline.BackgroundTransparency = 1
+        MultiBoxMain.BackgroundTransparency = 1
+        --
+        local UIListLayout_9 = Library:CreateObject("UIListLayout", {
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Parent = MultiBoxMain
+        })
+        --
+        do -- Functions
+            function MultiBox:Set(Values)
+                for Index, Item in MultiBox.AllItems do
+                    if not table.find(Values, Index) then
+                        MultiBox.Items[Index] = false
+                    else
+                        MultiBox.Items[Index] = true
+                    end
+                    --
+                    Item:Toggle()
+                end
+            end
+            --
+            function MultiBox:Get()
+                return MultiBox.Value
+            end
+            --
+            function MultiBox:SetVisible(Bool)
+                local OldValues = Library.Objects[PreviewMultiBox_5]
+                --
+                MultiBox.Hiding = not Bool
+                --
+                if Bool then
+                    Library.Objects[PreviewMultiBox_5] = {PreviewMultiBox_5, OldValues[2], true}
+                end
+                --
+                Library:Fade(Bool, Library:GetObjectsTable(PreviewMultiBox_5), PreviewMultiBox_5, 0.075)
+                Library:TweenObject(PreviewMultiBox_5, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = Bool and (Options.Name == "" and UDim2.new(1, 0, 0, 20) or UDim2.new(1, 0, 0, 31)) or UDim2.new(1, 0, 0, -10)}, function()
+                    if not Bool then
+                        Library.Objects[PreviewMultiBox_5] = {PreviewMultiBox_5, OldValues[2], false}
+                    end
+                end)
+            end
+            --
+            function MultiBox:AddValue(Value)
+                local Item = {
+                    Active = false,
+                    Hovering = false,
+                }
+                --
+                MultiBox.Items[Value] = Item
+                --
+                local Inactive = Library:CreateObject("TextLabel", {
+                    FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+                    TextColor3 = Color3.fromRGB(208, 208, 208),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Name = Value,
+                    Text = Value,
+                    RichText = true,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    Size = UDim2.new(1, 0, 0, 20),
+                    BorderSizePixel = 0,
+                    TextSize = Library.UI.FontSize,
+                    ZIndex = 10,
+                    BackgroundColor3 = Color3.fromRGB(35, 35, 35),
+                    Parent = MultiBoxMain
+                })
+                --
+                local Button_4 = Library:CreateObject("TextButton", {
+                    FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+                    TextColor3 = Color3.fromRGB(0, 0, 0),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Name = "Button_4",
+                    BackgroundTransparency = 1,
+                    Size = UDim2.new(1, 0, 1, 0),
+                    BorderSizePixel = 0,
+                    TextTransparency = 1,
+                    TextSize = Library.UI.FontSize,
+                    ZIndex = 11,
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    Parent = Inactive
+                })
+                --
+                local UIPadding_48 = Library:CreateObject("UIPadding", {
+                    PaddingLeft = UDim.new(0, 8),
+                    Parent = Inactive
+                })
+                --
+                Inactive.TextTransparency = 1
+                --
+                do -- Functions
+                    function Item:GetSelectedItems()
+                        local SelectedItems = {}
+                        --
+                        for _, Item in MultiBox.SelectedOrder do
+                            if MultiBox.Items[Item] then
+                                table.insert(SelectedItems, Item)
+                            end
+                        end
+                        --
+                        return SelectedItems
+                    end
+                    --
+                    function MultiBox:UpdateValue()
+                        MultiBox.Value = Item:GetSelectedItems()
+                        --
+                        MultiBoxValue_5.Text = Library:ClampString(table.concat(MultiBox.Value, ", "), MultiBoxMain.AbsoluteSize.X - MultiBoxArrow.AbsoluteSize.X - 4)
+                    end
+                    --
+                    function Item:SelectItem(Item)
+                        if not table.find(MultiBox.SelectedOrder, Item) then
+                            table.insert(MultiBox.SelectedOrder, Item)
+                        end
+                        --
+                        MultiBox:UpdateValue()
+                    end
+
+                    function Item:DeselectItem(Item)
+                        for Index, Value in MultiBox.SelectedOrder do
+                            if Value == Item then
+                                table.remove(MultiBox.SelectedOrder, Index)
+                                --
+                                break
+                            end
+                        end
+                        --
+                        MultiBox:UpdateValue()
+                    end
+                    --
+                    function Item:Activate()
+                        if not Item.Active then
+                            Item.Active = true
+                            MultiBox.CurrentItem = Item
+                            MultiBox.Items[Value] = true
+                            Library.Flags[Options.Flag] = MultiBox
+                            Item:SelectItem(Value)
+                            Options.Callback(MultiBox.Value)
+                            --
+                            Inactive.Text = "<b>" .. Value .. "</b>"
+                            Library:TweenObject(Inactive, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {TextColor3 = Library.Theme.Default.Accent})
+                            Library:AddTheme(Inactive, {
+                                TextColor3 = "Accent",
+                            })
+                        end
+                    end
+                    --
+                    function Item:Deactivate()
+                        if Item.Active then
+                            Item.Active = false
+                            Item.Hovering = false
+                            MultiBox.CurrentItem = nil
+                            Library.Flags[Options.Flag] = MultiBox
+                            MultiBox.Items[Value] = false
+                            Item:DeselectItem(Value)
+                            Options.Callback(MultiBox.Value)
+                            --
+                            Inactive.Text = Value
+                            Library:TweenObject(Inactive, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(205, 205, 205)})
+                            Library:AddTheme(Inactive, {
+                                TextColor3 = "TextColor",
+                            })
+                        end
+                    end
+                    --
+                    function Item:Toggle()
+                        MultiBox.Items[Value] = not MultiBox.Items[Value]
+                        --
+                        if MultiBox.Items[Value] then
+                            Item:Activate()
+                        else
+                            Item:Deactivate()
+                        end
+                    end
+                end
+                --
+                do -- Connections
+                    Library:Connection(Button_4.MouseButton1Click, function()
+                        if MultiBox.Hiding then return end
+                        --
+                        Item:Toggle()
+                    end)
+                    --
+                    Library:Connection(Inactive.MouseEnter, function()
+                        Inactive.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+                        --
+                        if Item.Active then return end
+                        --
+                        Inactive.Text = "<b>" .. Value .. "</b>"
+                    end)
+                    --
+                    Library:Connection(Inactive.MouseLeave, function()
+                        Inactive.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+                        --
+                        if Item.Active then return end
+                        --
+                        Inactive.Text = Value
+                        Library:TweenObject(Inactive, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(205, 205, 205)})
+                    end)
+                end
+                --
+                if typeof(Options.Default) == "table" and table.find(Options.Default, Value) then
+                    Item:Activate()
+                    Item:SelectItem(Value)
+                else
+                    MultiBox.Items[Value] = false
+                end
+            end
+            --
+            function MultiBox:Toggle(Fast)
+                local Fast = Fast or false
+                local OldValues = Library.Objects[MultiBoxMainOutline]
+                --
+                if MultiBox.Open then
+                    if Fast then
+                        Library:Fade(false, Library:GetObjectsTable(MultiBoxMainOutline, true), MultiBoxMainOutline, 0)
+                        MultiBoxMainOutline.Size = UDim2.new(0, MultiBoxOutline_5.AbsoluteSize.X, 0, 0)
+                        Library.Objects[MultiBoxMainOutline] = {MultiBoxMainOutline, OldValues[2], true}
+                    else
+                        Library:Fade(false, Library:GetObjectsTable(MultiBoxMainOutline, true), MultiBoxMainOutline, 0.1)
+                        Library:TweenObject(MultiBoxMainOutline, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = UDim2.new(0, MultiBoxOutline_5.AbsoluteSize.X, 0, 0)}, function()
+                            Library.Objects[MultiBoxMainOutline] = {MultiBoxMainOutline, OldValues[2], true}
+                        end)
+                    end
+                else
+                    Library.Objects[MultiBoxMainOutline] = {MultiBoxMainOutline, OldValues[2], false}
+                    --
+                    if Fast then
+                        Library:Fade(true, Library:GetObjectsTable(MultiBoxMainOutline, true), MultiBoxMainOutline, 0)
+                        MultiBoxMainOutline.Size = UDim2.new(0, MultiBoxOutline_5.AbsoluteSize.X, 0, (#Options.Content * 20) + 2)
+                    else
+                        Library:Fade(true, Library:GetObjectsTable(MultiBoxMainOutline, true), MultiBoxMainOutline, 0.1)
+                        Library:TweenObject(MultiBoxMainOutline, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = UDim2.new(0, MultiBoxOutline_5.AbsoluteSize.X, 0, (#Options.Content * 20) + 2)})
+                    end	
+                end
+                --
+                MultiBox.Open = not MultiBox.Open
+            end
+            --
+            function MultiBox:Update()
+                MultiBoxMainOutline.Size = UDim2.new(0, MultiBoxOutline_5.AbsoluteSize.X, 0, MultiBoxMainOutline.AbsoluteSize.Y)
+                MultiBoxMainOutline.Position = UDim2.new(0, MultiBoxOutline_5.AbsolutePosition.X, 0, ((MultiBoxOutline_5.AbsolutePosition.Y + MultiBoxOutline_5.AbsoluteSize.Y) + GuiService:GetGuiInset().Y + 2))
+                --
+                if MultiBox.Open then
+                    MultiBoxMainOutline.Visible = Library:ScrollingCheck(Options.Parent, MultiBoxChecker)
+                end
+            end
+            --
+            MultiBox:Update()
+            --
+            Library:Connection(MultiBoxOutline_5:GetPropertyChangedSignal("AbsolutePosition"), MultiBox.Update)
+            Library:Connection(MultiBoxOutline_5:GetPropertyChangedSignal("AbsoluteSize"), MultiBox.Update)
+            --
+            local StartingX = PreviewMultiBox_5.AbsolutePosition.X
+            local StartingY = PreviewMultiBox_5.AbsolutePosition.Y
+            local MainUIStartingX = Options.MainUI.AbsolutePosition.X
+            local MainUIStartingY = Options.MainUI.AbsolutePosition.Y
+            local StartingCanvasPosition = Options.Parent.CanvasPosition
+            --
+            Library:Connection(PreviewMultiBox_5:GetPropertyChangedSignal("AbsolutePosition"), function()
+                if not MultiBox.Open then return end
+                --
+                local CurrentX = PreviewMultiBox_5.AbsolutePosition.X
+                local CurrentY = PreviewMultiBox_5.AbsolutePosition.Y
+                local MainUICurrentX = Options.MainUI.AbsolutePosition.X
+                local MainUICurrentY = Options.MainUI.AbsolutePosition.Y
+                local CurrentCanvasPosition = Options.Parent.CanvasPosition
+                --
+                if MainUICurrentX ~= MainUIStartingX or MainUICurrentY ~= MainUIStartingY then
+                    MainUIStartingX = MainUICurrentX
+                    MainUIStartingY = MainUICurrentY
+                    StartingX = CurrentX
+                    StartingY = CurrentY
+                    --
+                    return
+                end
+                --
+                if CurrentCanvasPosition ~= StartingCanvasPosition then
+                    StartingCanvasPosition = CurrentCanvasPosition
+                    StartingX = CurrentX
+                    StartingY = CurrentY
+                    --
+                    return
+                end
+                --
+                if Library.UI.Resizing then
+                    return
+                end
+                --
+                if CurrentX ~= StartingX or CurrentY ~= StartingY then
+                    MultiBox:Toggle(true)
+                end
+                --
+                StartingX = CurrentX
+                StartingY = CurrentY
+            end)
+            --
+            if Options.Parent:IsA("ScrollingFrame") then
+                Library:Connection(Options.Parent:GetPropertyChangedSignal("CanvasPosition"), function()
+                    MultiBox:Update()
+                end)
+            end
+        end
+        --
+        do -- Connections
+            Library:Connection(Button_44.MouseButton1Click, function()
+                if MultiBox.Hiding then return end
+                --
+                MultiBox:Toggle()
+            end)
+            --
+            Library:Connection(MultiBoxOutline_5.MouseEnter, function()
+                if Library.UI.Faded then return end
+                --
+                if not MultiBox.Open then
+                    MultiBox.Hovering = true
+                    Library:TweenObject(MultiBoxBack_5, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(255, 255, 255)})
+                end	
+            end)
+            --
+            Library:Connection(MultiBoxOutline_5.MouseLeave, function()
+                if Library.UI.Faded then return end
+                --
+                if not MultiBox.Open then
+                    MultiBox.Hovering = false
+                    Library:TweenObject(MultiBoxBack_5, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(220, 220, 220)})
+                end	
+            end)
+        end
+        --
+        for Index, Value in Options.Content do
+            if typeof(Value) == "boolean" or typeof(Value) == "table" then continue end
+            --
+            MultiBox:AddValue(Value)
+        end
+        --
+        Library:Fade(false, Library:GetObjectsTable(MultiBoxMainOutline, true), MultiBoxMainOutline, 0.1)
+        --
+        if Options.Hiding then
+            MultiBox:SetVisible(false)
+        end
+        --
+        MultiBox:Toggle(true)
+        --
+        return MultiBox
+    end
+    --
+    function Library:Dropdown(Options)
+        Options = Library:Validate({
+            Default = "None",
+            Name = "Preview Dropdown",
+            Content = {},
+            Parent = nil,
+            MainUI = nil,
+            Hiding = false,
+            TabUI = nil,
+            Risky = false,
+            Flag = Library.NewFlag(),
+            Callback = function() end
+        }, Options or {})
+        --
+        local Dropdown = {
+            Open = false,
+            Active = false,
+            Hovering = false,
+            CurrentItem = nil,
+            Scrollable = false,
+            Hiding = false,
+            Items = {},
+            Value = Options.Default,
+        }
+        --
+        Library.Flags[Options.Flag] = Dropdown
+        --
+        local PreviewDropdown_5 = Library:CreateObject("Frame", {
+            Name = "PreviewDropdown_5",
+            BackgroundTransparency = 1,
+            Size = Options.Name == "" and UDim2.new(1, 0, 0, 20) or UDim2.new(1, 0, 0, 31),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = Options.Parent
+        })
+        --
+        local DropdownOutline_5 = Library:CreateObject("Frame", {
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            AnchorPoint = Vector2.new(0, 1),
+            Name = "DropdownOutline_5",
+            Position = UDim2.new(0, -1, 1, 0),
+            Size = UDim2.new(1, -19, 0, 20),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+            Parent = PreviewDropdown_5
+        })
+        --
+        local DropdownChecker = Library:CreateObject("Frame", {
+            Name = "DropdownChecker",
+            Position = UDim2.new(0, 0, 1, 0),
+            Visible = false,
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Size = UDim2.new(1, 0, 0, 1),
+            BorderSizePixel = 0,
+            Parent = DropdownOutline_5
+        })
+        --
+        local DropdownBack_5 = Library:CreateObject("Frame", {
+            Size = UDim2.new(1, -2, 1, -2),
+            Name = "DropdownBack_5",
+            Position = UDim2.new(0, 1, 0, 1),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(220, 220, 220),
+            Parent = DropdownOutline_5
+        })
+        --
+        local DropdownArrow = Library:CreateObject("ImageLabel", {
+            ImageColor3 = Color3.fromRGB(151, 151, 151),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Name = "DropdownArrow",
+            Image = "rbxassetid://15556784588",
+            BackgroundTransparency = 1,
+            Position = UDim2.new(1, -11, 0, 6),
+            Size = UDim2.new(0, 5, 0, 4),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = DropdownBack_5
+        })
+        --
+        local UIGradient_34 = Library:CreateObject("UIGradient", {
+            Rotation = -90,
+            Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(39, 39, 39)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(35, 35, 35))
+            },
+            Parent = DropdownBack_5
+        })
+        --
+        local DropdownValue_5 = Library:CreateObject("TextLabel", {
+            FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+            TextColor3 = Color3.fromRGB(152, 152, 152),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Text = Options.Default ~= "None" and table.find(Options.Content, Options.Default) and Options.Default or "None",
+            Name = "DropdownValue_5",
+            BorderSizePixel = 0,
+            BackgroundTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Size = UDim2.new(1, 0, 1, 0),
+            ZIndex = 3,
+            TextSize = Library.UI.FontSize,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = DropdownBack_5
+        })
+        --
+        local UIPadding_87 = Library:CreateObject("UIPadding", {
+            PaddingLeft = UDim.new(0, 5),
+            Parent = DropdownValue_5
+        })
+        --
+        local Button_44 = Library:CreateObject("TextButton", {
+            FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+            TextColor3 = Color3.fromRGB(0, 0, 0),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Name = "Button_44",
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 1, 0),
+            BorderSizePixel = 0,
+            TextTransparency = 1,
+            TextSize = 14,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = DropdownOutline_5
+        })
+        --
+        local DropdownName_5 = Library:CreateObject("TextLabel", {
+            FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+            TextColor3 = Library.Theme.Default.TextColor,
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Text = Options.Name,
+            Name = "DropdownName_5",
+            ZIndex = 3,
+            Position = UDim2.new(0, 0, 0, -4),
+            Size = UDim2.new(1, -19, 1, 0),
+            BackgroundTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            BorderSizePixel = 0,
+            TextYAlignment = Enum.TextYAlignment.Top,
+            TextSize = Library.UI.FontSize,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = PreviewDropdown_5
+        })
+        --
+        local UIPadding_88 = Library:CreateObject("UIPadding", {
+            PaddingLeft = UDim.new(0, 20),
+            Parent = PreviewDropdown_5
+        })
+        --
+        local DropdownMainOutline = Library:CreateObject("Frame", {
+            Name = "DropdownMainOutline",
+            Position = UDim2.new(0, 0, 0, 0),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 10,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+            Parent = Library.UI.ScreenGUI
+        })
+        --
+        local DropdownMain = Library:CreateObject("Frame", {
+            Name = "DropdownMain",
+            Position = UDim2.new(0, 1, 0, 1),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Size = UDim2.new(1, -2, 1, -2),
+            BorderSizePixel = 0,
+            ZIndex = 10,
+            ClipsDescendants = true,
+            BackgroundColor3 = Color3.fromRGB(35, 35, 35),
+            Parent = DropdownMainOutline
+        })
+        --
+        DropdownMainOutline.BackgroundTransparency = 1
+        DropdownMain.BackgroundTransparency = 1
+        --
+        local UIListLayout_9 = Library:CreateObject("UIListLayout", {
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Parent = DropdownMain
+        })
+        --
+        do -- Functions
+            function Dropdown:Set(State)
+                for Index, Value in Dropdown.Items do
+                    if Index == State then
+                        Value:Activate()
+                    else
+                        Value:Deactivate()
+                    end
+                end
+            end
+            --
+            function Dropdown:Get()
+                return Dropdown.Value
+            end
+            --
+            function Dropdown:SetVisible(Bool)
+                local OldValues = Library.Objects[PreviewDropdown_5]
+                --
+                Dropdown.Hiding = not Bool
+                --
+                if Bool then
+                    Library.Objects[PreviewDropdown_5] = {PreviewDropdown_5, OldValues[2], true}
+                end
+                --
+                Library:Fade(Bool, Library:GetObjectsTable(PreviewDropdown_5), PreviewDropdown_5, 0.075)
+                Library:TweenObject(PreviewDropdown_5, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = Bool and (Options.Name == "" and UDim2.new(1, 0, 0, 20) or UDim2.new(1, 0, 0, 31)) or UDim2.new(1, 0, 0, -10)}, function()
+                    if not Bool then
+                        Library.Objects[PreviewDropdown_5] = {PreviewDropdown_5, OldValues[2], false}
+                    end
+                end)
+            end
+            --
+            function Dropdown:AddValue(Value)
+                local Item = {
+                    Active = false,
+                    Hovering = false,
+                }
+                --
+                Dropdown.Items[Value] = Item
+                --
+                local Inactive = Library:CreateObject("TextLabel", {
+                    FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+                    TextColor3 = Color3.fromRGB(208, 208, 208),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Name = Value,
+                    Text = Value,
+                    RichText = true,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    Size = UDim2.new(1, 0, 0, 20),
+                    BorderSizePixel = 0,
+                    TextSize = Library.UI.FontSize,
+                    ZIndex = 10,
+                    BackgroundColor3 = Color3.fromRGB(35, 35, 35),
+                    Parent = DropdownMain
+                })
+                --
+                local Button_4 = Library:CreateObject("TextButton", {
+                    FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+                    TextColor3 = Color3.fromRGB(0, 0, 0),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Name = "Button_4",
+                    BackgroundTransparency = 1,
+                    Size = UDim2.new(1, 0, 1, 0),
+                    BorderSizePixel = 0,
+                    TextTransparency = 1,
+                    TextSize = Library.UI.FontSize,
+                    ZIndex = 10,
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    Parent = Inactive
+                })
+                --
+                local UIPadding_48 = Library:CreateObject("UIPadding", {
+                    PaddingLeft = UDim.new(0, 8),
+                    Parent = Inactive
+                })
+                --
+                Inactive.TextTransparency = 1
+                --
+                do -- Functions
+                    function Item:Activate()
+                        if not Item.Active then
+                            if Dropdown.CurrentItem ~= nil then
+                                Dropdown.CurrentItem:Deactivate()
+                            end
+                            --
+                            Item.Active = true
+                            Dropdown.CurrentItem = Item
+                            Dropdown.Value = Value
+                            Library.Flags[Options.Flag] = Dropdown
+                            Options.Callback(Value)
+                            DropdownValue_5.Text = Value
+                            --
+                            Inactive.Text = "<b>" .. Value .. "</b>"
+                            Library:TweenObject(Inactive, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {TextColor3 = Library.Theme.Default.Accent})
+                            Library:AddTheme(Inactive, {
+                                TextColor3 = "Accent",
+                            })
+                        end
+                    end
+                    --
+                    function Item:Deactivate()
+                        if Item.Active then
+                            Item.Active = false
+                            Item.Hovering = false
+                            Inactive.Text = Value
+                            Inactive.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+                            Library:TweenObject(Inactive, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(205, 205, 205)})
+                            Library:AddTheme(Inactive, {
+                                TextColor3 = "TextColor",
+                            })
+                        end
+                    end
+                end
+                --
+                do -- Connections
+                    Library:Connection(Button_4.MouseButton1Click, function()
+                        if Dropdown.Hiding then return end
+                        --
+                        Item:Activate()
+                        Dropdown:Toggle()
+                    end)
+                    --
+                    Library:Connection(Inactive.MouseEnter, function()
+                        Inactive.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+                        --
+                        if Item.Active then return end
+                        --
+                        Inactive.Text = "<b>" .. Value .. "</b>"
+                    end)
+                    --
+                    Library:Connection(Inactive.MouseLeave, function()
+                        Inactive.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+                        --
+                        if Item.Active then return end
+                        --
+                        Inactive.Text = Value
+                        Library:TweenObject(Inactive, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(205, 205, 205)})
+                    end)
+                end
+                --
+                if Value == Options.Default then
+                    Item:Activate()
+                end
+            end
+            --
+            function Dropdown:Toggle(Fast)
+                local Fast = Fast or false
+                local OldValues = Library.Objects[DropdownMainOutline]
+                --
+                if Dropdown.Open then
+                    if Fast then
+                        Library:Fade(false, Library:GetObjectsTable(DropdownMainOutline, true), DropdownMainOutline, 0)
+                        DropdownMainOutline.Size = UDim2.new(0, DropdownOutline_5.AbsoluteSize.X, 0, 0)
+                        Library.Objects[DropdownMainOutline] = {DropdownMainOutline, OldValues[2], true}
+                    else
+                        Library:Fade(false, Library:GetObjectsTable(DropdownMainOutline, true), DropdownMainOutline, 0.1)
+                        Library:TweenObject(DropdownMainOutline, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = UDim2.new(0, DropdownOutline_5.AbsoluteSize.X, 0, 0)}, function()
+                            Library.Objects[DropdownMainOutline] = {DropdownMainOutline, OldValues[2], true}
+                        end)
+                    end
+                else
+                    Library.Objects[DropdownMainOutline] = {DropdownMainOutline, OldValues[2], false}
+                    --
+                    if Fast then
+                        Library:Fade(true, Library:GetObjectsTable(DropdownMainOutline, true), DropdownMainOutline, 0)
+                        DropdownMainOutline.Size = UDim2.new(0, DropdownOutline_5.AbsoluteSize.X, 0, (#Options.Content * 20) + 2)
+                    else
+                        Library:Fade(true, Library:GetObjectsTable(DropdownMainOutline, true), DropdownMainOutline, 0.1)
+                        Library:TweenObject(DropdownMainOutline, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = UDim2.new(0, DropdownOutline_5.AbsoluteSize.X, 0, (#Options.Content * 20) + 2)})
+                    end	
+                end
+                --
+                Dropdown.Open = not Dropdown.Open
+            end
+            --
+            function Dropdown:Update()
+                DropdownMainOutline.Size = UDim2.new(0, DropdownOutline_5.AbsoluteSize.X, 0, DropdownMainOutline.AbsoluteSize.Y)
+                DropdownMainOutline.Position = UDim2.new(0, DropdownOutline_5.AbsolutePosition.X, 0, ((DropdownOutline_5.AbsolutePosition.Y + DropdownOutline_5.AbsoluteSize.Y) + GuiService:GetGuiInset().Y + 2))
+                --
+                if Dropdown.Open then
+                    DropdownMainOutline.Visible = Library:ScrollingCheck(Options.Parent, DropdownChecker)
+                end
+            end
+            --
+            Dropdown:Update()
+            --
+            Library:Connection(DropdownOutline_5:GetPropertyChangedSignal("AbsolutePosition"), Dropdown.Update)
+            Library:Connection(DropdownOutline_5:GetPropertyChangedSignal("AbsoluteSize"), Dropdown.Update)
+            --
+            local StartingX = PreviewDropdown_5.AbsolutePosition.X
+            local StartingY = PreviewDropdown_5.AbsolutePosition.Y
+            local MainUIStartingX = Options.MainUI.AbsolutePosition.X
+            local MainUIStartingY = Options.MainUI.AbsolutePosition.Y
+            local StartingCanvasPosition = Options.Parent.CanvasPosition
+            --
+            Library:Connection(PreviewDropdown_5:GetPropertyChangedSignal("AbsolutePosition"), function()
+                if not Dropdown.Open then return end
+                --
+                local CurrentX = PreviewDropdown_5.AbsolutePosition.X
+                local CurrentY = PreviewDropdown_5.AbsolutePosition.Y
+                local MainUICurrentX = Options.MainUI.AbsolutePosition.X
+                local MainUICurrentY = Options.MainUI.AbsolutePosition.Y
+                local CurrentCanvasPosition = Options.Parent.CanvasPosition
+                --
+                if MainUICurrentX ~= MainUIStartingX or MainUICurrentY ~= MainUIStartingY then
+                    MainUIStartingX = MainUICurrentX
+                    MainUIStartingY = MainUICurrentY
+                    StartingX = CurrentX
+                    StartingY = CurrentY
+                    --
+                    return
+                end
+                --
+                if CurrentCanvasPosition ~= StartingCanvasPosition then
+                    StartingCanvasPosition = CurrentCanvasPosition
+                    StartingX = CurrentX
+                    StartingY = CurrentY
+                    --
+                    return
+                end
+                --
+                if Library.UI.Resizing then
+                    return
+                end
+                --
+                if CurrentX ~= StartingX or CurrentY ~= StartingY then
+                    Dropdown:Toggle(true)
+                end
+                --
+                StartingX = CurrentX
+                StartingY = CurrentY
+            end)
+            --
+            if Options.Parent:IsA("ScrollingFrame") then
+                Library:Connection(Options.Parent:GetPropertyChangedSignal("CanvasPosition"), function()
+                    Dropdown:Update()
+                end)
+            end
+        end
+        --
+        do -- Connections
+            Library:Connection(Button_44.MouseButton1Click, function()
+                if Dropdown.Hiding then return end
+                --
+                Dropdown:Toggle()
+            end)
+            --
+            Library:Connection(DropdownOutline_5.MouseEnter, function()
+                if Library.UI.Faded then return end
+                --
+                if not Dropdown.Open then
+                    Dropdown.Hovering = true
+                    Library:TweenObject(DropdownBack_5, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(255, 255, 255)})
+                end	
+            end)
+            --
+            Library:Connection(DropdownOutline_5.MouseLeave, function()
+                if Library.UI.Faded then return end
+                --
+                if not Dropdown.Open then
+                    Dropdown.Hovering = false
+                    Library:TweenObject(DropdownBack_5, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(220, 220, 220)})
+                end	
+            end)
+        end
+        --
+        for _, Value in Options.Content do
+            Dropdown:AddValue(Value)
+        end
+        --
+        Library:Fade(false, Library:GetObjectsTable(DropdownMainOutline, true), DropdownMainOutline, 0.1)
+        --
+        if Options.Hiding then
+            Dropdown:SetVisible(false)
+        end
+        --
+        Dropdown:Toggle(true)
+        --
+        return Dropdown
+    end
+    --
+    function Library:Slider(Options)
+        Options = Library:Validate({
+            Name = "Preview Slider",
+            Min = 0,
+            Max = 100,
+            Default = 1,
+            Decimal = 1,
+            UseIcons = true,
+            Ending = "",
+            Disable = {},
+            Hidden = false,
+            Risky = false,
+            Parent = nil,
+            OverrideLimit = false, -- new parameter to allow values beyond max
+            Flag = Library.NewFlag(),
+            Callback = function() end
+        }, Options or {})
+        --
+        local Slider = {
+            MouseDown = false,
+            Hiding = false,
+            Hovering = false,
+            Connection = nil,
+            CurrentValue = -9999,
+            LeftControlDown = false,
+        }
+        --
+        Library.Flags[Options.Flag] = Slider
+        --
+        local PreviewSlider = Library:CreateObject("Frame", {
+            Name = "PreviewSlider",
+            BackgroundTransparency = 1,
+            Size = Options.Name == "" and UDim2.new(1, 0, 0, 7) or UDim2.new(1, 0, 0, 20),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = Options.Parent
+        })
+        --
+        local SliderOutline = Library:CreateObject("Frame", {
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            AnchorPoint = Vector2.new(0, 1),
+            Name = "SliderOutline",
+            Position = UDim2.new(0, -1, 1, 0),
+            Size = UDim2.new(1, -19, 0, 7),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+            Parent = PreviewSlider
+        })
+        --
+        local SliderBack = Library:CreateObject("Frame", {
+            Size = UDim2.new(1, -2, 1, -2),
+            Name = "SliderBack",
+            Position = UDim2.new(0, 1, 0, 1),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(205, 205, 205),
+            Parent = SliderOutline
+        })
+        --
+        local UIGradient_2 = Library:CreateObject("UIGradient", {
+            Rotation = -90,
+            Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(81, 81, 81)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(68, 68, 68))
+            },
+            Parent = SliderBack
+        })
+        --
+        local SliderDrag = Library:CreateObject("Frame", {
+            Name = "Slider",
+            Size = UDim2.new(0.5, 0, 1, 0),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = SliderBack
+        })
+        --
+        local UIGradient_3 = Library:CreateObject("UIGradient", {
+            Rotation = 90,
+            Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Library.Theme.Default.Accent),
+                ColorSequenceKeypoint.new(1, Library.Theme.Default.SecondAccent)
+            },
+            Parent = SliderDrag
+        })
+        --
+        Library:AddTheme(UIGradient_3, {
+            Color = {"Accent", "SecondAccent"},
+        })
+        --
+        local Button_4 = Library:CreateObject("TextButton", {
+            FontFace = Library.UI.NewFont,
+            TextColor3 = Color3.fromRGB(0, 0, 0),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Name = "Button_4",
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 1, 0),
+            BorderSizePixel = 0,
+            TextTransparency = 1,
+            TextSize = Library.UI.FontSize,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = SliderOutline
+        })
+        --
+        local SliderName = Library:CreateObject("TextLabel", {
+            FontFace = Library.UI.NewFont,
+            TextColor3 = Options.Risky and Library.Theme.Default.Risky or Library.Theme.Default.TextColor,
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Text = Options.Name,
+            Name = "SliderName",
+            ZIndex = 3,
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            BorderSizePixel = 0,
+            TextYAlignment = Enum.TextYAlignment.Top,
+            TextSize = Library.UI.FontSize,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = PreviewSlider
+        })
+        --
+        if Options.Risky then
+            Library:AddTheme(SliderName, {
+                TextColor3 = "Risky",
+            })
+        end
+        --
+        local UIPadding_3 = Library:CreateObject("UIPadding", {
+            PaddingTop = UDim.new(0, -4),
+            PaddingLeft = UDim.new(0, 20),
+            Parent = PreviewSlider
+        })
+        --
+        local SliderValue = Library:CreateObject("TextBox", {
+            FontFace = Library.UI.NewFont,
+            TextColor3 = Color3.fromRGB(198, 198, 198),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Text = Options.Default,
+            Name = "SliderValue",
+            ZIndex = 3,
+            AnchorPoint = Vector2.new(1, 0),
+            Size = UDim2.new(0, 10, 0, 10),
+            Position = UDim2.new(0, 100, 0, 0),
+            BackgroundTransparency = 1,
+            RichText = true,
+            BorderSizePixel = 0,
+            TextYAlignment = Enum.TextYAlignment.Top,
+            TextSize = Library.UI.FontSize,
+            TextStrokeTransparency = 0,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = SliderDrag
+        })
+        --
+        local AddButton = Library:CreateObject("Frame", {
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            AnchorPoint = Vector2.new(1, 1),
+            Name = "AddButton",
+            Position = UDim2.new(1, -13, 1, -3),
+            Size = UDim2.new(0, 3, 0, 1),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            Visible = Options.UseIcons,
+            BackgroundColor3 = Color3.fromRGB(100, 100, 100),
+            Parent = PreviewSlider
+        })
+        --
+        local AddButton2 = Library:CreateObject("Frame", {
+            Size = UDim2.new(0, 1, 0, 3),
+            Name = "AddButton2",
+            Position = UDim2.new(0, 1, 0, -1),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            Visible = Options.UseIcons,
+            BackgroundColor3 = Color3.fromRGB(100, 100, 100),
+            Parent = AddButton
+        })
+        --
+        local AddActualButton = Library:CreateObject("TextButton", {
+            FontFace = Library.UI.NewFont,
+            TextColor3 = Color3.fromRGB(0, 0, 0),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Name = "AddActualButton",
+            TextTransparency = 1,
+            AnchorPoint = Vector2.new(1, 1),
+            Size = UDim2.new(0, 11, 0, 7),
+            Visible = Options.UseIcons,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(1, -9, 1, 1),
+            BorderSizePixel = 0,
+            ZIndex = 3,
+            TextSize = Library.UI.FontSize,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = PreviewSlider
+        })
+        --
+        local MinusActualButton = Library:CreateObject("TextButton", {
+            FontFace = Library.UI.NewFont,
+            TextColor3 = Color3.fromRGB(0, 0, 0),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Name = "MinusActualButton",
+            TextTransparency = 1,
+            Visible = Options.UseIcons,
+            AnchorPoint = Vector2.new(0, 1),
+            Size = UDim2.new(0, 11, 0, 7),
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, -12, 1, 0),
+            BorderSizePixel = 0,
+            ZIndex = 3,
+            TextSize = Library.UI.FontSize,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = PreviewSlider
+        })
+        --
+        local MinusButton = Library:CreateObject("Frame", {
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            AnchorPoint = Vector2.new(0, 1),
+            Name = "MinusButton",
+            Visible = Options.UseIcons,
+            Position = UDim2.new(0, -8, 1, -3),
+            Size = UDim2.new(0, 3, 0, 1),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(100, 100, 100),
+            Parent = PreviewSlider
+        })
+        --
+        local function GetValue(Value)
+            return typeof(Value) == "string" and Value or ("%.14g"):format(Value)
+        end
+        --
+        local function SetValue(Value, IgnoreLimit)
+            if (not Value) or Slider.Hiding then return end
+            --
+            local OriginalValue = Value
+            -- check if we should allow values beyond the max
+            if Options.OverrideLimit and IgnoreLimit then
+                -- allow any value (still enforce min and decimal rounding)
+                Value = Value and math.max(Options.Decimal * math.round(tonumber(Value) / Options.Decimal), Options.Min) or 0
+            else
+                -- default behavior: clamp between min and max
+                Value = Value and math.clamp(Options.Decimal * math.round(tonumber(Value) / Options.Decimal), Options.Min, Options.Max) or 0
+            end
+            
+            local ValueText = Options.Disable[1] and ((Value <= Options.Disable[2] or Value >= Options.Disable[3]) and Options.Disable[1]) or tostring(GetValue(Value)) .. Options.Ending
+            --
+            SliderValue.Text = "<b>" .. ValueText .. "</b>"
+            --
+            if Value ~= Slider.CurrentValue then
+                Slider.CurrentValue = Value
+                --
+                -- always display the slider within bounds, even if the value is beyond max
+                local DisplayValue = math.min(Value, Options.Max)
+                Library:TweenObject(SliderDrag, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = UDim2.new((DisplayValue - Options.Min) / (Options.Max - Options.Min), 0, 1, 0)})
+                --
+                SliderValue.Size = UDim2.fromOffset(SliderValue.TextBounds.X, SliderValue.TextBounds.Y)
+                SliderValue.Position = UDim2.new(1, SliderValue.TextBounds.X / 2, 0, -4)
+            end
+            --
+            Library.Flags[Options.Flag] = Slider
+            Options.Callback(tonumber(GetValue(Value)))
+        end
+        --
+        SetValue(Options.Default)
+        --
+        function Slider:Get()
+            return tonumber(GetValue(Slider.CurrentValue))
+        end
+        --
+        function Slider:Max()
+            return Options.Max
+        end
+        --
+        function Slider:Min()
+            return Options.Min
+        end
+        --
+        function Slider:Set(Value)
+            if not Value then return end
+            --
+            SetValue(Value, Options.OverrideLimit) -- allow overriding limits for api calls too
+        end
+        --
+        function Slider:GetName()
+            return Options.Name
+        end
+        --
+        function Slider:SetVisible(Bool)
+            local OldValues = Library.Objects[PreviewSlider]
+            --
+            Slider.Hiding = not Bool
+            SliderValue.Visible = Bool
+            --
+            if Bool then
+                Library.Objects[PreviewSlider] = {PreviewSlider, OldValues[2], true}
+            end
+            --
+            Library:Fade(Bool, Library:GetObjectsTable(PreviewSlider), PreviewSlider, 0.075)
+            Library:TweenObject(PreviewSlider, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = Bool and (Options.Name == "" and UDim2.new(1, 0, 0, 7) or UDim2.new(1, 0, 0, 20)) or UDim2.new(1, 0, 0, -10)}, function()
+                if not Bool then
+                    Library.Objects[PreviewSlider] = {PreviewSlider, OldValues[2], false}
+                end
+            end)
+        end
+        --
+        local function SlideBar(Input)
+            local SizeX = (Input.Position.X - SliderBack.AbsolutePosition.X) / SliderBack.AbsoluteSize.X
+            local Value = math.clamp((Options.Max - Options.Min) * SizeX + Options.Min, Options.Min, Options.Max)
+            --
+            SetValue(Value)
+        end
+        --
+        do -- Connections
+            Library:Connection(SliderOutline.MouseEnter, function()
+                if Library.UI.Faded then return end
+                --
+                Library:TweenObject(SliderBack, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(255, 255, 255)})
+            end)
+            --
+            Library:Connection(SliderOutline.MouseLeave, function()
+                if Library.UI.Faded then return end
+                --
+                Library:TweenObject(SliderBack, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(205, 205, 205)})
+            end)
+            --
+            Library:Connection(MinusActualButton.MouseButton1Click, function()
+                if Library.UI.Faded then return end
+                --
+                Slider:Set(Slider.CurrentValue - Options.Decimal)
+            end)
+            --
+            Library:Connection(AddActualButton.MouseButton1Click, function()
+                if Library.UI.Faded then return end
+                --
+                Slider:Set(Slider.CurrentValue + Options.Decimal)
+            end)
+            --
+            Library:Connection(Button_4.MouseButton1Down, function()
+                if Library.UI.Faded then return end
+                --
+                Library.UI.DraggingGui = SliderDrag
+                Slider.MouseDown = true
+                SlideBar({Position = UserInputService:GetMouseLocation()})
+            end)
+            --
+            Library:Connection(SliderValue.FocusLost, function()
+                local NewValue = tonumber(SliderValue.Text)
+                --
+                if NewValue then
+                    SetValue(NewValue, Options.OverrideLimit) -- pass true to allow exceeding max
+                else
+                    SetValue(Options.Min)
+                end
+            end)
+            --
+            Library:Connection(UserInputService.InputChanged, function(Input)
+                if Library.UI.Faded then return end
+                --
+                if Library.UI.DraggingGui ~= SliderDrag and not (UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)) then
+                    return
+                end
+                --
+                if Slider.MouseDown and Input.UserInputType == Enum.UserInputType.MouseMovement then
+                    SlideBar(Input)
+                end
+            end)
+            --
+            Library:Connection(UserInputService.InputEnded, function(Input)
+                if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    Slider.MouseDown = false
+                end
+            end)
+        end
+        --
+        if Options.Hidden then
+            Slider:SetVisible(false)
+        end
+        --
+        return Slider
+    end
+    --
+    function Library:Toggle(Options)
+        Options = Library:Validate({
+            Default = false,
+            Name = "Preview Toggle",
+            Risky = false,
+            SectionName = nil,
+            Parent = nil,
+            Hidden = false,
+            AnchorPoint = Vector2.new(0, 0),
+            MainUI = nil,
+            Size = UDim2.new(1, 0, 0, 8),
+            Position = UDim2.new(0, 0, 0, 0),
+            UseToggleOutline = false,
+            ZIndex = 2,
+            Flag = Library:NewFlag(),
+            Callback = function() end
+        }, Options or {})
+        --
+        local Toggle = {
+            Active = false,
+            Hovering = false,
+            State = false,
+            Hiding = false,
+            MainUI = Options.MainUI,
+            TabUI = Options.TabUI,
+            ColorPickers = {},
+            KeybindState = false,
+        }
+        --
+        Library.Flags[Options.Flag] = Toggle
+        --
+        local PreviewToggle = Library:CreateObject("Frame", {
+            Name = "PreviewToggle",
+            BackgroundTransparency = 1,
+            Size = Options.Size,
+            Position = Options.Position,
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            AnchorPoint = Options.AnchorPoint,
+            ZIndex = Options.ZIndex or 2,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = Options.Parent
+        })
+        --
+        local ToggleOutline = Library:CreateObject("Frame", {
+            Name = "ToggleOutline",
+            Size = UDim2.new(0, 8, 0, 8),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = Options.ZIndex or 2,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+            Parent = PreviewToggle
+        })
+        --
+        if Options.UseToggleOutline then
+            ToggleOutline.AnchorPoint = Options.AnchorPoint
+            ToggleOutline.Position = Options.Position
+        end
+        --
+        local ToggleInline = Library:CreateObject("Frame", {
+            Size = UDim2.new(1, -2, 1, -2),
+            Name = "ToggleInline",
+            Position = UDim2.new(0, 1, 0, 1),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = Options.ZIndex or 2,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(227, 227, 227),
+            Parent = ToggleOutline
+        })
+        --
+        local UIGradient_3 = Library:CreateObject("UIGradient", {
+            Rotation = 90,
+            Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(84, 84, 84)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(74, 74, 74))
+            },
+            Parent = ToggleInline
+        })
+        --
+        local ToggleMain = Library:CreateObject("Frame", {
+            Size = UDim2.new(1, -2, 1, -2),
+            Name = "ToggleInline",
+            Position = UDim2.new(0, 1, 0, 1),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = Options.ZIndex or 2,
+            BorderSizePixel = 0,
+            BackgroundTransparency = 1,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = ToggleOutline
+        })
+        --
+        Library.Objects[ToggleMain] = {ToggleMain, {BackgroundTransparency = ToggleMain.BackgroundTransparency}, false}
+        --
+        local UIGradient_32 = Library:CreateObject("UIGradient", {
+            Rotation = 90,
+            Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Library.Theme.Default.Accent),
+                ColorSequenceKeypoint.new(1, Library.Theme.Default.SecondAccent)
+            },
+            Parent = ToggleMain
+        })
+        --
+        Library:AddTheme(UIGradient_32, {
+            Color = {"Accent", "SecondAccent"},
+        })
+        --
+        local ToggleName = Library:CreateObject("TextLabel", {
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Name = "ToggleName",
+            BorderSizePixel = 0,
+            BackgroundTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Size = UDim2.new(1, 0, 1, 0),
+            ZIndex = Options.ZIndex or 2,
+            FontFace = Library.UI.NewFont,
+            RichText = true,
+            Text = Options.Name,
+            TextColor3 = Options.Risky and Library.Theme.Default.Risky or Library.Theme.Default.TextColor,
+            TextSize = Library.UI.FontSize,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = PreviewToggle
+        })
+        --
+        if Options.Risky then
+            Library:AddTheme(ToggleName, {
+                TextColor3 = "Risky",
+            })
+        end
+        --
+        local UIPadding_7 = Library:CreateObject("UIPadding", {
+            PaddingLeft = UDim.new(0, 20),
+            Parent = ToggleName
+        })
+        --
+        local Button_9 = Library:CreateObject("TextButton", {
+            FontFace = Library.UI.NewFont,
+            TextColor3 = Color3.fromRGB(0, 0, 0),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Name = "Button_9",
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 1, 0),
+            BorderSizePixel = 0,
+            TextTransparency = 1,
+            TextSize = Library.UI.FontSize,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = PreviewToggle
+        })
+        --
+        do -- Functions
+            function Toggle:ToggleGUI(Bool)
+                if Bool == nil then
+                    Toggle.State = not Toggle.State
+                else
+                    Toggle.State = Bool
+                end
+                --
+                Library:TweenObject(ToggleMain, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {BackgroundTransparency = Toggle.State and 0 or 1})
+                
+                -- update the stored transparency value in the objects table, this is for the temp fix for the toggle out and toggle in 
+                -- since this uses instant out and instant in instead of the normal fade in and fade out
+                if Library.Objects[ToggleMain] then
+                    Library.Objects[ToggleMain][2].BackgroundTransparency = Toggle.State and 0 or 1
+                end
+                
+                --
+                Library.Flags[Options.Flag] = Toggle
+                Options.Callback(Toggle.State)
+            end
+            --
+            function Toggle:GetName()
+                return Options.Name
+            end
+            --
+            function Toggle:GetFlag()
+                return Options.Flag
+            end
+            --
+            function Toggle:GetSection()
+                return Options.SectionName
+            end
+            --
+            function Toggle:GetState()
+                return Toggle.State
+            end
+            --
+            function Toggle:GetCallback(b)
+                Options.Callback(b)
+            end
+            --
+            function Toggle:Set(Value)
+                Toggle:ToggleGUI(Value)
+            end
+            --
+            function Toggle:SetName(Name)
+                Options.Name = Name
+                ToggleName.Text = Name
+            end
+            --
+            function Toggle:Get()
+                return Toggle.State
+            end
+            --
+            function Toggle:SetVisible(Bool)
+                local OldValues = Library.Objects[PreviewToggle]
+                --
+                Toggle.Hiding = not Bool
+                --
+                if Bool then
+                    Library.Objects[PreviewToggle] = {PreviewToggle, OldValues[2], true}
+                end
+                --
+                Library:Fade(Bool, Library:GetObjectsTable(PreviewToggle), PreviewToggle, 0.075)
+                Library:TweenObject(PreviewToggle, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = Bool and UDim2.new(1, 0, 0, 8) or UDim2.new(1, 0, 0, -10)}, function()
+                    if not Bool then
+                        Library.Objects[PreviewToggle] = {PreviewToggle, OldValues[2], false}
+                    end
+                end)
+            end
+            --
+            function Toggle:ColorPicker(Options)
+                Options = Library:Validate({
+                    Name = "Preview Color Picker",
+                    Default = Library.Theme.Default.Accent,
+                    Flag = Library.NewFlag(),
+                    Alpha = 0,
+                    AlphaBar = true,
+                    Callback = function() end,
+                }, Options or {})
+                --
+                local ColorPicker = {}
+                --
+                Toggle.ColorPickers[#Toggle.ColorPickers + 1] = ColorPicker
+                --
+                local ColorPickerFrame = Library:ColorPicker({
+                    Name = Options.Name,
+                    Default = Options.Default,
+                    Flag = Options.Flag,
+                    Alpha = Options.Alpha,
+                    AlphaBar = Options.AlphaBar,
+                    MainUI = Toggle.MainUI,
+                    TabUI = Toggle.TabUI,
+                    Callback = Options.Callback,
+                    Parent = PreviewToggle,
+                    Keybind = Toggle.KeybindState,
+                    Count = #Toggle.ColorPickers,
+                })
+                --
+                return ColorPickerFrame
+            end
+            --
+            function Toggle:Keybind(Options)
+                Options = Library:Validate({
+                    Default = Enum.KeyCode.Backspace,
+                    Mode = "Toggle",
+                    UseMode = true,
+                    HideFromList = false,
+                    Blacklisted = {},
+                    Hiding = false,
+                    ChangeToggle = false,
+                    Flag = Library.NewFlag(),
+                    Callback = function() end,
+                }, Options or {})
+                --
+                local Keybind = {}
+                --
+                Toggle.KeybindState = true
+                --
+                Library:Keybind({
+                    Default = Options.Default,
+                    Mode = Options.Mode,
+                    HideFromList = Options.HideFromList,
+                    Blacklisted = Options.Blacklisted,
+                    Parent = PreviewToggle,
+                    UseMode = Options.UseMode,
+                    Toggle = Toggle,
+                    MainUI = Toggle.MainUI,
+                    TabUI = Toggle.TabUI,
+                    Hiding = Options.Hiding,
+                    ToggleState = Toggle.State,
+                    ChangeToggle = Options.ChangeToggle,
+                    Flag = Options.Flag,
+                    Callback = Options.Callback,
+                    Count = #Toggle.ColorPickers + 1,
+                })
+                --
+                return Keybind
+            end
+        end
+        --
+        do -- Connections
+            Library:Connection(PreviewToggle.MouseEnter, function()
+                if Library.UI.Faded then return end
+                --
+                Library:TweenObject(ToggleInline, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(255, 255, 255)})
+            end)
+            --
+            Library:Connection(PreviewToggle.MouseLeave, function()
+                if Library.UI.Faded then return end
+                --
+                Library:TweenObject(ToggleInline, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(227, 227, 227)})
+            end)
+            --
+            Library:Connection(Button_9.MouseButton1Click, function()
+                if Library.UI.Faded then return end
+                --
+                if Toggle.Hiding then return end
+                --
+                Toggle:ToggleGUI()
+            end)
+        end
+        --
+        Toggle:ToggleGUI(Options.Default)
+        --
+        if Options.Hidden then
+            Toggle:SetVisible(false)
+        end
+        --
+        return Toggle
+    end
+    --
+    function Library:Label(Options)
+        Options = Library:Validate({
+            Message = "Preview Label",
+            Side = "Left",
+            Risky = false,
+            Parent = nil,
+            MainUI = nil,
+            SectionName = nil,
+            Hidden = false,
+            TabUI = nil,
+            Callback = function() end
+        }, Options or {})
+        --
+        local Label = {
+            ColorPickers = {},
+            KeybindState = false,
+            Hiding = false,
+            MainUI = Options.MainUI,
+            TabUI = Options.TabUI,
+            State = true,
+        }
+        --
+        local PreviewLabel = Library:CreateObject("Frame", {
+            Name = "PreviewLabel",
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 0, 7),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 2,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = Options.Parent
+        })
+        --
+        local LabelText = Library:CreateObject("TextLabel", {
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Name = "ToggleName",
+            BorderSizePixel = 0,
+            BackgroundTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment[Options.Side],
+            Size = UDim2.new(1, 0, 1, 0),
+            Position = UDim2.new(0, 0, 0, -1),
+            ZIndex = 2,
+            FontFace = Library.UI.NewFont,
+            RichText = true,
+            Text = Options.Message,
+            TextColor3 = Color3.fromRGB(198, 198, 198),
+            TextSize = Library.UI.FontSize,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = PreviewLabel
+        })
+        --
+        local UIPadding_7 = Library:CreateObject("UIPadding", {
+            PaddingLeft = UDim.new(0, 20),
+            Parent = LabelText
+        })
+        --
+        do -- Functions
+            function Label:GetName()
+                return Options.Message
+            end
+            --
+            function Label:GetState()
+                return Label.State
+            end
+            --
+            function Label:GetSection()
+                return Options.SectionName
+            end
+            --
+            function Label:GetCallback(Bool)
+                Options.Callback(Bool)
+            end
+            --
+            function Label:SetVisible(Bool)
+                local OldValues = Library.Objects[PreviewLabel]
+                --
+                Label.Hiding = not Bool
+                --
+                if Bool then
+                    Library.Objects[PreviewLabel] = {PreviewLabel, OldValues[2], true}
+                end
+                --
+                Library:Fade(Bool, Library:GetObjectsTable(PreviewLabel), PreviewLabel, 0.075)
+                Library:TweenObject(PreviewLabel, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = Bool and UDim2.new(1, 0, 0, 8) or UDim2.new(1, 0, 0, -10)}, function()
+                    if not Bool then
+                        Library.Objects[PreviewLabel] = {PreviewLabel, OldValues[2], false}
+                    end
+                end)
+            end
+            --
+            function Label:ColorPicker(Options)
+                Options = Library:Validate({
+                    Name = "Preview Color Picker",
+                    Default = Library.Theme.Default.Accent,
+                    Flag = Library.NewFlag(),
+                    Alpha = 0,
+                    AlphaBar = true,
+                    MainUI = nil,
+                    Callback = function() end,
+                }, Options or {})
+                --
+                local ColorPicker = {}
+                --
+                Label.ColorPickers[#Label.ColorPickers + 1] = ColorPicker
+                --
+                local ColorPickerFrame = Library:ColorPicker({
+                    Name = Options.Name,
+                    Default = Options.Default,
+                    Flag = Options.Flag,
+                    Alpha = Options.Alpha,
+                    AlphaBar = Options.AlphaBar,
+                    MainUI = Label.MainUI,
+                    TabUI = Label.TabUI,
+                    Callback = Options.Callback,
+                    Parent = PreviewLabel,
+                    Keybind = Label.KeybindState,
+                    Count = #Label.ColorPickers,
+                })
+                --
+                return ColorPickerFrame
+            end
+            --
+            function Label:Keybind(Options)
+                Options = Library:Validate({
+                    Default = Enum.KeyCode.Backspace,
+                    Mode = "Toggle",
+                    UseMode = true,
+                    HideFromList = false,
+                    Blacklisted = {},
+                    Hiding = false,
+                    Flag = Library.NewFlag(),
+                    Callback = function() end,
+                }, Options or {})
+                --
+                local Keybind = {}
+                --
+                Label.KeybindState = true
+                --
+                Library:Keybind({
+                    Default = Options.Default,
+                    Mode = Options.Mode,
+                    HideFromList = Options.HideFromList,
+                    Blacklisted = Options.Blacklisted,
+                    Parent = PreviewLabel,
+                    Toggle = Label,
+                    UseMode = Options.UseMode,
+                    MainUI = Label.MainUI,
+                    TabUI = Label.TabUI,
+                    Hiding = Options.Hiding,
+                    ToggleState = Label.State,
+                    Flag = Options.Flag,
+                    Callback = Options.Callback,
+                    Count = #Label.ColorPickers + 1,
+                })
+                --
+                return Keybind
+            end
+            --
+            --[[function Label:Update()
+                LabelText.Size = UDim2.new(LabelText.Size.X.Scale, LabelText.Size.X.Offset, 0, math.huge)
+                LabelText.Size = UDim2.new(LabelText.Size.X.Scale, LabelText.Size.X.Offset, 0, LabelText.TextBounds.Y)
+                PreviewLabel.Size = UDim2.new(PreviewLabel.Size.X.Scale, PreviewLabel.Size.X.Offset, 0, LabelName.TextBounds.Y + 6)
+            end]]
+        end
+        --
+        --Label:Update()
+        --
+        if Options.Hidden then
+            Label:SetVisible(false)
+        end
+        --
+        return Label
+    end
+    --
+    function Library:TextBox(Options)
+        Options = Library:Validate({
+            Default = "",
+            Name = "Preview TextBox",
+            Max = 32,
+            Parent = nil,
+            Size = UDim2.new(1, 0, 0, 19),
+            Position = UDim2.new(0, 0, 0, 0),
+            NumbersOnly = false,
+            ClearOnFocus = false,
+            Hidden = false,
+            TypedCheck = false,
+            CheckIfPressedEnter = false,
+            Risky = false,
+            Flag = Library.NewFlag(),
+            Callback = function() end
+        }, Options or {})
+        --
+        local TextBox = {
+            Focused = false,
+            Hovering = false,
+            Hiding = false,
+        }
+        --
+        Library.Flags[Options.Flag] = TextBox
+        --
+        local PreviewTextBox = Library:CreateObject("Frame", {
+            Name = "PreviewTextBox",
+            BackgroundTransparency = 1,
+            Size = Options.Size,
+            Position = Options.Position,
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = Options.Parent
+        })
+        --
+        local TextBoxOutline = Library:CreateObject("Frame", {
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Name = "TextBoxOutline",
+            Position = UDim2.new(0, -1, 0, 0),
+            Size = UDim2.new(1, -19, 0, 19),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+            Parent = PreviewTextBox
+        })
+        --
+        local TextBoxInline = Library:CreateObject("Frame", {
+            Size = UDim2.new(1, -2, 1, -2),
+            Name = "TextBoxInline",
+            Position = UDim2.new(0, 1, 0, 1),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(50, 50, 50),
+            Parent = TextBoxOutline
+        })
+        --
+        local TextBoxMain = Library:CreateObject("Frame", {
+            Size = UDim2.new(1, -2, 1, -2),
+            Name = "TextBoxMain",
+            Position = UDim2.new(0, 1, 0, 1),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(24, 24, 24),
+            Parent = TextBoxInline
+        })
+        --
+        local TextBoxObject = Library:CreateObject("TextBox", {
+            FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+            TextColor3 = Library.Theme.Default.TextColor,
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Text = "",
+            ZIndex = 3,
+            Size = UDim2.new(1, 0, 1, 0),
+            BorderSizePixel = 0,
+            BackgroundTransparency = 1,
+            SelectionStart = 1,
+            ClearTextOnFocus = Options.ClearOnFocus,
+            PlaceholderColor3 = Library.Theme.Default.TextColor,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            PlaceholderText = "_",
+            TextSize = Library.UI.FontSize,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = TextBoxMain
+        })
+        --
+        TextBox.Object = TextBoxObject
+        --
+        local UIPadding_6 = Library:CreateObject("UIPadding", {
+            PaddingBottom = UDim.new(0, 2),
+            PaddingLeft = UDim.new(0, 5),
+            Parent = TextBoxObject
+        })
+        --
+        local UIPadding_7 = Library:CreateObject("UIPadding", {
+            PaddingLeft = UDim.new(0, 20),
+            Parent = PreviewTextBox
+        })
+        --
+        do -- Functions
+            function TextBox:SetVisible(Bool)
+                local OldValues = Library.Objects[PreviewTextBox]
+                --
+                TextBox.Hiding = not Bool
+                TextBoxObject.Visible = Bool
+                --
+                if Bool then
+                    Library.Objects[PreviewTextBox] = {PreviewTextBox, OldValues[2], true}
+                end
+                --
+                Library:Fade(Bool, Library:GetObjectsTable(PreviewTextBox), PreviewTextBox, 0.075)
+                Library:TweenObject(PreviewTextBox, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = Bool and Options.Size or UDim2.new(1, 0, 0, -10)}, function()
+                    if not Bool then
+                        Library.Objects[PreviewTextBox] = {PreviewTextBox, OldValues[2], false}
+                    end
+                end)
+            end
+            --
+            function TextBox:Get()
+                return TextBoxObject.Text
+            end
+        end
+        --
+        do -- Connections
+            Library:Connection(TextBoxObject:GetPropertyChangedSignal("Text"), function()
+                TextBoxObject.Text = TextBoxObject.Text:sub(1, Options.Max)
+                --
+                if Options.NumbersOnly then
+                    TextBoxObject.Text = TextBoxObject.Text:gsub('[^%d%.%-]+', '')
+                end
+                --
+                if Options.TypedCheck then
+                    Library.Flags[Options.Flag] = TextBox
+                    Options.Callback(TextBoxObject.Text)
+                end
+                --
+                TextBox.Focused = true
+            end)
+            --
+            Library:Connection(TextBoxObject.Focused, function()
+                if Library.UI.Faded then return end
+                --
+                if TextBox.Hiding then
+                    TextBoxObject:ReleaseFocus()
+                    --
+                    return
+                end
+                --
+                TextBox.Focused = true
+                --
+                TextBoxObject.TextColor3 = Library.Theme.Default.Accent
+                --
+                Library:AddTheme(TextBoxObject, {
+                    TextColor3 = "Accent",
+                })
+                --
+                TextBoxObject.PlaceholderText = ""
+            end)
+            --
+            Library:Connection(TextBoxObject.FocusLost, function(EnterPressed)
+                if Options.CheckIfPressedEnter and not EnterPressed then return end
+                --
+                TextBox.Focused = false
+                TextBoxObject.PlaceholderText = "_"
+                --
+                TextBoxObject.TextColor3 = Library.Theme.Default.TextColor
+                --
+                Library:AddTheme(TextBoxObject, {
+                    TextColor3 = "TextColor",
+                })
+                --
+                Library.Flags[Options.Flag] = TextBox
+                Options.Callback(TextBoxObject.Text)
+            end)
+        end
+        --
+        if Options.Hidden then
+            TextBox:SetVisible(false)
+        end
+        --
+        return TextBox
+    end
+    --
+    function Library:List(Options)
+        Options = Library:Validate({
+            Size = 100,
+            Hidden = false,
+            Flag = Library.NewFlag(),
+            Callback = function() end
+        }, Options or {})
+        --
+        local List = {
+            CurrentValue = nil,
+            CurrentValueName = nil,
+        }
+        --
+        Library.Flags[Options.Flag] = List
+        --
+        local PreviewList = Library:CreateObject("Frame", {
+            Name = "PreviewList",
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 0, Options.Size),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = Options.Parent
+        })
+        --
+        local UIPadding_11 = Library:CreateObject("UIPadding", {
+            PaddingLeft = UDim.new(0, 20),
+            Parent = PreviewList
+        })
+        --
+        local ListOutline = Library:CreateObject("Frame", {
+            Size = UDim2.new(1, -19, 1, -18),
+            Name = "ListOutline",
+            Position = UDim2.new(0, -1, 0, 18),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+            Parent = PreviewList
+        })
+        --
+        local ListMain = Library:CreateObject("Frame", {
+            Size = UDim2.new(1, -2, 1, -2),
+            Name = "ListMain",
+            Position = UDim2.new(0, 1, 0, 1),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 4,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(35, 35, 35),
+            Parent = ListOutline
+        })
+        --
+        local DownArrow = Library:CreateObject("ImageButton", {
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Name = "DownArrow",
+            Image = "rbxassetid://15540867448",
+            BackgroundTransparency = 1,
+            Position = UDim2.new(1, -10, 1, -9),
+            Size = UDim2.new(0, 5, 0, 4),
+            ZIndex = 7,
+            Visible = false,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = ListMain
+        })
+        --
+        local UpArrow = Library:CreateObject("ImageButton", {
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Name = "UpArrow",
+            Image = "rbxassetid://15540851994",
+            BackgroundTransparency = 1,
+            Position = UDim2.new(1, -10, 0, 5),
+            Size = UDim2.new(0, 5, 0, 4),
+            ZIndex = 7,
+            Visible = false,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = ListMain
+        })
+        --
+        local ListScrolling = Library:CreateObject("ScrollingFrame", {
+            ScrollBarImageColor3 = Color3.fromRGB(65, 65, 65),
+            MidImage = "rbxassetid://158362264",
+            Active = true,
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ScrollBarThickness = 5,
+            Name = "ListScrolling",
+            ZIndex = 3,
+            TopImage = "rbxassetid://158362264",
+            Position = UDim2.new(0, 1, 0, 1),
+            Size = UDim2.new(1, -2, 1, -2),
+            BottomImage = "rbxassetid://158362264",
+            BorderSizePixel = 0,
+            CanvasSize = UDim2.new(0, 0, 0, 0),
+            CanvasPosition = Vector2.new(0, 0),
+            AutomaticCanvasSize = Enum.AutomaticSize.Y,
+            BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+            Parent = ListOutline
+        })
+        --
+        local UIListLayout_2 = Library:CreateObject("UIListLayout", {
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Parent = ListScrolling
+        })
+        --
+        local TextBox = Library:TextBox({Parent = PreviewList, TypedCheck = true, Size = UDim2.new(1, 20, 0, 19), Position = UDim2.new(0, -20, 0, 0), Callback = function(Text)
+            List:UpdateSection()
+            --
+            for _, Frame in ListScrolling:GetChildren() do
+                if Frame:IsA("Frame") then
+                    Frame.Visible = string.find(Frame.Name:lower(), Text:lower()) and true or false
+                end
+            end
+        end})
+        --
+        do -- Functions
+            function List:Get()
+                return List.CurrentValueName
+            end
+            --
+            function List:SetVisible(Bool)
+                local OldValues = Library.Objects[PreviewList]
+                --
+                TextBox.Object.Visible = Bool
+                --
+                if Bool then
+                    Library.Objects[PreviewList] = {PreviewList, OldValues[2], true}
+                end
+                --
+                Library:Fade(Bool, Library:GetObjectsTable(PreviewList, false), PreviewList, 0.075)
+                Library:TweenObject(PreviewList, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = Bool and UDim2.new(1, 0, 0, Options.Size) or UDim2.new(1, 0, 0, -10)}, function()
+                    if not Bool then
+                        Library.Objects[PreviewList] = {PreviewList, OldValues[2], false}
+                    end
+                end)
+            end
+            --
+            function List:AddValue(Value, Icon)
+                if ListScrolling:FindFirstChild(Value) then return end
+                --
+                local ListValue = {
+                    Active = false,
+                    Hovering = false,
+                }
+                --
+                local InactiveValue = Library:CreateObject("Frame", {
+                    Name = Value .. "1",
+                    Size = UDim2.new(1, 0, 0, 20),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 5,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(35, 35, 35),
+                    Parent = ListScrolling
+                })
+                --
+                local Button_912 = Library:CreateObject("TextButton", {
+                    FontFace = Library.UI.NewFont,
+                    TextColor3 = Color3.fromRGB(0, 0, 0),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Name = "Button_9",
+                    BackgroundTransparency = 1,
+                    Size = UDim2.new(1, 0, 1, 0),
+                    BorderSizePixel = 0,
+                    TextTransparency = 1,
+                    TextSize = Library.UI.FontSize,
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    Parent = InactiveValue
+                })
+                --
+                local ValueName_1 = Library:CreateObject("TextLabel", {
+                    FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+                    TextColor3 = Color3.fromRGB(208, 208, 208),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Name = "ValueName_1",
+                    BorderSizePixel = 0,
+                    Text = Value,
+                    RichText = true,
+                    BackgroundTransparency = 1,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    Size = UDim2.new(1, 0, 1, 0),
+                    ZIndex = 5,
+                    TextSize = Library.UI.FontSize,
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    Parent = InactiveValue
+                })
+                --
+                if Icon then
+                    local Color = Icon.Color or Color3.fromRGB(255, 255, 255)
+                    --
+                    local IconImage = Library:CreateObject("ImageLabel", {
+                        BorderColor3 = Color3.fromRGB(0, 0, 0),
+                        Image = Icon.Image,
+                        AnchorPoint = Vector2.new(0, 0.5),
+                        Position = Icon.Position or UDim2.new(0, 7, 0.5, 0),
+                        BackgroundTransparency = 1,
+                        Name = "BackImage",
+                        Size = Icon.Size or UDim2.new(0, 13, 0, 13),
+                        ZIndex = 5,
+                        BorderSizePixel = 0,
+                        ImageColor3 = Color,
+                        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+                        Parent = InactiveValue
+                    })
+                    --
+                    local UIPadding_135 = Library:CreateObject("UIPadding", {
+                        PaddingLeft = UDim.new(0, 10),
+                        Parent = IconImage
+                    })
+                end
+                --
+                ValueName_1.Text = Library:ClampString(Value, ValueName_1.AbsoluteSize.X - 25)
+                --
+                local UIPadding_13 = Library:CreateObject("UIPadding", {
+                    PaddingLeft = UDim.new(0, (Icon and 25 or 10)),
+                    Parent = ValueName_1
+                })
+                --
+                do -- Functions
+                    function ListValue:Activate()
+                        if not ListValue.Active then
+                            --
+                            if List.CurrentValue then
+                                List.CurrentValue:Deactivate()
+                            end
+                            --
+                            ListValue.Active = true
+                            --
+                            ValueName_1.TextColor3 = Library.Theme.Default.Accent
+                            ValueName_1.Text = "<b>" .. Value .. "</b>"
+                            --
+                            Library:AddTheme(ValueName_1, {
+                                TextColor3 = "Accent",
+                            })
+                            --
+                            List.CurrentValue = ListValue
+                            List.CurrentValueName = Value
+                            Library.Flags[Options.Flag] = List
+                            Options.Callback(Value)
+                        end
+                    end
+                    --
+                    function ListValue:Deactivate()
+                        if ListValue.Active then
+                            ListValue.Active = false
+                            ListValue.Hovering = false
+                            ValueName_1.TextColor3 = Library.Theme.Default.TextColor
+                            --
+                            Library:AddTheme(ValueName_1, {
+                                TextColor3 = "TextColor",
+                            })
+                        end
+                    end
+                end
+                --
+                do -- Connections
+                    local OldText = ValueName_1.Text
+                    --
+                    Library:Connection(PreviewList:GetPropertyChangedSignal("AbsoluteSize"), function()
+                        ValueName_1.Text = Library:ClampString(Value, ValueName_1.AbsoluteSize.X - 25)
+                    end)
+                    --
+                    Library:Connection(InactiveValue.MouseEnter, function()
+                        if Library.UI.Faded then return end
+                        --
+                        InactiveValue.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+                        OldText = ValueName_1.Text
+                        --
+                        if not ListValue.Active then
+                            ValueName_1.Text = "<b>" .. OldText .. "</b>"
+                        end
+                    end)
+                    --
+                    Library:Connection(InactiveValue.MouseLeave, function()
+                        if Library.UI.Faded then return end
+                        --
+                        InactiveValue.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+                        --
+                        if not ListValue.Active then
+                            ValueName_1.Text = OldText
+                        end
+                    end)
+                    --
+                    Library:Connection(Button_912.MouseButton1Click, function()
+                        if Library.UI.Faded then return end
+                        --
+                        ListValue:Activate()
+                    end)
+                end
+            end
+            --
+            function List:RemoveValue(Value)
+                for _, Object in ListScrolling:GetChildren() do
+                    if Object.Name == Value .. "1" then
+                        Object:Destroy()
+                    end
+                end
+            end
+            --
+            function List:UpdateSection()
+                local CanvasSize = ListScrolling.AbsoluteCanvasSize.Y
+                local AbsoluteSize = ListMain.AbsoluteSize.Y
+                --
+                if CanvasSize > AbsoluteSize then
+                    ListMain.Size = UDim2.new(1, -8, 1, -2)
+                    UpArrow.Visible = not List:CheckArrows("Up")
+                    DownArrow.Visible = not List:CheckArrows("Down")
+                elseif CanvasSize == AbsoluteSize then
+                    ListMain.Size = UDim2.new(1, -2, 1, -2)
+                    UpArrow.Visible = false
+                    DownArrow.Visible = false
+                end
+            end
+            --
+            function List:CheckArrows(Type)
+                if Type == "Up" then
+                    return ListScrolling.CanvasPosition == Vector2.new(0, 0)
+                elseif Type == "Down" then
+                    return ListScrolling.CanvasPosition == Vector2.new(0, ListScrolling.AbsoluteCanvasSize.Y - ListScrolling.AbsoluteSize.Y)
+                else
+                    return false
+                end
+            end
+        end
+        --
+        List:UpdateSection()
+        --
+        do -- Connections
+            Library:Connection(ListScrolling.ChildAdded, function()
+                List:UpdateSection()
+            end)
+            --
+            Library:Connection(ListScrolling.ChildRemoved, function()
+                List:UpdateSection()
+            end)
+            --
+            Library:Connection(ListOutline:GetPropertyChangedSignal("AbsoluteSize"), function()
+                List:UpdateSection()
+            end)
+            --
+            Library:Connection(ListScrolling:GetPropertyChangedSignal("AbsoluteSize"), function()
+                List:UpdateSection()
+            end)
+            --
+            Library:Connection(ListScrolling:GetPropertyChangedSignal("CanvasPosition"), function()
+                List:UpdateSection()
+            end)
+            --
+            Library:Connection(UpArrow.MouseButton1Click, function()
+                if Library.UI.Faded then return end
+                --
+                if not UpArrow.Visible then return end
+                --
+                Library:TweenObject(ListScrolling, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {CanvasPosition = Vector2.new(0, 0)})
+            end)
+            --
+            Library:Connection(DownArrow.MouseButton1Click, function()
+                if Library.UI.Faded then return end
+                --
+                if not DownArrow.Visible then return end
+                --
+                Library:TweenObject(ListScrolling, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {CanvasPosition = Vector2.new(0, ListScrolling.AbsoluteCanvasSize.Y - ListScrolling.AbsoluteSize.Y)})
+            end)
+        end
+        --
+        if Options.Hidden then
+            List:SetVisible(false)
+        end
+        --
+        return List
+    end
+    --
+    function Library:Button(Options)
+        Options = Library:Validate({
+            Name = "Preview Button",
+            Confirmation = false,
+            Parent = nil,
+            Hidden = false,
+            Size = UDim2.new(1, 0, 0, 25),
+            Position = UDim2.new(0, 0, 0, 0),
+            Risky = false,
+            Callback = function() end
+        }, Options or {})
+        --
+        local Button = {
+            MouseDown = false,
+            Hovering = false,
+            WaitingForConfirm = false,
+            Hiding = false,
+            ConfirmationTime = 0,
+            ConfirmationConnection = nil,
+        }
+        --
+        local PreviewButton = Library:CreateObject("Frame", {
+            Name = "PreviewButton",
+            BackgroundTransparency = 1,
+            Size = Options.Size,
+            Position = Options.Position,
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = Options.Parent
+        })
+        --
+        local ButtonOutline = Library:CreateObject("Frame", {
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Name = "ButtonOutline",
+            Position = UDim2.new(0, -1, 0, 0),
+            Size = UDim2.new(1, -19, 0, 25),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+            Parent = PreviewButton
+        })
+        --
+        local ButtonInline = Library:CreateObject("Frame", {
+            Size = UDim2.new(1, -2, 1, -2),
+            Name = "ButtonInline",
+            Position = UDim2.new(0, 1, 0, 1),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(50, 50, 50),
+            Parent = ButtonOutline
+        })
+        --
+        local ButtonMain_1 = Library:CreateObject("Frame", {
+            Size = UDim2.new(1, -2, 1, -2),
+            Name = "ButtonMain_1",
+            Position = UDim2.new(0, 1, 0, 1),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            ZIndex = 3,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(220, 220, 220),
+            Parent = ButtonInline
+        })
+        --
+        local UIGradient_4 = Library:CreateObject("UIGradient", {
+            Rotation = 90,
+            Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(39, 39, 39)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(35, 35, 35))
+            },
+            Parent = ButtonMain_1
+        })
+        --
+        local Button_6 = Library:CreateObject("TextButton", {
+            FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+            TextColor3 = Options.Risky and Library.Theme.Default.Risky or Library.Theme.Default.TextColor,
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Name = "Button_6",
+            RichText = true,
+            Text = "<b>" .. Options.Name .. "</b>",
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Size = UDim2.new(1, 0, 1, 0),
+            ZIndex = 3,
+            TextSize = Library.UI.FontSize,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = ButtonOutline
+        })
+        --
+        if Options.Risky then
+            Library:AddTheme(Button_6, {
+                TextColor3 = "Risky",
+            })
+        end
+        --
+        local UIPadding_8 = Library:CreateObject("UIPadding", {
+            PaddingLeft = UDim.new(0, 20),
+            Parent = PreviewButton
+        })
+        --
+        do -- Functions
+            function Button:UpdateSize(Size)
+                ButtonOutline.Size = Size
+            end
+            --
+            function Button:UpdatePosition(Position)
+                PreviewButton.Position = Position
+            end
+            --
+            function Button:SetVisible(Bool)
+                local OldValues = Library.Objects[PreviewButton]
+                --
+                Button.Hiding = not Bool
+                --
+                if Bool then
+                    Library.Objects[PreviewButton] = {PreviewButton, OldValues[2], true}
+                end
+                --
+                Library:Fade(Bool, Library:GetObjectsTable(PreviewButton), PreviewButton, 0.075)
+                Library:TweenObject(PreviewButton, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = Bool and Options.Size or UDim2.new(1, 0, 0, -10)}, function()
+                    if not Bool then
+                        Library.Objects[PreviewButton] = {PreviewButton, OldValues[2], false}
+                    end
+                end)
+            end
+            --
+            function Button:ConfirmationStart()
+                Button.MouseDown = true
+                Button.WaitingForConfirm = true
+                Button.ConfirmationTime = 3
+                Button_6.Text = "<b>Are you sure?</b>"
+                --
+                if Button.ConfirmationConnection then
+                    coroutine.close(Button.ConfirmationConnection)
+                    Button.ConfirmationConnection = nil
+                end
+                --
+                Button.ConfirmationConnection = coroutine.create(function()
+                    for i = 1, 3 do 
+                        task.wait(1)
+                        --
+                        Button.ConfirmationTime = Button.ConfirmationTime - 1
+                        --
+                        if Button.ConfirmationTime <= 0 then
+                            Button_6.Text = "<b>" .. Options.Name .. "</b>"
+                            --
+                            if Button.MouseDown then
+                                Library:TweenObject(Button_6, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {TextColor3 = Library.Theme.Default.TextColor})
+                                --
+                                Button.MouseDown = false
+                                Button.WaitingForConfirm = false
+                            end
+                            --
+                            break
+                        end
+                    end
+                end)
+                --
+                coroutine.resume(Button.ConfirmationConnection)
+            end
+        end
+        --
+        do -- Connections
+            Library:Connection(Button_6.MouseButton1Down, function()
+                if Library.UI.Faded then return end
+                --
+                if Button.Hiding then return end
+                --
+                Library:TweenObject(ButtonMain_1, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(180, 180, 180)})
+                --
+                if Options.Confirmation then
+                    if not Button.WaitingForConfirm then
+                        Button:ConfirmationStart()
+                    else
+                        if Button.ConfirmationConnection then
+                            coroutine.close(Button.ConfirmationConnection)
+                            Button.ConfirmationConnection = nil
+                        end
+                        --
+                        Options.Callback()
+                        Button.MouseDown = true
+                        Button.Hovering = false
+                        Button.WaitingForConfirm = false
+                        --
+                        Library:TweenObject(ButtonMain_1, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(180, 180, 180)})
+                        --
+                        Button_6.Text = "<b>" .. Options.Name .. "</b>"
+                    end
+                else
+                    Options.Callback()
+                    Button.MouseDown = true
+                end
+            end)
+            --
+            Library:Connection(UserInputService.InputEnded, function(Input)
+                if Input.UserInputType == Enum.UserInputType.MouseButton1 and Button.MouseDown and not Button.WaitingForConfirm then
+                    Button.Hovering = false
+                    Button.MouseDown = false
+                end
+                --
+                Library:TweenObject(ButtonMain_1, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(220, 220, 220)})
+            end)
+            --
+            Library:Connection(ButtonOutline.MouseEnter, function()
+                if Library.UI.Faded then return end
+                --
+                if not Button.MouseDown then
+                    Button.Hovering = true
+                    Library:TweenObject(ButtonMain_1, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(255, 255, 255)})
+                end	
+            end)
+            --
+            Library:Connection(ButtonOutline.MouseLeave, function()
+                if Library.UI.Faded then return end
+                --
+                if not Button.MouseDown then
+                    Button.Hovering = false
+                    Library:TweenObject(ButtonMain_1, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(220, 220, 220)})
+                end	
+            end)
+        end
+        --
+        if Options.Hidden then
+            Button:SetVisible(false)
+        end
+        --
+        return Button
+    end
+    --
+    function Library:Window(Options)
+        Options = Library:Validate({
+            Name = "dva",
+            Size = UDim2.new(0, 700, 0, 612),
+            MinResize = UDim2.new(0, 500, 0, 400),
+            MaxResize = UDim2.new(0, 10000, 0, 10000),
+            CloseBind = Enum.KeyCode.Insert,
+        }, Options or {})
+        --
+        local Window = {
+            Visible = true,
+            CurrentTab = nil,
+            Tabs = {},
+        }
+        --
+        local MainUI = Library:CreateObject("ScreenGui", {
+            ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets,
+            DisplayOrder = 1000,
+            ResetOnSpawn = false,
+            IgnoreGuiInset = true,
+            Name = "\0",
+            Parent = gethui()
+        })
+        --
+        Library.UI.ScreenGUI = MainUI
+        --
+        local Outline = Library:CreateObject("Frame", {
+            Name = "Outline",
+            Position = UDim2.new(0.5, 0, 0.5, 0),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Size = Options.Size,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+            Parent = MainUI
+        })
+        --
+        Outline:SetAttribute("g", Window.CurrentTab)
+        Library.UI.MainUI = Outline
+        --
+        Outline.Position = UDim2.fromOffset((Viewport.X / 2) - (Outline.Size.X.Offset / 2), (Viewport.Y / 2) - (Outline.Size.Y.Offset / 2))
+        Outline.Active = true
+        Outline.Draggable = true
+        --
+        local Inline = Library:CreateObject("Frame", {
+            Name = "Inline",
+            Position = UDim2.new(0, 1, 0, 1),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Size = UDim2.new(1, -2, 1, -2),
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(60, 60, 60),
+            Parent = Outline
+        })
+        --
+        local Inner = Library:CreateObject("Frame", {
+            Name = "Inner",
+            Position = UDim2.new(0, 1, 0, 1),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Size = UDim2.new(1, -2, 1, -2),
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+            Parent = Inline
+        })
+        --
+        local Outline_1 = Library:CreateObject("Frame", {
+            Name = "Outline_1",
+            Position = UDim2.new(0, 3, 0, 3),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Size = UDim2.new(1, -6, 1, -6),
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(60, 60, 60),
+            Parent = Inner
+        })
+        --
+        local PatternHolder = Library:CreateObject("Frame", {
+            Name = "PatternHolder",
+            Position = UDim2.new(0, 1, 0, 1),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Size = UDim2.new(1, -2, 1, -2),
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(20, 20, 20),
+            Parent = Outline_1
+        })
+        --
+        local Pattern = Library:CreateObject("ImageLabel", {
+            ImageColor3 = Color3.fromRGB(12, 12, 12),
+            ScaleType = Enum.ScaleType.Tile,
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Image = "rbxassetid://8547666218",
+            BackgroundTransparency = 1,
+            Name = "Pattern",
+            Size = UDim2.new(1, 0, 1, 0),
+            TileSize = UDim2.new(0, 8, 0, 8),
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = PatternHolder
+        })
+        --
+        local TopBarGradientHolder = Library:CreateObject("Frame", {
+            Name = "TopBarGradientHolder",
+            Position = UDim2.new(0, 1, 0, 1),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Size = UDim2.new(1, -2, 0, 4),
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = Outline_1
+        })
+        --
+        local GradientBar = Library:CreateObject("ImageLabel", {
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Image = "rbxassetid://8508019876",
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, 1, 0, 1),
+            Name = "GradientBar",
+            Size = UDim2.new(1, -2, 1, -2),
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = TopBarGradientHolder
+        })
+        --
+        local UIGradient = Library:CreateObject("UIGradient", {
+            Rotation = 90,
+            Transparency = NumberSequence.new{
+                NumberSequenceKeypoint.new(0, 0),
+                NumberSequenceKeypoint.new(1, 0.550000011920929)
+            },
+            Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(12, 12, 12)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
+            },
+            Parent = TopBarGradientHolder
+        })
+        --
+        local SideBarMain = Library:CreateObject("Frame", {
+            Name = "SideBarMain",
+            Position = UDim2.new(0, 1, 0, 5),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Size = UDim2.new(0, 75, 1, -6),
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+            ClipsDescendants = true,
+            Parent = Outline_1
+        })
+        --
+        local Outline_2 = Library:CreateObject("Frame", {
+            AnchorPoint = Vector2.new(1, 0),
+            Name = "Outline_2",
+            Position = UDim2.new(1, 0, 0, 0),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Size = UDim2.new(0, 1, 1, 0),
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+            Parent = SideBarMain
+        })
+        --
+        local Holder = Library:CreateObject("Frame", {
+            BackgroundTransparency = 1,
+            Name = "Holder",
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Size = UDim2.new(1, 0, 1, 0),
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = SideBarMain
+        })
+        --
+        local UIListLayout = Library:CreateObject("UIListLayout", {
+            Padding = UDim.new(0, 0),
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Parent = Holder
+        })
+        --
+        local UIPadding = Library:CreateObject("UIPadding", {
+            PaddingTop = UDim.new(0, 10),
+            Parent = Holder
+        })
+        --
+        local Inline_4 = Library:CreateObject("Frame", {
+            AnchorPoint = Vector2.new(1, 0),
+            Name = "Inline_4",
+            Position = UDim2.new(1, -1, 0, 0),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Size = UDim2.new(0, 1, 1, 0),
+            BorderSizePixel = 0,
+            BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+            Parent = SideBarMain
+        })
+        --
+        local ResizeButton = Library:CreateObject("TextButton", {
+            FontFace = Library.UI.NewFont,
+            TextColor3 = Color3.fromRGB(0, 0, 0),
+            BorderColor3 = Color3.fromRGB(0, 0, 0),
+            Name = "Button",
+            AnchorPoint = Vector2.new(1, 1),
+            Size = UDim2.new(0, 20, 0, 20),
+            BackgroundTransparency = 1,
+            Position = UDim2.new(1, 0, 1, 0),
+            BorderSizePixel = 0,
+            TextTransparency = 1,
+            TextSize = Library.UI.FontSize,
+            ZIndex = 5,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            Parent = Outline
+        })
+        --
+        do -- Functions
+            function Window:SetTab(Number)
+                for Index, Tab in Window.Tabs do
+                    if Index == Number then
+                        if Window.CurrentTab ~= nil then
+                            Window.CurrentTab:Deactivate()
+                        end
+                        --
+                        Tab:Activate()
+                    end
+                end
+            end
+        end
+        --
+        do -- Connections
+            Library:Connection(UserInputService.InputBegan, function(Input)
+                if Input.KeyCode == Library.UI.CloseBind then
+                    Window.Visible = not Window.Visible
+                    --
+                    Library:Fade(Window.Visible, Library.Objects, Outline, 0.2)
+                end
+            end)
+            --
+            Library:Resizable(Outline, ResizeButton, Options.MinResize, Options.MaxResize)
+        end
+        --
+        function Window:CreateTab(Options)
+            Options = Library:Validate({
+                Icon = "rbxassetid://8547236654",
+            }, Options or {})
+            --
+            local Tab = {
+                Hovering = false,
+                Active = false,
+                Index = Library.UI.TabIndex + 1,
+                SubSectionEnabled = false,
+                DropdownSectionEnabled = false,
+                Position = "Bottom",
+                Sides = {
+                    Left = {
+                        Sections = {},
+                        Sizes = 0,
+                    },
+                    Right = {
+                        Sections = {},
+                        Sizes = 0,
+                    }
+                }
+            }
+            --
+            Library.UI.TabIndex = Tab.Index
+            --
+            local TabActive = Library:CreateObject("Frame", {
+                BackgroundTransparency = 1,
+                Name = "TabActive",
+                BorderColor3 = Color3.fromRGB(0, 0, 0),
+                Size = UDim2.new(1, -2, 0, 64),
+                BorderSizePixel = 0,
+                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                Parent = Holder
+            })
+            --
+            local Outline_3 = Library:CreateObject("Frame", {
+                Name = "Outline_3",
+                Size = UDim2.new(1, 0, 1, 0),
+                BorderColor3 = Color3.fromRGB(0, 0, 0),
+                ZIndex = 2,
+                BorderSizePixel = 0,
+                BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+                Visible = false,
+                Parent = TabActive
+            })
+            --
+            local Inline_1 = Library:CreateObject("Frame", {
+                Size = UDim2.new(1, 1, 1, -2),
+                Name = "Inline_1",
+                Position = UDim2.new(0, 0, 0, 1),
+                BorderColor3 = Color3.fromRGB(0, 0, 0),
+                ZIndex = 2,
+                BorderSizePixel = 0,
+                BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+                Parent = Outline_3
+            })
+            --
+            local Main = Library:CreateObject("Frame", {
+                Size = UDim2.new(1, 1, 1, -2),
+                Name = "Main",
+                Position = UDim2.new(0, 0, 0, 1),
+                BorderColor3 = Color3.fromRGB(0, 0, 0),
+                ZIndex = 2,
+                BorderSizePixel = 0,
+                BackgroundColor3 = Color3.fromRGB(20, 20, 20),
+                Parent = Inline_1
+            })
+            --
+            local Pattern_1 = Library:CreateObject("ImageLabel", {
+                ImageColor3 = Color3.fromRGB(12, 12, 12),
+                ScaleType = Enum.ScaleType.Tile,
+                BorderColor3 = Color3.fromRGB(0, 0, 0),
+                Name = "Pattern_1",
+                Image = "rbxassetid://8547666218",
+                BackgroundTransparency = 1,
+                TileSize = UDim2.new(0, 8, 0, 8),
+                Size = UDim2.new(1, 0, 1, 0),
+                ZIndex = 2,
+                BorderSizePixel = 0,
+                BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+                Parent = Main
+            })
+            --
+            local Button = Library:CreateObject("TextButton", {
+                FontFace = Font.new("rbxasset://fonts/families/Zekton.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+                BorderColor3 = Color3.fromRGB(0, 0, 0),
+                Name = "Button",
+                Text = Options.Icon,
+                BackgroundTransparency = 1,
+                Size = UDim2.new(1, 0, 1, 0),
+                TextColor3 = Color3.fromRGB(90, 90, 90),
+                BorderSizePixel = 0,
+                TextTransparency = 1,
+                TextSize = Library.UI.FontSize,
+                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                Parent = TabActive
+            })
+            --
+            local Icon = Library:CreateObject("ImageLabel", {
+                BorderColor3 = Color3.fromRGB(0, 0, 0),
+                Name = "Button",
+                Image = Options.Icon,
+                BackgroundTransparency = 1,
+                Size = UDim2.new(1, 0, 1, 0),
+                ImageColor3 = Color3.fromRGB(109, 109, 109),
+                BorderSizePixel = 0,
+                ZIndex = 3,
+                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                Parent = TabActive
+            })
+            --
+            local SectionsHolder = Library:CreateObject("Frame", {
+                Name = "SectionsHolder",
+                BackgroundTransparency = 1,
+                Visible = true,
+                Position = UDim2.new(0, 76, 0, 5),
+                BorderColor3 = Color3.fromRGB(0, 0, 0),
+                Size = UDim2.new(1, -78, 1, -6),
+                BorderSizePixel = 0,
+                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                ClipsDescendants = true,
+                Parent = Outline_1
+            })
+            --
+            local Left = Library:CreateObject("Frame", {
+                BackgroundTransparency = 1,
+                Name = "Left",
+                BorderColor3 = Color3.fromRGB(0, 0, 0),
+                Size = UDim2.new(0.5, 0, 1, 0),
+                Position = UDim2.new(0, 1, 0, 0),
+                BorderSizePixel = 0,
+                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                ClipsDescendants = true,
+                Parent = SectionsHolder
+            })
+            --
+            local UIPadding_1 = Library:CreateObject("UIPadding", {
+                PaddingTop = UDim.new(0, 19),
+                PaddingBottom = UDim.new(0, 19),
+                PaddingRight = UDim.new(0, 8),
+                PaddingLeft = UDim.new(0, 21),
+                Parent = Left
+            })
+            --
+            local UIListLayout12 = Library:CreateObject("UIListLayout", {
+                Padding = UDim.new(0, 19),
+                SortOrder = Enum.SortOrder.LayoutOrder,
+                Parent = Left
+            })
+            --
+            local Right = Library:CreateObject("Frame", {
+                Name = "Right",
+                BackgroundTransparency = 1,
+                Position = UDim2.new(0.5, 1, 0, 0),
+                BorderColor3 = Color3.fromRGB(0, 0, 0),
+                Size = UDim2.new(0.5, 0, 1, 0),
+                BorderSizePixel = 0,
+                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                ClipsDescendants = true,
+                Parent = SectionsHolder
+            })
+            --
+            local UIPadding_2 = Library:CreateObject("UIPadding", {
+                PaddingTop = UDim.new(0, 19),
+                PaddingBottom = UDim.new(0, 19),
+                PaddingRight = UDim.new(0, 19),
+                PaddingLeft = UDim.new(0, 10),
+                Parent = Right
+            })
+            --
+            local UIListLayout52 = Library:CreateObject("UIListLayout", {
+                Padding = UDim.new(0, 19),
+                SortOrder = Enum.SortOrder.LayoutOrder,
+                Parent = Right
+            })
+            --
+            local SectionsHolder2 = Library:CreateObject("Frame", {
+                Name = "SectionsHolder",
+                BackgroundTransparency = 1,
+                Visible = true,
+                Position = UDim2.new(0, 76, 0, 5),
+                BorderColor3 = Color3.fromRGB(0, 0, 0),
+                Size = UDim2.new(1, -78, 1, -6),
+                BorderSizePixel = 0,
+                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                ClipsDescendants = true,
+                Parent = Outline_1
+            })
+            --
+            local SubSectionHolder = Library:CreateObject("Frame", {
+                Name = "SubSectionHolder",
+                BorderColor3 = Color3.fromRGB(0, 0, 0),
+                Size = UDim2.new(1, -39, 0, 61),
+                BorderSizePixel = 0,
+                ZIndex = 1,
+                Visible = false,
+                BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+                Parent = SectionsHolder2
+            })
+            --
+            Left.Position = UDim2.new(0, 0, 0, Left.AbsoluteSize.Y)
+            Right.Position = UDim2.new(0.5, 1, 0, Right.AbsoluteSize.Y)
+            SubSectionHolder.Position = UDim2.new(0, 21, 0, SectionsHolder2.AbsoluteSize.Y + SubSectionHolder.AbsoluteSize.Y)
+            --
+            do -- Functions
+                function Tab:MoveSides(State)
+                    task.spawn(function()
+                        if State then
+                            if Tab.Position == "Bottom" then
+                                Left.Position = UDim2.new(0, 0, 0, Left.AbsoluteSize.Y)
+                                Right.Position = UDim2.new(0.5, 1, 0, Right.AbsoluteSize.Y)
+                                SubSectionHolder.Position = UDim2.new(0, 21, 0, SectionsHolder2.AbsoluteSize.Y + SubSectionHolder.AbsoluteSize.Y)
+                            else
+                                Left.Position = UDim2.new(0, 0, 0, -Left.AbsoluteSize.Y)
+                                Right.Position = UDim2.new(0.5, 1, 0, -Right.AbsoluteSize.Y)
+                                SubSectionHolder.Position = UDim2.new(0, 21, 0, -(SectionsHolder2.AbsoluteSize.Y + SubSectionHolder.AbsoluteSize.Y))
+                            end
+                            --
+                            Library:TweenObject(SubSectionHolder, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Position = UDim2.new(0, 21, 0, 19)})
+                            Library:TweenObject(Left, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, 0, 0)})
+                            Library:TweenObject(Right, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, 1, 0, 0)})
+                        else
+                            task.wait(0.001)
+                            --
+                            local SubSectionPosition = Tab.Position == "Bottom" and SectionsHolder2.AbsoluteSize.Y + 10 or -SectionsHolder2.AbsoluteSize.Y
+                            local LeftPosition = Tab.Position == "Bottom" and Left.AbsoluteSize.Y + 10 or -Left.AbsoluteSize.Y
+                            local RightPosition = Tab.Position == "Bottom" and Right.AbsoluteSize.Y + 10 or -Right.AbsoluteSize.Y
+                            --
+                            Library:TweenObject(SubSectionHolder, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Position = UDim2.new(0, 21, 0, SubSectionPosition)})
+                            Library:TweenObject(Left, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, 0, LeftPosition)})
+                            Library:TweenObject(Right, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, 1, 0, RightPosition)})
+                        end
+                    end)
+                end
+                --
+                function Tab:Activate()
+                    if not Tab.Active then
+                        --
+                        if Window.CurrentTab ~= nil then
+                            Window.CurrentTab:Deactivate()
+                        end
+                        --
+                        Tab.Active = true
+                        Tab:MoveSides(true)
+                        --
+                        Library:TweenObject(Icon, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {ImageColor3 = Color3.fromRGB(210, 210, 210)})
+                        Outline_3.Visible = true
+                        --
+                        Window.CurrentTab = Tab
+                        Outline:SetAttribute("g", table.find(Window.Tabs, Tab))
+                    end
+                end
+                --
+                function Tab:Deactivate()
+                    if Tab.Active then
+                        Tab.Active = false
+                        Tab.Hovering = false
+                        Outline_3.Visible = false
+                        Library:TweenObject(Icon, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {ImageColor3 = Color3.fromRGB(90, 90, 90)})
+                        --
+                        Tab:MoveSides(false)
+                    end
+                end
+            end
+            --
+            do -- Connections
+                Library:Connection(Outline:GetAttributeChangedSignal("g"), function()
+                    if Outline:GetAttribute("g") > Tab.Index then
+                        Tab.Position = "Top"
+                    elseif Outline:GetAttribute("g") < Tab.Index then
+                        Tab.Position = "Bottom"
+                    end
+                end)
+                --
+                Library:Connection(Outline:GetPropertyChangedSignal("AbsoluteSize"), function()
+                    if not Tab.Active then
+                        SubSectionHolder.Position = UDim2.new(0, 21, 0, SectionsHolder2.AbsoluteSize.Y + SubSectionHolder.AbsoluteSize.Y)
+                        Left.Position = UDim2.new(0, 0, 0, Left.AbsoluteSize.Y)
+                        Right.Position = UDim2.new(0.5, 1, 0, Right.AbsoluteSize.Y)
+                    else
+                        Left.Position = UDim2.new(0, 0, 0, 0)
+                        Right.Position = UDim2.new(0.5, 1, 0, 0)
+                    end
+                end)
+                --
+                Library:Connection(Button.MouseButton1Click, function()
+                    Tab:Activate()
+                end)
+                --
+                Library:Connection(TabActive.MouseEnter, function()
+                    if not Tab.Active then
+                        Tab.Hovering = true
+                        Library:TweenObject(Icon, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {ImageColor3 = Color3.fromRGB(168, 168, 168)})
+                    end
+                end)
+                --
+                Library:Connection(TabActive.MouseLeave, function()
+                    if not Tab.Active then
+                        Tab.Hovering = false
+                        Library:TweenObject(Icon, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {ImageColor3 = Color3.fromRGB(90, 90, 90)})
+                    end
+                end)
+            end
+            --
+            Window.Tabs[#Window.Tabs + 1] = Tab
+            --
+            function Tab:Section(Options)
+                Options = Library:Validate({
+                    Name = "Preview Section",
+                    Side = "Left",
+                    Fill = false,
+                    Size = UDim2.new(1, 0, 0, 40),
+                    ParentOptions = {},
+                    Icon = nil,
+                    Parent = nil,
+                }, Options or {})
+                --
+                local Section = {
+                    Elements = {},
+                    SizeButton = nil,
+                    Hovering = false,
+                    DragConnection = nil,
+                    Left = {
+                        Order = 1,
+                    },
+                    Right = {
+                        Order = 1,
+                    },
+                }
+                --
+                local Parent = Options.Side == "Left" and Left or Right
+                --
+                local SectionOutline = Library:CreateObject("Frame", {
+                    Name = "SectionOutline",
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Size = UDim2.new(1, 0, 0, Options.Size),
+                    AutomaticSize = Options.Fill and Enum.AutomaticSize.None or Enum.AutomaticSize.Y,
+                    BorderSizePixel = 0,
+                    ZIndex = 1,
+                    BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+                    Parent = Options.Parent or Parent
+                })
+                --
+                table.insert(Tab.Sides[Options.Side].Sections, SectionOutline)
+                --
+                task.delay(0.01, function()
+                    if Options.Fill == false then
+                        Tab.Sides[Options.Side].Sizes += SectionOutline.AbsoluteSize.Y + 19
+                    end
+                    --
+                    if Options.Fill then
+                        SectionOutline.Size = UDim2.new(1, 0, 1, -(Tab.Sides[Options.Side].Sizes))
+                    else
+                        SectionOutline.Size = UDim2.new(1, 0, 0, Options.Size)
+                    end
+                end)
+                --
+                local SectionInline = Library:CreateObject("Frame", {
+                    Name = "SectionInline",
+                    Position = UDim2.new(0, 1, 0, 1),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Size = UDim2.new(1, -2, 1, -2),
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+                    Parent = SectionOutline
+                })
+                --
+                local SectionScrolling = Library:CreateObject("ScrollingFrame", {
+                    ScrollBarImageColor3 = Color3.fromRGB(65, 65, 65),
+                    MidImage = "rbxassetid://158362264",
+                    Active = true,
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ScrollBarThickness = 5,
+                    Size = UDim2.new(1, -2, 1, -2),
+                    TopImage = "rbxassetid://158362264",
+                    Position = UDim2.new(0, 1, 0, 1),
+                    CanvasSize = UDim2.new(0, 0, 0, 0),
+                    CanvasPosition = Vector2.new(0, 0),
+                    BottomImage = "rbxassetid://158362264",
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+                    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+                    Parent = SectionInline
+                })
+                --
+                local UIListLayout_3 = Library:CreateObject("UIListLayout", {
+                    Padding = UDim.new(0, 10),
+                    SortOrder = Enum.SortOrder.LayoutOrder,
+                    Parent = SectionScrolling
+                })
+                --
+                local UIPadding_8 = Library:CreateObject("UIPadding", {
+                    PaddingTop = UDim.new(0, 19),
+                    PaddingBottom = UDim.new(0, 10),
+                    PaddingRight = UDim.new(0, 18),
+                    PaddingLeft = UDim.new(0, 18),
+                    Parent = SectionScrolling
+                })
+                --
+                local SectionMain = Library:CreateObject("Frame", {
+                    Size = UDim2.new(1, -2, 1, -2),
+                    Name = "SectionMain_1",
+                    Position = UDim2.new(0, 1, 0, 1),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 1,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(23, 23, 23),
+                    Parent = SectionInline
+                })
+                --
+                local SectionFader = Library:CreateObject("Frame", {
+                    Size = UDim2.new(1, 0, 0, 20),
+                    AnchorPoint = Vector2.new(0, 1),
+                    Name = "SectionFader",
+                    Position = UDim2.new(0, 0, 1, 0),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 3,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(23, 23, 23),
+                    Parent = SectionMain
+                })
+                --
+                local DownArrow = Library:CreateObject("ImageButton", {
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Name = "DownArrow",
+                    Image = "rbxassetid://15540867448",
+                    BackgroundTransparency = 1,
+                    Position = UDim2.new(1, -10, 1, -9),
+                    Size = UDim2.new(0, 5, 0, 4),
+                    ZIndex = 4,
+                    BorderSizePixel = 0,
+                    Visible = false,
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    Parent = SectionMain
+                })
+                --
+                local UpArrow = Library:CreateObject("ImageButton", {
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Name = "UpArrow",
+                    Image = "rbxassetid://15540851994",
+                    BackgroundTransparency = 1,
+                    Position = UDim2.new(1, -10, 0, 5),
+                    Size = UDim2.new(0, 5, 0, 4),
+                    ZIndex = 4,
+                    BorderSizePixel = 0,
+                    Visible = false,
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    Parent = SectionMain
+                })
+                --
+                local UIGradient = Library:CreateObject("UIGradient", {
+                    Rotation = -90,
+                    Transparency = NumberSequence.new{
+                        NumberSequenceKeypoint.new(0, 0),
+                        NumberSequenceKeypoint.new(1, 1)
+                    },
+                    Parent = SectionFader
+                })
+                --
+                local SectionFader2 = Library:CreateObject("Frame", {
+                    Size = UDim2.new(1, 0, 0, 20),
+                    Name = "SectionFader",
+                    Position = UDim2.new(0, 0, 0, 0),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 3,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(23, 23, 23),
+                    Parent = SectionMain
+                })
+                --
+                local UIGradient = Library:CreateObject("UIGradient", {
+                    Rotation = 90,
+                    Transparency = NumberSequence.new{
+                        NumberSequenceKeypoint.new(0, 0),
+                        NumberSequenceKeypoint.new(1, 1)
+                    },
+                    Parent = SectionFader2
+                })
+                --
+                local TitleInline = Library:CreateObject("Frame", {
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    BackgroundTransparency = 0,
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Name = "TitleInline",
+                    BorderSizePixel = 0,
+                    Parent = SectionOutline,
+                    Position = UDim2.new(0, 9, 0, 0),
+                    Size = UDim2.new(0, 0, 0, 2),
+                    ZIndex = 5
+                })
+                --
+                local UIGradient2 = Library:CreateObject("UIGradient", {
+                    Rotation = 90,
+                    Color = ColorSequence.new{
+                        ColorSequenceKeypoint.new(0, Color3.fromRGB(19, 19, 19)),
+                        ColorSequenceKeypoint.new(1, Color3.fromRGB(24, 24, 24))
+                    },
+                    Parent = TitleInline
+                })
+                --
+                local Title = Library:CreateObject("TextButton", {
+                    AnchorPoint = Vector2.new(0, 0.5),
+                    BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+                    BackgroundTransparency = 1,
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    BorderSizePixel = 0,
+                    Parent = SectionOutline,
+                    Position = UDim2.new(0, 12, 0, 0),
+                    Size = UDim2.new(1, -26, 0, 15),
+                    ZIndex = 5,
+                    FontFace = Library.UI.NewFont,
+                    RichText = true,
+                    Text = "<b>" .. Options.Name .. "</b>",
+                    TextColor3 = Color3.fromRGB(198, 198, 198),
+                    TextSize = Library.UI.FontSize,
+                    TextStrokeTransparency = 1,
+                    TextXAlignment = "Left"
+                })
+                --
+                local ResizableButton_6 = Library:CreateObject("ImageButton", {
+                    ImageColor3 = Color3.fromRGB(40, 40, 40),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    AnchorPoint = Vector2.new(1, 1),
+                    Image = "http://www.roblox.com/asset/?id=127012144286347",
+                    BackgroundTransparency = 1,
+                    Position = UDim2.new(1, -2, 1, -2),
+                    Name = "ResizableButton_6",
+                    Size = UDim2.new(0, 6, 0, 6),
+                    BorderSizePixel = 0,
+                    ZIndex = 5,
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    Parent = SectionOutline
+                })
+                --
+                Section.Elements = {
+                    Name = Title,
+                    ContentHolder = SectionScrolling,
+                }
+                --
+                Title.Size = UDim2.fromOffset(Title.TextBounds.X, 15)
+                TitleInline.Size = UDim2.new(0, Title.TextBounds.X + 6, 0, 2)
+                --
+                do -- Functions
+                    function Section:UpdateSection()
+                        local CanvasSizeFloored = math.floor(SectionScrolling.AbsoluteCanvasSize.Y)
+                        local AbsoluteSizeFloored = math.floor(SectionMain.AbsoluteSize.Y)
+                        --
+                        if CanvasSizeFloored > AbsoluteSizeFloored then
+                            SectionMain.Size = UDim2.new(1, -8, 1, -2)
+                            UpArrow.Visible = not Section:CheckArrows("Up")
+                            DownArrow.Visible = not Section:CheckArrows("Down")
+                        elseif CanvasSizeFloored == AbsoluteSizeFloored then
+                            SectionMain.Size = UDim2.new(1, -2, 1, -2)
+                            UpArrow.Visible = false
+                            DownArrow.Visible = false
+                        end
+                    end
+                    --
+                    function Section:CheckArrows(Type)
+                        if Type == "Up" then
+                            return SectionScrolling.CanvasPosition == Vector2.new(0, 0)
+                        elseif Type == "Down" then
+                            return SectionScrolling.CanvasPosition == Vector2.new(0, SectionScrolling.AbsoluteCanvasSize.Y - SectionScrolling.AbsoluteSize.Y)
+                        else
+                            return false
+                        end
+                    end
+                    --
+                    function Section:CalculateHeight(Section, Container)
+                        local Padding = 10
+                        local Height = 0
+                        --
+                        for _, Child in Container:GetChildren() do
+                            if Child:IsA("GuiObject") and Child.Visible then
+                                Height = Height + Child.AbsoluteSize.Y + Padding
+                            end
+                        end
+                        --
+                        Section.Size = UDim2.new(Section.Size.X.Scale, Section.Size.X.Offset, 0, math.clamp(Height + 31, 50, SectionOutline.Parent.AbsoluteSize.Y))
+                    end
+                    --
+                    function Section:CalculateButton(Position)
+                        if Section.SizeButton then return end
+                        --
+                        local ButtonOutline = Library:CreateObject("Frame", {
+                            Name = "SectionOutline",
+                            BorderColor3 = Color3.fromRGB(0, 0, 0),
+                            Size = UDim2.new(0, 30, 0, 25),
+                            BorderSizePixel = 0,
+                            Position = Position,
+                            ZIndex = 5,
+                            BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+                            Parent = Library.UI.ScreenGUI
+                        })
+                        --
+                        local ButtonMain = Library:CreateObject("Frame", {
+                            Size = UDim2.new(1, -2, 1, -2),
+                            Name = "SectionMain_1",
+                            Position = UDim2.new(0, 1, 0, 1),
+                            BorderColor3 = Color3.fromRGB(0, 0, 0),
+                            ZIndex = 5,
+                            BorderSizePixel = 0,
+                            BackgroundColor3 = Color3.fromRGB(35, 35, 35),
+                            Parent = ButtonOutline
+                        })
+                        --
+                        local ButtonText = Library:CreateObject("TextLabel", {
+                            AnchorPoint = Vector2.new(0, 0.5),
+                            BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+                            BackgroundTransparency = 1,
+                            BorderColor3 = Color3.fromRGB(0, 0, 0),
+                            BorderSizePixel = 0,
+                            Parent = ButtonOutline,
+                            Position = UDim2.new(0, 0, 0.5, -1),
+                            Size = UDim2.new(1, 0, 1, 0),
+                            ZIndex = 5,
+                            FontFace = Library.UI.NewFont,
+                            RichText = true,
+                            Text = "Calculate height",
+                            TextColor3 = Color3.fromRGB(198, 198, 198),
+                            TextSize = Library.UI.FontSize,
+                            TextStrokeTransparency = 1,
+                            TextXAlignment = "Left"
+                        })
+                        --
+                        local UIPadding_82 = Library:CreateObject("UIPadding", {
+                            PaddingLeft = UDim.new(0, 8),
+                            Parent = ButtonText
+                        })
+                        --
+                        local Button_945 = Library:CreateObject("TextButton", {
+                            FontFace = Library.UI.NewFont,
+                            TextColor3 = Color3.fromRGB(0, 0, 0),
+                            BorderColor3 = Color3.fromRGB(0, 0, 0),
+                            Name = "Button_9",
+                            BackgroundTransparency = 1,
+                            ZIndex = 5,
+                            Size = UDim2.new(1, 0, 1, 0),
+                            BorderSizePixel = 0,
+                            TextTransparency = 1,
+                            TextSize = Library.UI.FontSize,
+                            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                            Parent = ButtonOutline
+                        })
+                        --
+                        Section.SizeButton = ButtonOutline
+                        ButtonOutline.Size = UDim2.fromOffset(ButtonText.TextBounds.X + 16, 25)
+                        ButtonOutline.BackgroundTransparency = 1
+                        ButtonMain.BackgroundTransparency = 1
+                        ButtonText.TextTransparency = 1
+                        Button_945.TextTransparency = 1
+                        --
+                        do -- Connections
+                            Library:Connection(Button_945.MouseEnter, function()
+                                Section.Hovering = true
+                            end)
+                            --
+                            Library:Connection(Button_945.MouseLeave, function()
+                                Section.Hovering = false
+                            end)
+                            --
+                            Library:Connection(Button_945.MouseButton1Click, function()
+                                Section:CalculateHeight(SectionOutline, SectionScrolling)
+                                Library:Fade(false, Library:GetObjectsTable(ButtonOutline, true), ButtonOutline, 0.1)
+                                --
+                                task.delay(Library.UI.TweenSpeed, function()
+                                    for _, Value in ButtonOutline:GetDescendants() do
+                                        Value:Destroy()
+                                    end
+                                    --
+                                    ButtonOutline:Destroy()
+                                    Section.SizeButton = nil
+                                end)
+                            end)
+                        end
+                        --
+                        Library:Fade(true, Library:GetObjectsTable(ButtonOutline, true), ButtonOutline, 0.1)
+                    end
+                end
+                --
+                do -- Connections
+                    Library:Connection(SectionScrolling.ChildAdded, function()
+                        Section:UpdateSection()
+                    end)
+                    --
+                    Library:Connection(SectionScrolling.ChildRemoved, function()
+                        Section:UpdateSection()
+                    end)
+                    --
+                    Library:Connection(SectionOutline:GetPropertyChangedSignal("AbsoluteSize"), function()
+                        Section:UpdateSection()
+                    end)
+                    --
+                    Library:Connection(RunService.PreRender, function() -- fastest option
+                        if SectionOutline.AbsoluteSize.Y >= ((SectionOutline.Parent.AbsoluteSize.Y - Tab.Sides[Options.Side].Sizes) - 38) then
+                            if Tab.SubSectionEnabled then
+                                if #Tab.Sides[Options.Side].Sections <= 3 then
+                                    SectionOutline.Size = UDim2.new(1, 0, 1, -Tab.Sides[Options.Side].Sizes)
+                                end
+                            else
+                                SectionOutline.Size = UDim2.new(1, 0, 1, -Tab.Sides[Options.Side].Sizes)
+                            end
+                        end
+                        --
+                        for _, Child in SectionOutline.Parent:GetChildren() do
+                            if Child:IsA("Frame") and Child ~= SectionOutline then
+                                if Library:CheckFrameFirst(SectionOutline, Child) then
+                                    if Child.AbsoluteSize.Y >= ((Child.Parent.AbsoluteSize.Y - Tab.Sides[Options.Side].Sizes) - 38) then
+                                        Child.Size = UDim2.new(Child.Size.X.Scale, Child.Size.X.Offset, 0, math.max(50, (SectionOutline.Parent.AbsoluteSize.Y - SectionOutline.AbsoluteSize.Y) - 57))
+                                    end
+                                    --
+                                    if Child.AbsoluteSize.Y == 50 and (SectionOutline.AbsoluteSize.Y == SectionOutline.Parent.AbsoluteSize.Y - 107) then
+                                        SectionOutline.Size = UDim2.new(SectionOutline.Size.X.Scale, SectionOutline.Size.X.Offset, 0, SectionOutline.Parent.AbsoluteSize.Y - 107)
+                                    end
+                                end
+                            end
+                        end
+                    end)
+                    --
+                    Library:Connection(SectionScrolling:GetPropertyChangedSignal("AbsoluteCanvasSize"), function()
+                        Section:UpdateSection()
+                    end)
+                    --
+                    Library:Connection(SectionScrolling:GetPropertyChangedSignal("CanvasPosition"), function()
+                        UpArrow.Visible = not Section:CheckArrows("Up")
+                        DownArrow.Visible = not Section:CheckArrows("Down")
+                    end)
+                    --
+                    Library:Connection(UpArrow.MouseButton1Click, function()
+                        if not UpArrow.Visible then return end
+                        --
+                        Library:TweenObject(SectionScrolling, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {CanvasPosition = Vector2.new(0, 0)})
+                    end)
+                    --
+                    Library:Connection(DownArrow.MouseButton1Click, function()
+                        if not DownArrow.Visible then return end
+                        --
+                        Library:TweenObject(SectionScrolling, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {CanvasPosition = Vector2.new(0, SectionScrolling.AbsoluteCanvasSize.Y - SectionScrolling.AbsoluteSize.Y)})
+                    end)
+                    --
+                    do -- Dragging
+                        Library:Connection(Title.MouseButton1Down, function()
+                            Title.TextColor3 = Library.Theme.Default.Accent
+                            --
+                            Section.DragConnection = Library:Connection(UserInputService.InputChanged, function(Input)
+                                if Input.UserInputType == Enum.UserInputType.MouseMovement then
+                                    local SelectedOptions = {["SubSection"] = Options.ParentOptions, ["Other"] = {Left, Right}}
+                                    local Selected = Tab.SubSectionEnabled and "SubSection" or "Other"
+                                    local NewLeft, NewRight = SelectedOptions[Selected][1], SelectedOptions[Selected][2]
+                                    local Parent2 = Library:SectionDragging(NewLeft) and NewLeft or Library:SectionDragging(NewRight) and NewRight
+                                    local ParentName = Parent2 == NewLeft and "Left" or "Right"
+                                    local TopHalf = Parent2 and Input.Position.Y < Parent2.AbsoluteSize.Y / 2
+                                    --
+                                    if not Parent2 then return end
+                                    --
+                                    SectionOutline.Parent = Parent2
+                                    --
+                                    for _, SectionChild in Parent2:GetChildren() do
+                                        if SectionChild:IsA("Frame") and SectionChild.Visible then
+                                            if SectionChild == SectionOutline then
+                                                if TopHalf then
+                                                    SectionChild.LayoutOrder = (Tab.DropdownSectionEnabled and Parent2 == NewLeft and 2) or 1
+                                                else
+                                                    SectionChild.LayoutOrder = Section[ParentName].Order + 1
+                                                end
+                                            else
+                                                if SectionChild.Name == "DropdownSection1" then
+                                                    SectionChild.LayoutOrder = 1
+                                                else
+                                                    SectionChild.LayoutOrder = Section[ParentName].Order
+                                                    Section[ParentName].Order = 3
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end)
+                        end)
+                    end
+                    --
+                    do -- Resizing
+                        Library:Connection(ResizableButton_6.MouseButton2Click, function()
+                            Section:CalculateButton(UDim2.fromOffset(ResizableButton_6.AbsolutePosition.X + ResizableButton_6.AbsoluteSize.X + 4, ResizableButton_6.AbsolutePosition.Y + ResizableButton_6.AbsoluteSize.Y + GuiService:GetGuiInset().Y))
+                        end)
+                        --
+                        Library:Connection(ResizableButton_6.MouseButton1Down, function()
+                            ResizableButton_6.ImageColor3 = Library.Theme.Default.Accent
+                            SectionInline.BackgroundColor3 = Library.Theme.Default.Accent
+                            --
+                            SectionOutline.Size = UDim2.new(SectionOutline.Size.X.Scale, SectionOutline.Size.X.Offset, 0, SectionOutline.AbsoluteSize.Y)
+                        end)
+                        --
+                        Library:Connection(UserInputService.InputBegan, function(Input)
+                            if Input.UserInputType == Enum.UserInputType.MouseButton1 and Section.SizeButton and not Section.Hovering then
+                                Library:Fade(false, Library:GetObjectsTable(Section.SizeButton, true), Section.SizeButton, 0.1)
+                                --
+                                task.delay(Library.UI.TweenSpeed, function()
+                                    for _, Value in Section.SizeButton:GetDescendants() do
+                                        Value:Destroy()
+                                    end
+                                    --
+                                    Section.SizeButton:Destroy()
+                                    Section.SizeButton = nil
+                                end)
+                            end
+                        end)
+                        --
+                        Library:Resizable(SectionOutline, ResizableButton_6, UDim2.fromOffset(200, 50), UDim2.fromOffset(SectionOutline.Parent.AbsoluteSize.X - 29, SectionOutline.Parent.AbsoluteSize.Y - 38), Library.UI.SectionResizeIncrements, false, true, 0.01)
+                    end
+                    --
+                    Library:Connection(UserInputService.InputEnded, function(Input)
+                        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                            if Section.DragConnection then Section.DragConnection:Disconnect() Section.DragConnection = nil end
+                            Section.Left.Order = 1
+                            Section.Right.Order = 1
+                            Title.TextColor3 = Color3.fromRGB(198, 198, 198)
+                            --
+                            ResizableButton_6.ImageColor3 = Color3.fromRGB(40, 40, 40)
+                            SectionInline.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                        end
+                    end)
+                end
+                --
+                return setmetatable(Section, Library.Sections)
+            end
+            --
+            function Tab:SubSection(Options)
+                Options = Library:Validate({
+                    Name = "Preview Sub Section",
+                    Options = {},
+                    Flag = Library:NewFlag(),
+                    Callback = function() end
+                }, Options or {})
+                --
+                local SubSection = {
+                    CurrentSection = nil,
+                    Sections = {},
+                    List = {},
+                    Elements = {},
+                }
+                --
+                SubSectionHolder.Visible = true
+                Tab.SubSectionEnabled = true
+                Tab.Sides.Right.Sizes = 0
+                Tab.Sides.Left.Sizes = 0
+                --
+                local SectionOutline = Library:CreateObject("Frame", {
+                    Name = "SectionOutline",
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Size = UDim2.new(1, 0, 1, 0),
+                    BorderSizePixel = 0,
+                    ZIndex = 1,
+                    BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+                    Parent = SubSectionHolder
+                })
+                --
+                SectionOutline:SetAttribute("g", 0)
+                --
+                local SectionInline = Library:CreateObject("Frame", {
+                    Name = "SectionInline",
+                    Position = UDim2.new(0, 1, 0, 1),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Size = UDim2.new(1, -2, 1, -2),
+                    BorderSizePixel = 0,
+                    ZIndex = 2,
+                    BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+                    Parent = SectionOutline
+                })
+                --
+                local SectionMain = Library:CreateObject("Frame", {
+                    Size = UDim2.new(1, -2, 1, -2),
+                    Name = "SectionMain_1",
+                    Position = UDim2.new(0, 1, 0, 1),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 2,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(23, 23, 23),
+                    Parent = SectionInline
+                })
+                --
+                local UIPadding_81 = Library:CreateObject("UIPadding", {
+                    PaddingRight = UDim.new(0, 10),
+                    PaddingLeft = UDim.new(0, 10),
+                    Parent = SectionMain
+                })
+                --
+                local UIListLayout52 = Library:CreateObject("UIListLayout", {
+                    Padding = UDim.new(0, -0),
+                    FillDirection = Enum.FillDirection.Horizontal,
+                    VerticalAlignment = Enum.VerticalAlignment.Center,
+                    SortOrder = Enum.SortOrder.LayoutOrder,
+                    HorizontalAlignment = Enum.HorizontalAlignment.Left,
+                    Parent = SectionMain
+                })
+                --
+                local TitleInline = Library:CreateObject("Frame", {
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    BackgroundTransparency = 0,
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Name = "TitleInline",
+                    BorderSizePixel = 0,
+                    Parent = SectionOutline,
+                    Position = UDim2.new(0, 9, 0, 0),
+                    Size = UDim2.new(0, 0, 0, 2),
+                    ZIndex = 5
+                })
+                --
+                local UIGradient2 = Library:CreateObject("UIGradient", {
+                    Rotation = 90,
+                    Color = ColorSequence.new{
+                        ColorSequenceKeypoint.new(0, Color3.fromRGB(19, 19, 19)),
+                        ColorSequenceKeypoint.new(1, Color3.fromRGB(24, 24, 24))
+                    },
+                    Parent = TitleInline
+                })
+                --
+                local Title = Library:CreateObject("TextLabel", {
+                    AnchorPoint = Vector2.new(0, 0.5),
+                    BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+                    BackgroundTransparency = 1,
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    BorderSizePixel = 0,
+                    Parent = SectionOutline,
+                    Position = UDim2.new(0, 12, 0, 0),
+                    Size = UDim2.new(1, -26, 0, 15),
+                    ZIndex = 5,
+                    FontFace = Library.UI.NewFont,
+                    RichText = true,
+                    Text = "<b>" .. Options.Name .. "</b>",
+                    TextColor3 = Color3.fromRGB(198, 198, 198),
+                    TextSize = Library.UI.FontSize,
+                    TextStrokeTransparency = 1,
+                    TextXAlignment = "Left"
+                })
+                --
+                for Index, Value in Options.Options do
+                    local SectionItem = {
+                        Active = false,
+                        Hovering = false,
+                        Position = "Bottom",
+                        Elements = {},
+                    }
+                    --
+                    local SectionsHolder2 = Library:CreateObject("Frame", {
+                        Name = "SectionsHolder",
+                        BackgroundTransparency = 1,
+                        Visible = false,
+                        Position = UDim2.new(0, 97, 0, 33),
+                        BorderColor3 = Color3.fromRGB(0, 0, 0),
+                        Size = UDim2.new(1, -112, 1, -34),
+                        BorderSizePixel = 0,
+                        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                        ClipsDescendants = true,
+                        Parent = Outline_1
+                    })
+                    --
+                    local UIPadding_141 = Library:CreateObject("UIPadding", {
+                        PaddingTop = UDim.new(0, 52),
+                        Parent = SectionsHolder2
+                    })
+                    --
+                    local Left2 = Library:CreateObject("Frame", {
+                        BackgroundTransparency = 1,
+                        Name = "Left2",
+                        BorderColor3 = Color3.fromRGB(0, 0, 0),
+                        Size = UDim2.new(0.5, 0, 1, 0),
+                        BorderSizePixel = 0,
+                        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                        Parent = SectionsHolder2
+                    })
+                    --
+                    local UIPadding_11 = Library:CreateObject("UIPadding", {
+                        PaddingTop = UDim.new(0, 19),
+                        PaddingBottom = UDim.new(0, 19),
+                        PaddingRight = UDim.new(0, 12),
+                        Parent = Left2
+                    })
+                    --
+                    local UIListLayout12 = Library:CreateObject("UIListLayout", {
+                        Padding = UDim.new(0, 19),
+                        SortOrder = Enum.SortOrder.LayoutOrder,
+                        Parent = Left2
+                    })
+                    --
+                    local Right2 = Library:CreateObject("Frame", {
+                        Name = "Right2",
+                        BackgroundTransparency = 1,
+                        Position = UDim2.new(0.5, 0, 0, 0),
+                        BorderColor3 = Color3.fromRGB(0, 0, 0),
+                        Size = UDim2.new(0.5, 0, 1, 0),
+                        BorderSizePixel = 0,
+                        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                        Parent = SectionsHolder2
+                    })
+                    --
+                    local UIPadding_21 = Library:CreateObject("UIPadding", {
+                        PaddingTop = UDim.new(0, 19),
+                        PaddingBottom = UDim.new(0, 19),
+                        PaddingRight = UDim.new(0, 6),
+                        PaddingLeft = UDim.new(0, 6),
+                        Parent = Right2
+                    })
+                    --
+                    local UIListLayout521 = Library:CreateObject("UIListLayout", {
+                        Padding = UDim.new(0, 19),
+                        SortOrder = Enum.SortOrder.LayoutOrder,
+                        Parent = Right2
+                    })
+                    --
+                    local Icon = Library:CreateObject("ImageButton", {
+                        ImageColor3 = Color3.fromRGB(100, 100, 100),
+                        BorderColor3 = Color3.fromRGB(0, 0, 0),
+                        Name = "Icon",
+                        Image = Value,
+                        BackgroundTransparency = 1,
+                        Size = UDim2.new(0, 75, 0, 57),
+                        ZIndex = 2,
+                        BorderSizePixel = 0,
+                        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                        Parent = SectionMain
+                    })
+                    --
+                    Left2.Position = UDim2.new(0, -(Left2.AbsoluteSize.X * 2), 0, 0)
+                    Right2.Position = UDim2.new(0.5, -(Right2.AbsoluteSize.X * 2), 0, 0)
+                    --
+                    do -- Functions
+                        function SectionItem:MoveSides(State)
+                            task.spawn(function()
+                                if State then
+                                    if SectionItem.Position == "Bottom" then
+                                        Left2.Position = UDim2.new(0, (Left2.AbsoluteSize.X * 2), 0, 0)
+                                        Right2.Position = UDim2.new(0.5, (Right2.AbsoluteSize.X * 2), 0, 0)
+                                    else
+                                        Left2.Position = UDim2.new(0, -(Left2.AbsoluteSize.X * 2), 0, 0)
+                                        Right2.Position = UDim2.new(0.5, -(Right2.AbsoluteSize.X * 2), 0, 0)
+                                    end
+                                    --
+                                    SectionsHolder2.Visible = Outline:GetAttribute("g") == table.find(Window.Tabs, Tab)
+                                    Library:TweenObject(Left2, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Position = UDim2.new(0, 1, 0, 0)})
+                                    Library:TweenObject(Right2, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, 1, 0, 0)})
+                                else
+                                    task.wait(0.001)
+                                    --
+                                    local LeftPosition = SectionItem.Position == "Bottom" and (Left2.AbsoluteSize.X * 2) + 10 or -(Left2.AbsoluteSize.X * 2)
+                                    local RightPosition = SectionItem.Position == "Bottom" and (Right2.AbsoluteSize.X * 2) + 10 or -(Right2.AbsoluteSize.X * 2)
+                                    --
+                                    Library:TweenObject(Left2, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Position = UDim2.new(0, LeftPosition, 0, 0)})
+                                    Library:TweenObject(Right2, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, RightPosition, 0, 0)})
+                                end
+                            end)
+                        end
+                        --
+                        function SectionItem:Activate()
+                            if not SectionItem.Active then
+                                if SubSection.CurrentSection ~= nil then
+                                    SubSection.CurrentSection:Deactivate()
+                                end
+                                --
+                                SectionItem.Active = true
+                                --
+                                SectionItem:MoveSides(true)
+                                Icon.ImageColor3 = Color3.fromRGB(188, 188, 188)
+                                --
+                                SubSection.CurrentSection = SectionItem
+                                SectionOutline:SetAttribute("g", Index)
+                            end
+                        end
+                        --
+                        function SectionItem:Deactivate()
+                            if SectionItem.Active then
+                                SectionItem.Active = false
+                                SectionItem.Hovering = false
+                                --
+                                SectionItem:MoveSides(false)
+                                Icon.ImageColor3 = Color3.fromRGB(93, 93, 93)
+                            end
+                        end
+                        --
+                        function SectionItem:Section(Options)
+                            Options = Library:Validate({
+                                Name = "Preview Section",
+                                Side = "Left",
+                                Size = 40,
+                            }, Options or {})
+                            --
+                            local Section = Tab:Section({
+                                Name = Options.Name,
+                                Side = Options.Side,
+                                Fill = Options.Fill,
+                                Size = Options.Size,
+                                Parent = Options.Side == "Left" and Left2 or Right2,
+                                ParentOptions = {Left2, Right2},
+                                Icon = Icon,
+                            })
+                            --
+                            return Section
+                        end
+                    end
+                    --
+                    do -- Connections
+                        Library:Connection(Outline:GetPropertyChangedSignal("AbsoluteSize"), function()
+                            if not SectionItem.Active then
+                                Left2.Position = UDim2.new(0, Left2.AbsoluteSize.X * 2, 0, 0)
+                                Right2.Position = UDim2.new(0.5, Right2.AbsoluteSize.X * 2, 0, 0)
+                            end
+                        end)
+                        --
+                        Library:Connection(Outline:GetAttributeChangedSignal("g"), function()
+                            if Outline:GetAttribute("g") == table.find(Window.Tabs, Tab) then
+                                SectionsHolder2.Visible = true
+                            end
+                        end)
+                        --
+                        Library:Connection(SectionOutline:GetAttributeChangedSignal("g"), function()
+                            if SectionOutline:GetAttribute("g") > Index then
+                                SectionItem.Position = "Top"
+                            elseif SectionOutline:GetAttribute("g") < Index then
+                                SectionItem.Position = "Bottom"
+                            end
+                        end)
+                        --
+                        Library:Connection(Left:GetPropertyChangedSignal("AbsolutePosition"), function()
+                            if SectionItem.Active then
+                                Left2.Position = Left.Position
+                            end
+                        end)
+                        --
+                        Library:Connection(Right:GetPropertyChangedSignal("AbsolutePosition"), function()
+                            if SectionItem.Active then
+                                Right2.Position = Right.Position
+                            end
+                        end)
+                        --
+                        Library:Connection(Icon.MouseButton1Click, function()
+                            SectionItem:Activate()
+                        end)
+                        --
+                        Library:Connection(Icon.MouseEnter, function()
+                            if not SectionItem.Active then
+                                SectionItem.Hovering = true
+                                Icon.ImageColor3 = Color3.fromRGB(124, 124, 124)
+                            end
+                        end)
+                        --
+                        Library:Connection(Icon.MouseLeave, function()
+                            if not SectionItem.Active then
+                                SectionItem.Hovering = false
+                                Icon.ImageColor3 = Color3.fromRGB(93, 93, 93)
+                            end
+                        end)
+                    end
+                    --
+                    if SubSection.CurrentSection == nil then
+                        SectionItem:Activate()
+                    end
+                    --
+                    SubSection.Sections[#SubSection.Sections + 1] = setmetatable(SectionItem, Library.Sections)
+                end
+                --
+                SubSection.Elements = {
+                    Name = Title,
+                    ContentHolder = SectionMain,
+                }
+                --
+                TitleInline.Size = UDim2.new(0, Title.TextBounds.X + 6, 0, 2)
+                --
+                return table.unpack(SubSection.Sections)
+            end
+            --
+            function Tab:ImageDropdown(Options)
+                Options = Library:Validate({
+                    Name = "Weapon Type",
+                    Options = {},
+                    Default = nil,
+                    Flag = Library:NewFlag(),
+                    Callback = function() end
+                }, Options or {})
+                --
+                local ImageDropdown = {
+                    Open = false,
+                    Active = false,
+                    Hovering = false,
+                    CurrentItem = nil,
+                    Scrollable = false,
+                    Hiding = false,
+                    ContentLength = Library:GetTableLength(Options.Options),
+                }
+                --
+                Tab.DropdownSectionEnabled = true
+                Tab.Sides.Left.Sizes = 70
+                --
+                local DropdownImageOutline = Library:CreateObject("Frame", {
+                    Name = "DropdownSection1",
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Size = UDim2.new(1, 0, 0, 51),
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+                    Parent = Left
+                })
+                --
+                local DropdownChecker = Library:CreateObject("Frame", {
+                    Name = "DropdownChecker",
+                    Position = UDim2.new(0, 0, 1, 0),
+                    Visible = false,
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Size = UDim2.new(1, 0, 0, 1),
+                    BorderSizePixel = 0,
+                    Parent = DropdownImageOutline
+                })
+                --
+                local DropdownImageInline = Library:CreateObject("Frame", {
+                    Name = "DropdownImageInline",
+                    Position = UDim2.new(0, 1, 0, 1),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Size = UDim2.new(1, -2, 1, -2),
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+                    Parent = DropdownImageOutline
+                })
+                --
+                local DropdownImageMain = Library:CreateObject("Frame", {
+                    Size = UDim2.new(1, -2, 1, -2),
+                    Name = "DropdownImageMain",
+                    Position = UDim2.new(0, 1, 0, 1),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 2,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(23, 23, 23),
+                    Parent = DropdownImageInline
+                })
+                --
+                local Button_92 = Library:CreateObject("TextButton", {
+                    FontFace = Library.UI.NewFont,
+                    TextColor3 = Color3.fromRGB(0, 0, 0),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Name = "Button_9",
+                    BackgroundTransparency = 1,
+                    Size = UDim2.new(1, 0, 1, 0),
+                    BorderSizePixel = 0,
+                    TextTransparency = 1,
+                    TextSize = Library.UI.FontSize,
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    Parent = DropdownImageMain
+                })
+                --
+                local DownArrow = Library:CreateObject("ImageLabel", {
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Name = "DownArrow",
+                    Size = UDim2.new(0, 5, 0, 4),
+                    AnchorPoint = Vector2.new(1, 0.5),
+                    Image = "rbxassetid://15540867448",
+                    BackgroundTransparency = 1,
+                    Position = UDim2.new(1, -6, 0.5, 0),
+                    ZIndex = 2,
+                    BorderSizePixel = 0,
+                    ImageColor3 = Color3.fromRGB(210, 210, 210),
+                    Parent = DropdownImageMain
+                })
+                --
+                local Icon = Library:CreateObject("ImageLabel", {
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Name = "Icon",
+                    Size = UDim2.new(0, 50, 1, -6),
+                    AnchorPoint = Vector2.new(1, 0.5),
+                    Image = "rbxassetid://18657040454",
+                    BackgroundTransparency = 1,
+                    Position = UDim2.new(1, -14, 0.5, 0),
+                    ZIndex = 2,
+                    BorderSizePixel = 0,
+                    ImageColor3 = Color3.fromRGB(210, 210, 210),
+                    Parent = DropdownImageMain
+                })
+                --
+                local ToggleHolder = Library:CreateObject("Frame", {
+                    Name = "ToggleHolder",
+                    BackgroundTransparency = 1,
+                    Size = UDim2.new(0, 100, 1, 0),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 2,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    Parent = DropdownImageMain
+                })
+                --
+                local ActualToggleButton = Library:Toggle({
+                    Default = false,
+                    Name = "Global",
+                    SectionName = "ToggleHolder",
+                    Parent = ToggleHolder,
+                    Risky = false,
+                    MainUI = Outline,
+                    ZIndex = 2,
+                    TabUI = SideBarMain,
+                    AnchorPoint = Vector2.new(0, 0.5),
+                    Size = UDim2.new(1, 0, 1, 0),
+                    Position = UDim2.new(0, 0, 0.5, 0),
+                    UseToggleOutline = true,
+                    Hidden = false,
+                    Flag = Options.Flag .. "Extra",
+                    Callback = function(State)
+                        if ImageDropdown.CurrentItem then
+                            ImageDropdown.CurrentItem:SetValue(State)
+                            Library.Flags[Options.Flag] = ImageDropdown.CurrentItem
+                            Options.Callback(ImageDropdown.CurrentItem.Name, ImageDropdown.CurrentItem.CurrentValue)
+                        end
+                    end,
+                })
+                --
+                local UIPadding = Library:CreateObject("UIPadding", {
+                    PaddingLeft = UDim.new(0, 18),
+                    Parent = ToggleHolder
+                })
+                --
+                local TitleInline = Library:CreateObject("Frame", {
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                    BackgroundTransparency = 0,
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Name = "TitleInline",
+                    BorderSizePixel = 0,
+                    Parent = DropdownImageOutline,
+                    Position = UDim2.new(0, 9, 0, 0),
+                    Size = UDim2.new(0, 0, 0, 2),
+                    ZIndex = 5
+                })
+                --
+                local UIGradient2 = Library:CreateObject("UIGradient", {
+                    Rotation = 90,
+                    Color = ColorSequence.new{
+                        ColorSequenceKeypoint.new(0, Color3.fromRGB(19, 19, 19)),
+                        ColorSequenceKeypoint.new(1, Color3.fromRGB(24, 24, 24))
+                    },
+                    Parent = TitleInline
+                })
+                --
+                local Title = Library:CreateObject("TextButton", {
+                    AnchorPoint = Vector2.new(0, 0.5),
+                    BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+                    BackgroundTransparency = 1,
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    BorderSizePixel = 0,
+                    Parent = DropdownImageOutline,
+                    Position = UDim2.new(0, 12, 0, 0),
+                    Size = UDim2.new(1, -26, 0, 15),
+                    ZIndex = 5,
+                    FontFace = Library.UI.NewFont,
+                    RichText = true,
+                    Text = "<b>" .. Options.Name .. "</b>",
+                    TextColor3 = Color3.fromRGB(198, 198, 198),
+                    TextSize = Library.UI.FontSize,
+                    TextStrokeTransparency = 1,
+                    TextXAlignment = "Left"
+                })
+                --
+                local DropdownMainOutline = Library:CreateObject("Frame", {
+                    Name = "DropdownMainOutline",
+                    Position = UDim2.new(0, 0, 0, 0),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    ZIndex = 50,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+                    Parent = Library.UI.ScreenGUI
+                })
+                --
+                local DropdownMain = Library:CreateObject("Frame", {
+                    Name = "DropdownMain",
+                    Position = UDim2.new(0, 1, 0, 1),
+                    BorderColor3 = Color3.fromRGB(0, 0, 0),
+                    Size = UDim2.new(1, -2, 1, -2),
+                    BorderSizePixel = 0,
+                    ZIndex = 50,
+                    ClipsDescendants = true,
+                    BackgroundColor3 = Color3.fromRGB(35, 35, 35),
+                    Parent = DropdownMainOutline
+                })
+                --
+                DropdownMainOutline.BackgroundTransparency = 1
+                DropdownMain.BackgroundTransparency = 1
+                --
+                local UIListLayout_9 = Library:CreateObject("UIListLayout", {
+                    SortOrder = Enum.SortOrder.LayoutOrder,
+                    Parent = DropdownMain
+                })
+                --
+                Title.Size = UDim2.fromOffset(Title.TextBounds.X, 15)
+                TitleInline.Size = UDim2.new(0, Title.TextBounds.X + 6, 0, 2)
+                --
+                for Index, Value in Options.Options do
+                    local DropdownOption = {
+                        Hovering = false,
+                        Active = false,
+                        CurrentValue = false,
+                        Name = Index,
+                    }
+                    --
+                    local ButtonMain = Library:CreateObject("Frame", {
+                        Name = "DropdownMain",
+                        BorderColor3 = Color3.fromRGB(0, 0, 0),
+                        Size = UDim2.new(1, 0, 0, 30),
+                        BorderSizePixel = 0,
+                        ZIndex = 50,
+                        ClipsDescendants = true,
+                        LayoutOrder = Value.Order,
+                        BackgroundColor3 = Color3.fromRGB(35, 35, 35),
+                        Parent = DropdownMain
+                    })
+                    --
+                    local Button_925 = Library:CreateObject("TextButton", {
+                        FontFace = Library.UI.NewFont,
+                        TextColor3 = Color3.fromRGB(0, 0, 0),
+                        BorderColor3 = Color3.fromRGB(0, 0, 0),
+                        Name = "Button_9",
+                        BackgroundTransparency = 1,
+                        Size = UDim2.new(1, 0, 1, 0),
+                        BorderSizePixel = 0,
+                        ZIndex = 50,
+                        TextTransparency = 1,
+                        TextSize = Library.UI.FontSize,
+                        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                        Parent = ButtonMain
+                    })
+                    --
+                    ButtonMain.BackgroundTransparency = 1
+                    --
+                    local ToggleButton = Library:Toggle({
+                        Default = false,
+                        Name = Index,
+                        SectionName = "ImageDropdown",
+                        Parent = ButtonMain,
+                        Risky = false,
+                        MainUI = Outline,
+                        ZIndex = 50,
+                        TabUI = SideBarMain,
+                        AnchorPoint = Vector2.new(0, 0.5),
+                        Position = UDim2.new(0, 15, 0.5, 0),
+                        Hidden = false,
+                        Callback = function(State)
+
+                        end,
+                    })
+                    --
+                    local IconButton = Library:CreateObject("ImageLabel", {
+                        BorderColor3 = Color3.fromRGB(0, 0, 0),
+                        Name = "Icon",
+                        Size = UDim2.new(0, 35, 1, 0),
+                        AnchorPoint = Vector2.new(1, 0.5),
+                        Image = Value.Icon,
+                        BackgroundTransparency = 1,
+                        Position = UDim2.new(1, -10, 0.5, 0),
+                        ZIndex = 50,
+                        BorderSizePixel = 0,
+                        ImageColor3 = Color3.fromRGB(124, 124, 124),
+                        Parent = ButtonMain
+                    })
+                    --
+                    do -- Functions
+                        function DropdownOption:Activate()
+                            if not DropdownOption.Active then
+                                if ImageDropdown.CurrentItem ~= nil then
+                                    ImageDropdown.CurrentItem:Deactivate()
+                                end
+                                --
+                                DropdownOption.Active = true
+                                ImageDropdown.CurrentItem = DropdownOption
+                                --
+                                IconButton.ImageColor3 = Color3.fromRGB(210, 210, 210)
+                                Icon.Image = Value.Icon
+                                ActualToggleButton:SetName(Index)
+                            end
+                        end
+                        --
+                        function DropdownOption:Deactivate()
+                            if DropdownOption.Active then
+                                DropdownOption.Active = false
+                                DropdownOption.Hovering = false
+                                ImageDropdown.CurrentItem = nil
+                                --
+                                ButtonMain.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+                                IconButton.ImageColor3 = Color3.fromRGB(124, 124, 124)
+                            end
+                        end
+                        --
+                        function DropdownOption:SetValue(Value)
+                            ToggleButton:Set(Value)
+                            DropdownOption.CurrentValue = Value
+                        end
+                        --
+                        function DropdownOption:Get()
+                            return {Name = DropdownOption.Name, Value = DropdownOption.CurrentValue}
+                        end
+                    end
+                    --
+                    do -- Connections
+                        Library:Connection(ButtonMain.MouseEnter, function()
+                            ButtonMain.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+                            IconButton.ImageColor3 = Color3.fromRGB(210, 210, 210)
+                        end)
+                        --
+                        Library:Connection(ButtonMain.MouseLeave, function()
+                            ButtonMain.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+                            --
+                            if DropdownOption.Active then return end
+                            --
+                            IconButton.ImageColor3 = Color3.fromRGB(124, 124, 124)
+                        end)
+                        --
+                        Library:Connection(Button_925.MouseButton1Click, function()
+                            DropdownOption:Activate()
+                            ActualToggleButton:Set(DropdownOption.CurrentValue)
+                        end)
+                    end
+                    --
+                    if Options.Default == Index then
+                        DropdownOption:Activate()
+                    end
+                    --
+                    Library:Fade(false, Library:GetObjectsTable(DropdownMainOutline, true), DropdownMainOutline, 0.1)
+                end
+                --
+                do -- Functions
+                    function ImageDropdown:Toggle(Fast)
+                        local Fast = Fast or false
+                        local OldValues = Library.Objects[DropdownMainOutline]
+                        --
+                        if ImageDropdown.Open then
+                            if Fast then
+                                Library:Fade(false, Library:GetObjectsTable(DropdownMainOutline, true), DropdownMainOutline, 0)
+                                DropdownMainOutline.Size = UDim2.new(0, DropdownImageOutline.AbsoluteSize.X, 0, 0)
+                                Library.Objects[DropdownMainOutline] = {DropdownMainOutline, OldValues[2], true}
+                            else
+                                Library:Fade(false, Library:GetObjectsTable(DropdownMainOutline, true), DropdownMainOutline, 0.1)
+                                Library:TweenObject(DropdownMainOutline, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = UDim2.new(0, DropdownImageOutline.AbsoluteSize.X, 0, 0)}, function()
+                                    Library.Objects[DropdownMainOutline] = {DropdownMainOutline, OldValues[2], true}
+                                end)
+                            end
+                        else
+                            Library.Objects[DropdownMainOutline] = {DropdownMainOutline, OldValues[2], false}
+                            --
+                            if Fast then
+                                Library:Fade(true, Library:GetObjectsTable(DropdownMainOutline, true), DropdownMainOutline, 0)
+                                DropdownMainOutline.Size = UDim2.new(0, DropdownImageOutline.AbsoluteSize.X, 0, (ImageDropdown.ContentLength * 30) + 2)
+                            else
+                                Library:Fade(true, Library:GetObjectsTable(DropdownMainOutline, true), DropdownMainOutline, 0.1)
+                                Library:TweenObject(DropdownMainOutline, TweenInfo.new(Library.UI.TweenSpeed, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Size = UDim2.new(0, DropdownImageOutline.AbsoluteSize.X, 0, (ImageDropdown.ContentLength * 30) + 2)})
+                            end	
+                        end
+                        --
+                        ImageDropdown.Open = not ImageDropdown.Open
+                    end
+                    --
+                    function ImageDropdown:Update()
+                        DropdownMainOutline.Size = UDim2.new(0, DropdownImageOutline.AbsoluteSize.X, 0, DropdownMainOutline.AbsoluteSize.Y)
+                        DropdownMainOutline.Position = UDim2.new(0, DropdownImageOutline.AbsolutePosition.X, 0, ((DropdownImageOutline.AbsolutePosition.Y + DropdownImageOutline.AbsoluteSize.Y) + GuiService:GetGuiInset().Y + 2))
+                    end
+                end
+                --
+                do -- Dropdown Connections
+                    ImageDropdown:Update()
+                    --
+                    Library:Connection(DropdownImageOutline:GetPropertyChangedSignal("AbsolutePosition"), ImageDropdown.Update)
+                    Library:Connection(DropdownImageOutline:GetPropertyChangedSignal("AbsoluteSize"), ImageDropdown.Update)
+                    --
+                    local StartingY = DropdownImageOutline.AbsolutePosition.Y
+                    local MainUIStartingY = Outline.AbsolutePosition.Y
+                    --
+                    Library:Connection(DropdownImageOutline:GetPropertyChangedSignal("AbsolutePosition"), function()
+                        if not ImageDropdown.Open then return end
+                        --
+                        local CurrentY = DropdownImageOutline.AbsolutePosition.Y
+                        local MainUICurrentY = Outline.AbsolutePosition.Y
+                        --
+                        if MainUICurrentY ~= MainUIStartingY then
+                            MainUIStartingY = MainUICurrentY
+                            StartingY = CurrentY
+                            --
+                            return
+                        end
+                        --
+                        if Library.UI.Resizing then
+                            return
+                        end
+                        --
+                        if CurrentY ~= StartingY then
+                            ImageDropdown:Toggle(true)
+                        end
+                        --
+                        StartingY = CurrentY
+                    end)
+                end
+                --
+                do -- Connections
+                    Library:Connection(Button_92.MouseButton1Click, function()
+                        ImageDropdown:Toggle()
+                    end)
+                end
+            end
+            --
+            function Sections:Dropdown(Options)
+                Options = Library:Validate({
+                    Default = "None",
+                    Name = "Preview Dropdown",
+                    Content = {},
+                    Hiding = false,
+                    Risky = false,
+                    Flag = Library.NewFlag(),
+                    Callback = function() end
+                }, Options or {})
+                --
+                local Dropdown = Library:Dropdown({
+                    Default = Options.Default,
+                    Name = Options.Name,
+                    Content = Options.Content,
+                    MainUI = Outline,
+                    TabUI = SideBarMain,
+                    Hiding = Options.Hiding,
+                    Risky = Options.Risky,
+                    Flag = Options.Flag,
+                    Callback = Options.Callback,
+                    Parent = self.Elements.ContentHolder
+                })
+                --
+                return Dropdown
+            end
+            --
+            function Sections:MultiBox(Options)
+                Options = Library:Validate({
+                    Default = {},
+                    Name = "Preview MultiBox",
+                    Content = {},
+                    Hiding = false,
+                    Risky = false,
+                    Flag = Library.NewFlag(),
+                    Callback = function() end
+                }, Options or {})
+                --
+                local Dropdown = Library:MultiBox({
+                    Default = Options.Default,
+                    Name = Options.Name,
+                    Content = Options.Content,
+                    MainUI = Outline,
+                    TabUI = SideBarMain,
+                    Hiding = Options.Hiding,
+                    Risky = Options.Risky,
+                    Flag = Options.Flag,
+                    Callback = Options.Callback,
+                    Parent = self.Elements.ContentHolder
+                })
+                --
+                return Dropdown
+            end
+            --
+            function Sections:Toggle(Options)
+                Options = Library:Validate({
+                    Default = false,
+                    Name = "Preview Toggle",
+                    Risky = false,
+                    Hidden = false,
+                    Flag = Library:NewFlag(),
+                    Callback = function() end
+                }, Options or {})
+                --
+                local Toggle = Library:Toggle({
+                    Default = Options.Default,
+                    Name = Options.Name,
+                    SectionName = self.Elements.Name,
+                    Parent = self.Elements.ContentHolder,
+                    Risky = Options.Risky,
+                    MainUI = Outline,
+                    TabUI = SideBarMain,
+                    Hidden = Options.Hidden,
+                    Flag = Options.Flag,
+                    Callback = Options.Callback
+                })
+                --
+                return Toggle
+            end
+            --
+            function Sections:Slider(Options)
+                Options = Library:Validate({
+                    Name = "Preview Slider",
+                    Min = 0,
+                    Max = 100,
+                    Default = 1,
+                    Decimal = 1,
+                    Ending = "",
+                    Hidden = false,
+                    UseIcons = true,
+                    Disable = {},
+                    Risky = false,
+                    OverrideLimit = false, -- new parameter to allow values beyond max
+                    Flag = Library.NewFlag(),
+                    Callback = function() end
+                }, Options or {})
+                --
+                local Slider = Library:Slider({
+                    Name = Options.Name,
+                    Min = Options.Min,
+                    Max = Options.Max,
+                    Default = Options.Default,
+                    Decimal = Options.Decimal,
+                    Ending = Options.Ending,
+                    Hidden = Options.Hidden,
+                    Parent = self.Elements.ContentHolder,
+                    Risky = Options.Risky,
+                    Disable = Options.Disable,
+                    OverrideLimit = Options.OverrideLimit, -- pass the parameter
+                    Flag = Options.Flag,
+                    UseIcons = Options.UseIcons,
+                    Callback = Options.Callback
+                })
+                --
+                return Slider
+            end
+            --
+            function Sections:Label(Options)
+                Options = Library:Validate({
+                    Message = "Preview Label",
+                    Risky = false,
+                    Side = "Left",
+                    Hidden = false,
+                }, Options or {})
+                --
+                local Label = Library:Label({
+                    Message = Options.Message,
+                    Side = Options.Side,
+                    Risky = Options.Risky,
+                    MainUI = Outline,
+                    Hidden = Options.Hidden,
+                    TabUI = SideBarMain,
+                    SectionName = self.Elements.Name,
+                    Callback = Options.Callback,
+                    Parent = self.Elements.ContentHolder
+                })
+                --
+                return Label
+            end
+            --
+            function Sections:TextBox(Options)
+                Options = Library:Validate({
+                    Default = "",
+                    Name = "Preview TextBox",
+                    Max = 32,
+                    NumbersOnly = false,
+                    ClearOnFocus = false,
+                    CheckIfPressedEnter = false,
+                    Risky = false,
+                    Hidden = false,
+                    Flag = Library.NewFlag(),
+                    Callback = function() end
+                }, Options or {})
+                --
+                local TextBox = Library:TextBox({
+                    Default = Options.Default,
+                    Name = Options.Name,
+                    Max = Options.Max,
+                    NumbersOnly = Options.NumbersOnly,
+                    ClearOnFocus = Options.ClearOnFocus,
+                    CheckIfPressedEnter = Options.CheckIfPressedEnter,
+                    Risky = Options.Risky,
+                    Hidden = Options.Hidden,
+                    Parent = self.Elements.ContentHolder,
+                    Flag = Options.Flag,
+                    Callback = Options.Callback
+                })
+                --
+                return TextBox
+            end
+            --
+            function Sections:List(Options)
+                Options = Library:Validate({
+                    Size = 100,
+                    Hidden = false,
+                    Flag = Library.NewFlag(),
+                    Callback = function() end
+                }, Options or {})
+                --
+                local TextBox = Library:List({
+                    Size = Options.Size,
+                    Hidden = Options.Hidden,
+                    Parent = self.Elements.ContentHolder,
+                    Flag = Options.Flag,
+                    Callback = Options.Callback
+                })
+                --
+                return TextBox
+            end
+            --
+            function Sections:Button(Options)
+                Options = Library:Validate({
+                    Name = "Preview Button",
+                    Confirmation = false,
+                    Risky = false,
+                    Hidden = false,
+                    Callback = function() end
+                }, Options or {})
+                --
+                local Button = Library:Button({
+                    Name = Options.Name,
+                    Confirmation = Options.Confirmation,
+                    Risky = Options.Risky,
+                    Hidden = Options.Hidden,
+                    Parent = self.Elements.ContentHolder,
+                    Callback = Options.Callback
+                })
+                --
+                return Button
+            end
+            --
+            return Tab
+        end
+        --
+        function Library:CreateWatermark()
+            local Watermark = {
+                CanUse = true,
+                Tick = tick(),
+                RefreshTick = tick(),
+            }
+            --
+            local MainWatermark = Library:CreateObject("Frame", {
+                Name = "Watermark",
+                Position = UDim2.new(0, 0, 0, 0),
+                BorderColor3 = Color3.fromRGB(0, 0, 0),
+                Size = UDim2.new(0, 400, 0, 20),
+                BorderSizePixel = 0,
+                ZIndex = 10000,
+                BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+                Parent = Library.UI.ScreenGUI
+            }, true)
+            --
+            local UIGradient = Library:CreateObject("UIGradient", {
+                Transparency = NumberSequence.new{
+                    NumberSequenceKeypoint.new(0, 1),
+                    NumberSequenceKeypoint.new(0.25, 0.6119999885559082),
+                    NumberSequenceKeypoint.new(0.5, 0.625),
+                    NumberSequenceKeypoint.new(0.75, 0.625),
+                    NumberSequenceKeypoint.new(1, 1)
+                },
+                Parent = MainWatermark
+            }, true)
+            --
+            local UIStroke = Library:CreateObject("UIStroke", {
+                Parent = MainWatermark
+            }, true)
+            --
+            local UIGradient_1 = Library:CreateObject("UIGradient", {
+                Transparency = NumberSequence.new{
+                    NumberSequenceKeypoint.new(0, 1),
+                    NumberSequenceKeypoint.new(0.232, 0.4000000059604645),
+                    NumberSequenceKeypoint.new(0.5, 0.4000000059604645),
+                    NumberSequenceKeypoint.new(0.75, 0.4000000059604645),
+                    NumberSequenceKeypoint.new(1, 1)
+                },
+                Parent = UIStroke
+            }, true)
+            --
+            local WatermarkText = Library:CreateObject("TextLabel", {
+                FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+                TextColor3 = Color3.fromRGB(208, 208, 208),
+                BorderColor3 = Color3.fromRGB(0, 0, 0),
+                Text = "dva",
+                Name = "Text",
+                Size = UDim2.new(1, 0, 1, 0),
+                BackgroundTransparency = 1,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                BorderSizePixel = 0,
+                ZIndex = 10000,
+                RichText = true,
+                TextSize = 14,
+                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                Parent = MainWatermark
+            }, true)
+            --
+            local Stroke = Library:CreateObject("UIStroke", {
+                Parent = WatermarkText,
+                LineJoinMode = Enum.LineJoinMode.Miter,
+                Color = Color3.fromRGB(50, 50, 50),
+            }, true)
+            --
+            local UIPadding = Library:CreateObject("UIPadding", {
+                PaddingRight = UDim.new(0, 22),
+                PaddingLeft = UDim.new(0, 22),
+                Parent = WatermarkText
+            }, true)
+            --
+            do -- Functions
+                function Library:ToggleWatermark(State)
+                    Watermark.CanUse = State
+                    MainWatermark.Visible = State
+                end
+                --
+                function Library:UpdateWatermark(Text)
+                    if Watermark.CanUse and not MainWatermark.Visible then MainWatermark.Visible = true end
+                    --
+                    WatermarkText.Text = tostring(Text)
+                    MainWatermark.Size = UDim2.new(0, WatermarkText.TextBounds.X + 44, 0, MainWatermark.Size.Y.Offset)
+                    MainWatermark.Position = UDim2.new(1, -(MainWatermark.Size.X.Offset) - 5, 0, 5)
+                end
+            end
+            --
+            local R, G, B = Library.Theme.Default.Accent.R * 255, Library.Theme.Default.Accent.G * 255, Library.Theme.Default.Accent.B * 255
+            --
+            Library:UpdateWatermark(("Dv.<font color='rgb(%d, %d, %d)'>sense</font>  <font color='rgb(%d, %d, %d)'>%s</font> <font size='10'>FPS</font>  %s"):format(R, G, B, R, G, B, "60", os.date("%X")))
+            --
+            Library:Notify({
+                Message = ("You are using <font color='rgb(%d, %d, %d)'>dva</font>. Join <font color='rgb(%d, %d, %d)'>@</font> discord.gg/3E82u6ecyW"):format(R, G, B, R, G, B),
+                Position = "Top Left",
+                Delay = 15
+            })
+            --
+            do -- Connections
+                Library:Connection(RunService.PostSimulation, function()
+                    if Library.UI.Initialized and MainWatermark.Visible then
+                        local R, G, B = Library.Theme.Default.Accent.R * 255, Library.Theme.Default.Accent.G * 255, Library.Theme.Default.Accent.B * 255
+                        local FPS = math.floor(1 / math.abs(Watermark.Tick - tick()))
+                        --
+                        Watermark.Tick = tick()
+                        --
+                        if (tick() - Watermark.RefreshTick) > Library.UI.WatermarkRefreshRate then
+                            Library:UpdateWatermark(("Dv.<font color='rgb(%d, %d, %d)'>sense</font>  <font color='rgb(%d, %d, %d)'>%s</font> <font size='10'>FPS</font>  %s"):format(R, G, B, R, G, B, FPS, os.date("%X")))
+                            --
+                            Watermark.RefreshTick = tick()
+                        end
+                    end
+                end)
+            end
+        end
+        --
+        function Library:Notify(Options)
+            Options = Library:Validate({
+                Message = "Notification",
+                Delay = 3,
+                Position = "Top Left",
+            }, Options or {})
+            --
+            local Notification = {}
+            local Path = Options.Position == "Top Left" and Library.UI.Notifications.TopLeft or Library.UI.Notifications.Middle
+            --
+            local NotificationFrameObject = Library:CreateObject("Frame", {
+                Name = "Watermark",
+                Position = UDim2.new(0, 0, 0, 0),
+                BorderColor3 = Color3.fromRGB(0, 0, 0),
+                Size = UDim2.new(0, 400, 0, 20),
+                BorderSizePixel = 0,
+                ZIndex = 10000,
+                BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+                Parent = Library.UI.ScreenGUI
+            }, true)
+            --
+            NotificationFrameObject.BackgroundTransparency = 1
+            --
+            local UIGradient = Library:CreateObject("UIGradient", {
+                Transparency = NumberSequence.new{
+                    NumberSequenceKeypoint.new(0, 1),
+                    NumberSequenceKeypoint.new(0.25, 0.6119999885559082),
+                    NumberSequenceKeypoint.new(0.5, 0.625),
+                    NumberSequenceKeypoint.new(0.75, 0.625),
+                    NumberSequenceKeypoint.new(1, 1)
+                },
+                Parent = NotificationFrameObject
+            }, true)
+            --
+            local UIStroke = Library:CreateObject("UIStroke", {
+                Parent = NotificationFrameObject
+            }, true)
+            --
+            UIStroke.Transparency = 1
+            --
+            local UIGradient_1 = Library:CreateObject("UIGradient", {
+                Transparency = NumberSequence.new{
+                    NumberSequenceKeypoint.new(0, 1),
+                    NumberSequenceKeypoint.new(0.232, 0.4000000059604645),
+                    NumberSequenceKeypoint.new(0.5, 0.4000000059604645),
+                    NumberSequenceKeypoint.new(0.75, 0.4000000059604645),
+                    NumberSequenceKeypoint.new(1, 1)
+                },
+                Parent = UIStroke
+            }, true)
+            --
+            local NotificationText = Library:CreateObject("TextLabel", {
+                FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+                TextColor3 = Color3.fromRGB(208, 208, 208),
+                BorderColor3 = Color3.fromRGB(0, 0, 0),
+                Text = Options.Message,
+                Name = "Text",
+                Size = UDim2.new(1, 0, 1, 0),
+                ZIndex = 10000,
+                BackgroundTransparency = 1,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                BorderSizePixel = 0,
+                RichText = true,
+                TextSize = 14,
+                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                Parent = NotificationFrameObject
+            }, true)
+            --
+            local Stroke = Library:CreateObject("UIStroke", {
+                Parent = NotificationText,
+                LineJoinMode = Enum.LineJoinMode.Miter,
+                Color = Color3.fromRGB(50, 50, 50),
+            }, true)
+            --
+            Stroke.Transparency = 1
+            --
+            NotificationText.TextTransparency = 1
+            --
+            local UIPadding = Library:CreateObject("UIPadding", {
+                PaddingRight = UDim.new(0, 22),
+                PaddingLeft = UDim.new(0, 22),
+                Parent = NotificationText
+            }, true)
+            --
+            local NotificationFrame = {
+                Class = "Notification",
+                Object = NotificationFrameObject,
+                Text = NotificationText,
+            }
+            --
+            NotificationFrameObject.Position = Options.Position == "Top Left" and UDim2.new(0, -70, 0, 80 + (#Path * 24)) or UDim2.new(0, Viewport.X / 2 - (NotificationText.TextBounds.X + 4) / 2, 1, -150)
+            --
+            do -- Functions
+                function Notification:UpdatePositions()
+                    local TotalHeight = 80
+                    local Padding = 6
+                    --
+                    for Index = #Path, 1, -1 do
+                        local Value = Path[Index]
+                        local NewPosition
+                        --
+                        if Options.Position == "Top Left" then
+                            NewPosition = UDim2.new(0, 5, 0, TotalHeight)
+                            TotalHeight = TotalHeight + Value.Object.AbsoluteSize.Y + Padding
+                        else
+                            NewPosition = UDim2.new(0, Viewport.X / 2 - (Value.Text.TextBounds.X + 4) / 2, 1, -150 - (Index * 24))
+                        end
+                        --
+                        Library:TweenObject(Value.Object, TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Position = NewPosition})
+                    end
+                end
+                --
+                function Notification:RemoveFrame()
+                    Library:TweenObject(NotificationFrameObject, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+					Library:TweenObject(NotificationText, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {TextTransparency = 1})
+					Library:TweenObject(UIStroke, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Transparency = 1})
+					Library:TweenObject(Stroke, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Transparency = 1})
+                    --
+                    task.delay(0.25, function()
+                        NotificationFrameObject:Destroy()
+
+                        table.remove(Path, table.find(Path, NotificationFrame))
+
+                        Notification:UpdatePositions()
+                    end)
+                end
+                --
+                function Notification:UpdateText(Text)
+                    NotificationText.Text = Text
+                    NotificationFrameObject.Size = UDim2.new(NotificationFrameObject.Size.X.Scale, NotificationText.TextBounds.X + 44, 0, NotificationText.TextBounds.Y + 4)
+                end
+                --
+                function Notification:Update()
+                    local TotalHeight = 50
+                    local Padding = 6
+                    --
+					Library:TweenObject(NotificationFrameObject, TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {BackgroundTransparency = 0})
+					Library:TweenObject(NotificationText, TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {TextTransparency = 0})
+					Library:TweenObject(UIStroke, TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Transparency = 0})
+					Library:TweenObject(Stroke, TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Transparency = 0})
+                    NotificationFrameObject.Size = UDim2.new(NotificationFrameObject.Size.X.Scale, NotificationText.TextBounds.X + 44, 0, NotificationText.TextBounds.Y + 4)
+                    --
+                    for _, Value in Path do
+                        TotalHeight = TotalHeight + Value.Object.AbsoluteSize.Y + Padding
+                    end
+                    --
+                    local NewPosition = Options.Position == "Top Left" and UDim2.new(0, 5, 0, TotalHeight) or UDim2.new(0, Viewport.X / 2 - (NotificationText.TextBounds.X + 4) / 2, 1, -150)
+                    --
+                    Library:TweenObject(NotificationFrameObject, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Position = NewPosition}, function()
+                        if Options.Delay ~= math.huge then
+                            task.delay(Options.Delay, Notification.RemoveFrame)
+                        end
+                    end)
+                end
+            end
+            --
+            Notification:Update()
+            --
+            table.insert(Path, 1, NotificationFrame)
+            --
+            Notification:UpdatePositions()
+            --
+            return Notification
+        end
+        --
+        function Library:Init()
+            Library.UI.Initialized = true
+            --
+            Library:CreateWatermark()
+            --
+            Library:Connection(Camera:GetPropertyChangedSignal("ViewportSize"), function()
+                Viewport = Camera.ViewportSize
+                --
+                Outline.Position = UDim2.fromOffset((Viewport.X / 2) - (Outline.Size.X.Offset / 2), (Viewport.Y / 2) - (Outline.Size.Y.Offset / 2))
+            end)
+        end
+        --
+        function Library:Unload()
+            Camera.CameraSubject = Client.Character.Humanoid
+            --
+            for Index, Value in Library.Connections do
+                Value:Disconnect()
+            end
+            --
+            for _, Objects in Library.Objects do
+                Objects[1]:Destroy()
+            end
+            --
+            MainUI:Destroy()
+        end
+        --
+        function Library:Disable()
+            for Index, Value in Library.Flags do
+                if Value.Set then
+                    Value:Set(false)
+                end
+            end
+        end
+        --
+        return setmetatable(Window, Library)
+    end
+end
+--
+
+-- ============================================================================
+-- Dv.a Premium v3 window (Yokai Sense UI)
+-- ============================================================================
+local Window = Library:Window({CloseBind = Enum.KeyCode.Insert})
+
+local TabCombat  = Window:CreateTab({Icon = "rbxassetid://18248771514"})
+local TabAim     = Window:CreateTab({Icon = "rbxassetid://15453335745"})
+local TabVisuals = Window:CreateTab({Icon = "rbxassetid://15453344494"})
+local TabMisc    = Window:CreateTab({Icon = "rbxassetid://15453349637"})
+local TabCfg     = Window:CreateTab({Icon = "rbxassetid://15453364412"})
+
+Window:SetTab(1)
+
+-- Combat / Rage
+do
+    local Sec = TabCombat:Section({Name = "Ragebot", Fill = true})
+    Sec:Toggle({
+        Name = "Enable Ragebot",
+        Flag = "DvA_Ragebot",
+        Callback = function(v)
+            getgenv().DvA.Ragebot = v and true or false
+        end,
+    })
+    Sec:Toggle({
+        Name = "Silent Aim",
+        Flag = "DvA_SilentAim",
+        Callback = function(v)
+            getgenv().DvA.SilentAim = v and true or false
+        end,
+    })
+    Sec:Slider({
+        Name = "Silent FOV",
+        Flag = "DvA_SilentFOV",
+        Min = 10, Max = 500, Default = 120, Decimal = 1,
+        Callback = function(v)
+            getgenv().DvA.SilentFOV = v
+        end,
+    })
+    Sec:Toggle({
+        Name = "Show FOV",
+        Flag = "DvA_ShowFOV",
+        Callback = function(v)
+            getgenv().DvA.ShowFOV = v and true or false
+        end,
+    })
+end
+
+do
+    local Sec = TabCombat:Section({Name = "Aimbot", Side = "Right", Fill = true})
+    Sec:Toggle({
+        Name = "Enable Aimbot",
+        Flag = "DvA_Aimbot",
+        Callback = function(v)
+            getgenv().DvA.Aimbot = v and true or false
+        end,
+    })
+    Sec:Label({Message = "Dv.a Premium v3 · Yokai Sense UI"})
+    Sec:Label({Message = "Menu: Insert | Button: Dv.a premium"})
+end
+
+-- Visuals
+do
+    local Sec = TabVisuals:Section({Name = "ESP", Fill = true})
+    Sec:Toggle({
+        Name = "ESP Master",
+        Flag = "DvA_ESP",
+        Callback = function(v)
+            getgenv().DvA.ESP = v and true or false
+        end,
+    })
+    Sec:Toggle({
+        Name = "Box",
+        Flag = "DvA_ESPBox",
+        Callback = function(v) getgenv().DvA.ESPBox = v and true or false end,
+    })
+    Sec:Toggle({
+        Name = "Name",
+        Flag = "DvA_ESPName",
+        Callback = function(v) getgenv().DvA.ESPName = v and true or false end,
+    })
+    Sec:Toggle({
+        Name = "Health",
+        Flag = "DvA_ESPHealth",
+        Callback = function(v) getgenv().DvA.ESPHealth = v and true or false end,
+    })
+end
+
+do
+    local Sec = TabVisuals:Section({Name = "Extra", Side = "Right", Fill = true})
+    Sec:Label({Message = "Hit notify uses Library:Notify (right/top)"})
+end
+
+-- Settings
+do
+    local Sec = TabMisc:Section({Name = "Menu", Fill = true})
+    Sec:Label({Message = "Menu key"}):Keybind({
+        Default = Enum.KeyCode.Insert,
+        UseMode = false,
+        Callback = function(Key)
+            Library.UI.CloseBind = Key
+        end,
+    })
+    Sec:Label({Message = "Menu color"}):ColorPicker({
+        Default = Library.Theme.Default.Accent,
+        Callback = function(Color)
+            Library:UpdateColor("Accent", Color)
+            Library:UpdateColor("SecondAccent", Color3.fromRGB(
+                math.max(math.floor(Color.R * 255) - 12, 0),
+                math.max(math.floor(Color.G * 255) - 12, 0),
+                math.max(math.floor(Color.B * 255) - 12, 0)
+            ))
+        end,
+    })
+    Sec:Button({Name = "Unload", Callback = function()
+        pcall(function() Library:Unload() end)
+    end})
+end
+
+do
+    local Sec = TabMisc:Section({Name = "Info", Side = "Right", Fill = true})
+    Sec:Label({Message = "Dv.a Premium v3"})
+    Sec:Label({Message = "UI: Yokai Sense (open source)"})
+    Sec:Label({Message = "Lock freezes menu + button drag"})
+end
+
+-- Configs tab (basic)
+do
+    local Sec = TabCfg:Section({Name = "Configs", Fill = true})
+    pcall(function()
+        if not isfolder("dva") then makefolder("dva") end
+        if not isfolder("dva/Configs") then makefolder("dva/Configs") end
+    end)
+    local list = Sec:List({Size = 160, Flag = "DvA_CurrentConfig"})
+    pcall(function()
+        if listfiles then
+            for _, File in listfiles("dva/Configs") do
+                local name = File:gsub("\\", "/"):gsub("dva/Configs/", ""):gsub("%.cfg", "")
+                if name and name ~= "" then
+                    list:AddValue(name)
+                end
+            end
+        end
+    end)
+    Sec:TextBox({Flag = "DvA_ConfigName", Name = "Config name"})
+    Sec:Button({Name = "Save config", Callback = function()
+        local name = Library.Flags["DvA_ConfigName"] and Library.Flags["DvA_ConfigName"]:Get() or ""
+        if name == "" then return end
+        pcall(function()
+            writefile("dva/Configs/" .. name .. ".cfg", Library:GetConfig())
+            list:AddValue(name)
+        end)
+    end})
+    Sec:Button({Name = "Load config", Callback = function()
+        local name = Library.Flags["DvA_CurrentConfig"] and Library.Flags["DvA_CurrentConfig"]:Get()
+        if not name then return end
+        pcall(function()
+            Library:LoadConfig(readfile("dva/Configs/" .. name .. ".cfg"))
+        end)
+    end})
+end
+
+pcall(function() Library:Init() end)
+
+-- Floating Dv.a premium + Lock
+task.defer(function()
+    local UIS = game:GetService("UserInputService")
+    local CoreGui = game:GetService("CoreGui")
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "DvA_MenuToggle"
+    gui.ResetOnSpawn = false
+    gui.IgnoreGuiInset = true
+    gui.DisplayOrder = 100000
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    pcall(function()
+        if protectgui then protectgui(gui)
+        elseif syn and syn.protect_gui then syn.protect_gui(gui) end
+    end)
+    pcall(function()
+        gui.Parent = (gethui and gethui()) or CoreGui
+    end)
+    if not gui.Parent then gui.Parent = CoreGui end
+
+    local panel = Instance.new("Frame")
+    panel.Size = UDim2.fromOffset(132, 58)
+    panel.Position = UDim2.fromOffset(12, 12)
+    panel.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
+    panel.BorderSizePixel = 0
+    panel.Active = true
+    panel.Parent = gui
+    Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 8)
+    local stroke = Instance.new("UIStroke", panel)
+    stroke.Color = Color3.fromRGB(153, 196, 39)
+    stroke.Thickness = 1.2
+    local bar = Instance.new("Frame", panel)
+    bar.Size = UDim2.new(1, 0, 0, 2)
+    bar.BackgroundColor3 = Color3.fromRGB(153, 196, 39)
+    bar.BorderSizePixel = 0
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -8, 0, 24)
+    btn.Position = UDim2.fromOffset(4, 6)
+    btn.BackgroundColor3 = Color3.fromRGB(20, 20, 22)
+    btn.BorderSizePixel = 0
+    btn.Text = "Dv.a premium"
+    btn.TextColor3 = Color3.fromRGB(220, 220, 220)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    btn.AutoButtonColor = false
+    btn.Parent = panel
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
+
+    local lockBtn = Instance.new("TextButton")
+    lockBtn.Size = UDim2.new(1, -8, 0, 20)
+    lockBtn.Position = UDim2.fromOffset(4, 32)
+    lockBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 22)
+    lockBtn.BorderSizePixel = 0
+    lockBtn.Text = "Lock: OFF"
+    lockBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
+    lockBtn.Font = Enum.Font.Gotham
+    lockBtn.TextSize = 11
+    lockBtn.AutoButtonColor = false
+    lockBtn.Parent = panel
+    Instance.new("UICorner", lockBtn).CornerRadius = UDim.new(0, 5)
+
+    local function refreshLock()
+        local locked = getgenv().__DvA_MenuLocked == true
+        lockBtn.Text = locked and "Lock: ON" or "Lock: OFF"
+        lockBtn.TextColor3 = locked and Color3.fromRGB(255, 120, 130) or Color3.fromRGB(180, 180, 190)
+        stroke.Color = locked and Color3.fromRGB(200, 70, 80) or Color3.fromRGB(153, 196, 39)
+    end
+
+    btn.MouseButton1Click:Connect(function()
+        pcall(function()
+            -- gamesense fades via CloseBind; toggle MainUI
+            if Library.UI and Library.UI.MainUI then
+                local vis = not Library.UI.MainUI.Visible
+                if Library.Fade then
+                    Library:Fade(vis, Library.Objects, Library.UI.MainUI, Library.UI.TweenSpeed or 0.15)
+                else
+                    Library.UI.MainUI.Visible = vis
+                end
+            end
+        end)
+    end)
+
+    lockBtn.MouseButton1Click:Connect(function()
+        getgenv().__DvA_MenuLocked = not getgenv().__DvA_MenuLocked
+        refreshLock()
+    end)
+
+    do
+        local dragging, dragStart, startPos
+        panel.InputBegan:Connect(function(input)
+            if getgenv().__DvA_MenuLocked then return end
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = panel.Position
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then dragging = false end
+                end)
+            end
+        end)
+        UIS.InputChanged:Connect(function(input)
+            if not dragging or getgenv().__DvA_MenuLocked then return end
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                local d = input.Position - dragStart
+                panel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+            end
+        end)
+    end
+
+    -- freeze main window while locked
+    task.spawn(function()
+        local RunService = game:GetService("RunService")
+        local lockedPos
+        RunService.RenderStepped:Connect(function()
+            local main = Library.UI and Library.UI.MainUI
+            if not main then return end
+            if getgenv().__DvA_MenuLocked then
+                if lockedPos and main.Position ~= lockedPos then
+                    main.Position = lockedPos
+                else
+                    lockedPos = main.Position
+                end
+            else
+                lockedPos = main.Position
+            end
+        end)
+    end)
+end)
+
+print("[Dv.a Premium v3] Yokai Sense UI loaded — Insert / Dv.a premium button")
