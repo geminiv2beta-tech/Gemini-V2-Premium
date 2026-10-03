@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Dv.a Premium v3 | Full Elisium port (embedded Linoria-style Library)
--- Theme: pure black hub (1n2ee-style) | thin gray border | UI size unchanged
+-- Theme: pure black hub (1n2ee-style borders) | name: Dv.a Premium v3 | UI size unchanged
 -- Includes: Silent Aim + FOV, Aimbot FOV, Ragebot, ESP, AA, Widgets, Config
 -- No Key / No HWID | Toggle: "Dv.a premium" + Locker | Hit notify: small / right
 -- Anti-Cheat bypass pack applied | Source: Elisium rivals full script
@@ -616,11 +616,11 @@ local Library = {
 
     HudRegistry = {};
 
-    FontColor = Color3.fromHex("e8e8e8");
+    FontColor = Color3.fromHex("ffffff");
     MainColor = Color3.fromHex("000000");
     BackgroundColor = Color3.fromHex("000000");
-    AccentColor = Color3.fromHex("c8c8c8");
-    OutlineColor = Color3.fromHex("3a3a3a");
+    AccentColor = Color3.fromHex("ffffff");
+    OutlineColor = Color3.fromHex("ffffff");
     SelectedTabColor = Color3.fromHex("10101c");
     GradientColor = Color3.fromHex("4a3a9a");
     ShadowColor = Color3.new(0, 0, 0);
@@ -21277,7 +21277,7 @@ SaveManager:BuildConfigSection(Tabs['UI Settings'])
 end)()
 
 ;(function()
-    local BRAND_ACCENT = Color3.fromHex('c8c8c8');
+    local BRAND_ACCENT = Color3.fromHex('ffffff');
 
     local function detach(overlay)
         if not overlay or not Library.Overlays then return end;
@@ -21410,18 +21410,15 @@ end)()
         panel.Name = 'DvAHookPanel';
         panel.Size = UDim2.fromOffset(128, 58);
         panel.Position = UDim2.fromOffset(12, 12);
-        panel.BackgroundColor3 = Library.MainColor or Color3.fromRGB(18, 18, 22);
-        panel.BorderSizePixel = 0;
+        panel.BackgroundColor3 = Color3.fromRGB(0, 0, 0);
+        panel.BorderSizePixel = 1;
+        panel.BorderColor3 = Color3.fromRGB(255, 255, 255);
         panel.Active = true;
         panel.Parent = toggleGui;
-        Instance.new('UICorner', panel).CornerRadius = UDim.new(0, 8);
         local stroke = Instance.new('UIStroke', panel);
-        stroke.Color = Library.AccentColor or Color3.fromRGB(166, 93, 103);
-        stroke.Thickness = 1.2;
-        local accent = Instance.new('Frame', panel);
-        accent.Size = UDim2.new(1, 0, 0, 2);
-        accent.BackgroundColor3 = Library.AccentColor or Color3.fromRGB(166, 93, 103);
-        accent.BorderSizePixel = 0;
+        stroke.Color = Color3.fromRGB(255, 255, 255);
+        stroke.Thickness = 1;
+        -- flat 1n2ee-style (no soft accent bar)
 
         local btn = Library:Create('TextButton', {
             Name = 'DvAMobileToggle';
@@ -21582,30 +21579,21 @@ end)()
     end);
 
     pcall(function()
-        -- 1n2ee HUB style: pure black + light gray accent/outline
-        Library.FontColor = Color3.fromHex('e8e8e8');
+        Library.FontColor = Color3.fromHex('ffffff');
         Library.MainColor = Color3.fromHex('000000');
         Library.BackgroundColor = Color3.fromHex('000000');
-        Library.AccentColor = Color3.fromHex('c8c8c8');
-        Library.OutlineColor = Color3.fromHex('3a3a3a');
+        Library.AccentColor = Color3.fromHex('ffffff');
+        Library.OutlineColor = Color3.fromHex('ffffff');
         Library.AccentColorDark = Library:GetDarkerColor(Library.AccentColor);
         Library.AccentColorLight = Library:GetLighterColor(Library.AccentColor);
         BRAND_ACCENT = Library.AccentColor;
         if Options and Options.AccentColor and Options.AccentColor.SetValueRGB then
             Options.AccentColor:SetValueRGB(Library.AccentColor);
         end;
-        if Options and Options.MainColor and Options.MainColor.SetValueRGB then
-            pcall(function() Options.MainColor:SetValueRGB(Library.MainColor) end);
-        end;
-        if Options and Options.BackgroundColor and Options.BackgroundColor.SetValueRGB then
-            pcall(function() Options.BackgroundColor:SetValueRGB(Library.BackgroundColor) end);
-        end;
-        if Options and Options.OutlineColor and Options.OutlineColor.SetValueRGB then
-            pcall(function() Options.OutlineColor:SetValueRGB(Library.OutlineColor) end);
-        end;
-        if Options and Options.FontColor and Options.FontColor.SetValueRGB then
-            pcall(function() Options.FontColor:SetValueRGB(Library.FontColor) end);
-        end;
+        pcall(function() if Options.MainColor and Options.MainColor.SetValueRGB then Options.MainColor:SetValueRGB(Library.MainColor) end end);
+        pcall(function() if Options.BackgroundColor and Options.BackgroundColor.SetValueRGB then Options.BackgroundColor:SetValueRGB(Library.BackgroundColor) end end);
+        pcall(function() if Options.OutlineColor and Options.OutlineColor.SetValueRGB then Options.OutlineColor:SetValueRGB(Library.OutlineColor) end end);
+        pcall(function() if Options.FontColor and Options.FontColor.SetValueRGB then Options.FontColor:SetValueRGB(Library.FontColor) end end);
         Library:UpdateColorsUsingRegistry();
     end);
     pcall(function() Library:SetOverlayGlowColor(Library.AccentColor) end);
