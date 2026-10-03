@@ -647,14 +647,14 @@ local Library = {
     MenuOpen = true;
     NotificationSpot = 'Top Right'; -- hit + default right side
     NotificationAnimation = 'Slide Right to Left';
-    ToggleSoundEnabled = false;
-    NotificationSoundEnabled = false;
-    SliderSoundEnabled = false;
-    ToggleSoundVolume = 0;
+    ToggleSoundEnabled = true;
+    NotificationSoundEnabled = true;
+    SliderSoundEnabled = true;
+    ToggleSoundVolume = 1;
     ToggleSoundSpeed = 1;
-    NotificationSoundVolume = 0;
+    NotificationSoundVolume = 1;
     NotificationSoundSpeed = 1;
-    SliderSoundVolume = 0;
+    SliderSoundVolume = 1;
     SliderSoundSpeed = 1;
     MobileOverlayScale = 0.55;
     MobilePickerScale = 0.6;
@@ -1987,7 +1987,7 @@ function Library:BindHoldButton(Button, StepCallback)
 
     local function stop()
         holding = false;
-        -- Library:StopSliderSound(); -- muted
+        Library:StopSliderSound();
     end;
 
     Button.MouseButton1Down:Connect(function()
@@ -5747,7 +5747,7 @@ do
 
         ToggleRegion.InputBegan:Connect(function(Input)
             if IsPrimaryPress(Input) and not Library:MouseIsOverOpenedFrame() then
-                -- Library:PlayToggleSound(); -- muted
+                Library:PlayToggleSound();
                 Toggle:SetValue(not Toggle.Value);
                 Library:AttemptSave();
             end;
@@ -6032,7 +6032,7 @@ do
                     Slider:Display();
 
                     if nValue ~= OldValue then
-                        -- Library:PlaySliderSound(); -- muted
+                        Library:PlaySliderSound();
                         Library:SafeCallback(Slider.Callback, Slider.Value);
                         Library:SafeCallback(Slider.Changed, Slider.Value);
                     end;
@@ -6040,7 +6040,7 @@ do
                     RenderStepped:Wait();
                 end;
 
-                -- Library:StopSliderSound(); -- muted
+                Library:StopSliderSound();
                 Library:AttemptSave();
             end;
         end);
@@ -6050,7 +6050,7 @@ do
             local OldValue = Slider.Value;
             Slider:SetValue(Slider.Value - step);
             if Slider.Value ~= OldValue then
-                -- Library:PlaySliderSound(); -- muted
+                Library:PlaySliderSound();
             end;
             Library:AttemptSave();
         end);
@@ -6060,7 +6060,7 @@ do
             local OldValue = Slider.Value;
             Slider:SetValue(Slider.Value + step);
             if Slider.Value ~= OldValue then
-                -- Library:PlaySliderSound(); -- muted
+                Library:PlaySliderSound();
             end;
             Library:AttemptSave();
         end);
@@ -6295,7 +6295,7 @@ do
                     Slider:Display();
 
                     if Slider.ValueLower ~= oldLower or Slider.ValueUpper ~= oldUpper then
-                        -- Library:PlaySliderSound(); -- muted
+                        Library:PlaySliderSound();
                         Library:SafeCallback(Slider.Callback, Slider.ValueLower, Slider.ValueUpper);
                         Library:SafeCallback(Slider.Changed, Slider.ValueLower, Slider.ValueUpper);
                     end;
@@ -6303,7 +6303,7 @@ do
                     RenderStepped:Wait();
                 end;
 
-                -- Library:StopSliderSound(); -- muted
+                Library:StopSliderSound();
                 Library:AttemptSave();
             end;
         end);
@@ -7230,8 +7230,7 @@ function Library:EnsureSoundFile(Folder, FileName, Url)
 end;
 
 function Library:ApplySoundSettings(Settings)
-    self.ToggleSoundEnabled = false; -- forced mute
-    -- self.ToggleSoundEnabled = Settings.ToggleSoundEnabled ~= false;
+    self.ToggleSoundEnabled = Settings.ToggleSoundEnabled ~= false;
     self.NotificationSoundEnabled = Settings.NotificationSoundEnabled ~= false;
     self.SliderSoundEnabled = Settings.SliderSoundEnabled ~= false;
     self.ToggleSoundVolume = math.clamp(tonumber(Settings.ToggleSoundVolume) or 1, 0, 1);
@@ -7352,7 +7351,6 @@ function Library:InitSoundAssets()
 end;
 
 function Library:PlaySliderSound()
-    return; -- muted UI sound
     if not self.SliderSoundEnabled then
         return
     end;
@@ -7376,7 +7374,6 @@ function Library:PlaySliderSound()
 end;
 
 function Library:StopSliderSound()
-    return; -- muted UI sound
     local Sound = self.SliderSound;
     if Sound and Sound.IsPlaying then
         Sound:Stop();
@@ -7384,7 +7381,6 @@ function Library:StopSliderSound()
 end;
 
 function Library:PlayToggleSound()
-    return; -- muted UI sound
     if not self.ToggleSoundEnabled then
         return;
     end;
