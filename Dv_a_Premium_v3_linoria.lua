@@ -185,7 +185,7 @@ do -- Library
             ScreenGUI = nil,
             TweenSpeed = 0.15,
             NewFont = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
-            FontSize = 13,
+            FontSize = (UserInputService and UserInputService.TouchEnabled and not UserInputService.MouseEnabled) and 12 or 13,
             DraggingGui = nil,
             Notifications = {TopLeft = {}, Middle = {}},
             Keys = {
@@ -4958,8 +4958,12 @@ do -- Library
     function Library:Window(Options)
         Options = Library:Validate({
             Name = "dva",
-            Size = UDim2.new(0, 700, 0, 612),
-            MinResize = UDim2.new(0, 500, 0, 400),
+            Size = (UserInputService.TouchEnabled and not UserInputService.MouseEnabled)
+                and UDim2.new(0, 340, 0, 400)
+                or UDim2.new(0, 520, 0, 460),
+            MinResize = (UserInputService.TouchEnabled and not UserInputService.MouseEnabled)
+                and UDim2.new(0, 300, 0, 340)
+                or UDim2.new(0, 400, 0, 360),
             MaxResize = UDim2.new(0, 10000, 0, 10000),
             CloseBind = Enum.KeyCode.Insert,
         }, Options or {})
@@ -7085,10 +7089,10 @@ do -- Library
             --
             local R, G, B = Library.Theme.Default.Accent.R * 255, Library.Theme.Default.Accent.G * 255, Library.Theme.Default.Accent.B * 255
             --
-            Library:UpdateWatermark(("Dv.<font color='rgb(%d, %d, %d)'>sense</font>  <font color='rgb(%d, %d, %d)'>%s</font> <font size='10'>FPS</font>  %s"):format(R, G, B, R, G, B, "60", os.date("%X")))
+            Library:UpdateWatermark(("Dv.<font color='rgb(%d, %d, %d)'>a</font>  <font color='rgb(%d, %d, %d)'>%s</font> <font size='10'>FPS</font>  %s"):format(R, G, B, R, G, B, "60", os.date("%X")))
             --
             Library:Notify({
-                Message = ("You are using <font color='rgb(%d, %d, %d)'>dva</font>. Join <font color='rgb(%d, %d, %d)'>@</font> discord.gg/3E82u6ecyW"):format(R, G, B, R, G, B),
+                Message = ("You are using <font color='rgb(%d, %d, %d)'>Dv.a Premium v3</font>"):format(R, G, B, R, G, B),
                 Position = "Top Left",
                 Delay = 15
             })
@@ -7102,7 +7106,7 @@ do -- Library
                         Watermark.Tick = tick()
                         --
                         if (tick() - Watermark.RefreshTick) > Library.UI.WatermarkRefreshRate then
-                            Library:UpdateWatermark(("Dv.<font color='rgb(%d, %d, %d)'>sense</font>  <font color='rgb(%d, %d, %d)'>%s</font> <font size='10'>FPS</font>  %s"):format(R, G, B, R, G, B, FPS, os.date("%X")))
+                            Library:UpdateWatermark(("Dv.<font color='rgb(%d, %d, %d)'>a</font>  <font color='rgb(%d, %d, %d)'>%s</font> <font size='10'>FPS</font>  %s"):format(R, G, B, R, G, B, FPS, os.date("%X")))
                             --
                             Watermark.RefreshTick = tick()
                         end
@@ -7336,6 +7340,9 @@ do
         Flag = "DvA_Ragebot",
         Callback = function(v)
             getgenv().DvA.Ragebot = v and true or false
+            getgenv().ELI = getgenv().ELI or {}
+            getgenv().ELI.ragebot = getgenv().ELI.ragebot or {}
+            getgenv().ELI.ragebot.enable = getgenv().DvA.Ragebot
         end,
     })
     Sec:Toggle({
@@ -7343,6 +7350,9 @@ do
         Flag = "DvA_SilentAim",
         Callback = function(v)
             getgenv().DvA.SilentAim = v and true or false
+            getgenv().ELI = getgenv().ELI or {}
+            getgenv().ELI.silent_aim = getgenv().ELI.silent_aim or {}
+            getgenv().ELI.silent_aim.enable = getgenv().DvA.SilentAim
         end,
     })
     Sec:Slider({
@@ -7351,6 +7361,9 @@ do
         Min = 10, Max = 500, Default = 120, Decimal = 1,
         Callback = function(v)
             getgenv().DvA.SilentFOV = v
+            getgenv().ELI = getgenv().ELI or {}
+            getgenv().ELI.silent_aim = getgenv().ELI.silent_aim or {}
+            getgenv().ELI.silent_aim.fov_radius = v
         end,
     })
     Sec:Toggle({
@@ -7358,6 +7371,9 @@ do
         Flag = "DvA_ShowFOV",
         Callback = function(v)
             getgenv().DvA.ShowFOV = v and true or false
+            getgenv().ELI = getgenv().ELI or {}
+            getgenv().ELI.silent_aim = getgenv().ELI.silent_aim or {}
+            getgenv().ELI.silent_aim.show_fov = getgenv().DvA.ShowFOV
         end,
     })
 end
@@ -7369,6 +7385,9 @@ do
         Flag = "DvA_Aimbot",
         Callback = function(v)
             getgenv().DvA.Aimbot = v and true or false
+            getgenv().ELI = getgenv().ELI or {}
+            getgenv().ELI.aimbot = getgenv().ELI.aimbot or {}
+            getgenv().ELI.aimbot.enable = getgenv().DvA.Aimbot
         end,
     })
     Sec:Label({Message = "Dv.a Premium v3 · Yokai Sense UI"})
@@ -7607,4 +7626,773 @@ task.defer(function()
     end)
 end)
 
-print("[Dv.a Premium v3] Yokai Sense UI loaded — Insert / Dv.a premium button")
+print("[Dv.a Premium v3] Yokai Sense UI (mobile) — Insert / Dv.a premium")
+
+
+-- ============================================================================
+-- Elisium Silent Aim + FOV (wired to getgenv().DvA / ELI.silent_aim)
+-- ============================================================================
+task.spawn(function()
+    local ok, err = pcall(function()
+--[[
+  Elisium Silent Aim + Silent Aim FOV (open-source extract)
+  Source: Elisium rivals script (message-3-2)
+  Copy-paste friendly. Requires Rivals Utility module with Raycast.
+
+  getgenv().ELI.silent_aim  — config table
+  Toggle: getgenv().ELI.silent_aim.enable = true
+  Show FOV: getgenv().ELI.silent_aim.show_fov = true
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
+
+-- ============================================================================
+-- CONFIG (same fields as Elisium ELI.silent_aim)
+-- ============================================================================
+getgenv().ELI = getgenv().ELI or {}
+getgenv().ELI.silent_aim = getgenv().ELI.silent_aim or {
+    enable = false,
+    visualize = false,
+    visualize_color = Color3.fromRGB(120, 81, 166),
+    closest_part = false,
+    show_fov = false,
+    show_fill = false,
+    fov_radius = 180,
+    lerp = 0.12,
+    follow_target = false,
+    follow_gunpoint = false,
+    fov_color = Color3.fromRGB(120, 81, 166),
+    fov_fill_color = Color3.fromRGB(120, 81, 166),
+    fov_fill_color2 = Color3.fromRGB(255, 255, 255),
+    fov_fill_transparency = 0.6,
+    fov_outline_transparency = 0.2,
+    fov_thickness = 2,
+    fov_color2 = Color3.fromRGB(255, 255, 255),
+    fov_rotation_speed = 90,
+    hit_chance = 100,
+    riot_shield = false,
+}
+
+getgenv().ELI.targeting = getgenv().ELI.targeting or {
+    part = "HitboxHead", -- or "Head"
+    max_distance = 9999,
+    visible_only = false,
+    riot_shield = true,
+}
+
+local ELI = getgenv().ELI
+
+-- ============================================================================
+-- HELPERS
+-- ============================================================================
+local function is_deflecting(plr)
+    local ok, v = pcall(function()
+        return plr:GetAttribute("Deflecting") or plr:GetAttribute("IsDeflecting")
+    end)
+    return ok and v == true
+end
+
+local function has_riot(plr)
+    local ok, found = pcall(function()
+        return Workspace.ViewModels:FindFirstChild(plr.Name .. " - Riot Shield - Riot Shield") ~= nil
+    end)
+    return ok and found
+end
+
+local function check_wall(part)
+    if not part then return false end
+    local origin = Camera.CFrame.Position
+    local dir = part.Position - origin
+    local ray = Ray.new(origin, dir)
+    local hit = Workspace:FindPartOnRayWithIgnoreList(ray, { LocalPlayer.Character, part.Parent })
+    return not hit
+end
+
+-- closest BasePart to mouse inside character (Elisium closest_part)
+local function closest_part(plr)
+    if not plr or not plr.Character then return nil end
+    local mouse_pos = Vector2.new(Mouse.X, Mouse.Y)
+    local best, bestDist = nil, math.huge
+    for _, v in ipairs(plr.Character:GetChildren()) do
+        if v:IsA("BasePart") then
+            local pos, on_screen = Camera:WorldToViewportPoint(v.Position)
+            if on_screen and pos.Z > 0 then
+                local dist = (mouse_pos - Vector2.new(pos.X, pos.Y)).Magnitude
+                if dist < bestDist then
+                    bestDist = dist
+                    best = v
+                end
+            end
+        end
+    end
+    return best
+end
+
+-- FOV-based closest enemy (screen center + silent FOV radius)
+local function getclosest()
+    local bestDist = ELI.targeting.max_distance or 9999
+    local player = nil
+    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local partName = ELI.targeting.part or "HitboxHead"
+    local fovR = tonumber(ELI.silent_aim.fov_radius) or 180
+
+    for _, v in ipairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer and v.Character then
+            local hum = v.Character:FindFirstChildOfClass("Humanoid")
+            local aimPart = v.Character:FindFirstChild(partName)
+                or v.Character:FindFirstChild("HitboxHead")
+                or v.Character:FindFirstChild("Head")
+            if hum and hum.Health > 0 and aimPart then
+                if is_deflecting(v) then
+                    -- skip
+                elseif v:GetAttribute("TeamID") ~= nil
+                    and LocalPlayer:GetAttribute("TeamID") ~= nil
+                    and v:GetAttribute("TeamID") == LocalPlayer:GetAttribute("TeamID") then
+                    -- team skip
+                elseif ELI.targeting.visible_only and not check_wall(aimPart) then
+                    -- wall skip
+                elseif (ELI.targeting.riot_shield or ELI.silent_aim.riot_shield) and has_riot(v) then
+                    -- riot skip
+                else
+                    local pos, on_screen = Camera:WorldToViewportPoint(aimPart.Position)
+                    if on_screen and pos.Z > 0 then
+                        local dist = (center - Vector2.new(pos.X, pos.Y)).Magnitude
+                        if dist < bestDist and dist <= fovR then
+                            player = v
+                            bestDist = dist
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return player
+end
+
+-- ============================================================================
+-- SILENT AIM FOV GUI (ScreenGui Frame + UIStroke + UIGradient)
+-- ============================================================================
+local function parent_gui(gui)
+    local ok = pcall(function()
+        if gethui then
+            gui.Parent = gethui()
+        else
+            gui.Parent = CoreGui
+        end
+    end)
+    if not ok or not gui.Parent then
+        pcall(function() gui.Parent = LocalPlayer:FindFirstChild("PlayerGui") end)
+    end
+end
+
+local sfov_gui = Instance.new("ScreenGui")
+sfov_gui.Name = "ElisiumSilentFOV"
+sfov_gui.ResetOnSpawn = false
+sfov_gui.IgnoreGuiInset = true
+sfov_gui.DisplayOrder = 50
+parent_gui(sfov_gui)
+
+local sfov = Instance.new("Frame")
+sfov.Name = "SilentFov"
+sfov.BorderSizePixel = 0
+sfov.Visible = false
+sfov.BackgroundTransparency = 1
+sfov.AnchorPoint = Vector2.new(0, 0)
+sfov.Parent = sfov_gui
+Instance.new("UICorner", sfov).CornerRadius = UDim.new(1, 0)
+
+local sfov_stroke = Instance.new("UIStroke")
+sfov_stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+sfov_stroke.Parent = sfov
+
+local sfov_fill_gradient = Instance.new("UIGradient")
+sfov_fill_gradient.Parent = sfov
+local sfov_stroke_gradient = Instance.new("UIGradient")
+sfov_stroke_gradient.Parent = sfov_stroke
+
+local sfov_current_pos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+local sfov_current_radius = ELI.silent_aim.fov_radius or 180
+local fov_rotation = 0
+
+local function get_gunpoint_screen()
+    -- fallback: screen center (Elisium uses viewmodel muzzle when available)
+    return Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+end
+
+RunService.RenderStepped:Connect(function(dt)
+    local sa = ELI.silent_aim
+    if not sa then return end
+
+    local s_show = sa.enable and sa.show_fov
+    if not s_show then
+        if sfov.Visible then sfov.Visible = false end
+        return
+    end
+
+    fov_rotation = (fov_rotation + (sa.fov_rotation_speed or 90) * dt) % 360
+
+    -- position target: center / follow target / gunpoint
+    local targetPos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    if sa.follow_target then
+        local t = getclosest()
+        if t and t.Character then
+            local part = t.Character:FindFirstChild(ELI.targeting.part)
+                or t.Character:FindFirstChild("Head")
+            if part then
+                local sp, on = Camera:WorldToViewportPoint(part.Position)
+                if on and sp.Z > 0 then
+                    targetPos = Vector2.new(sp.X, sp.Y)
+                end
+            end
+        end
+    elseif sa.follow_gunpoint then
+        targetPos = get_gunpoint_screen()
+    end
+
+    local lerp = math.max(tonumber(sa.lerp) or 0.12, 0.001)
+    local st = math.min(dt * (1 / lerp), 1)
+    sfov_current_pos = sfov_current_pos:Lerp(targetPos, st)
+    sfov_current_radius = sfov_current_radius + ((tonumber(sa.fov_radius) or 180) - sfov_current_radius) * st
+
+    local s_fill = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, sa.fov_fill_color or Color3.fromRGB(120, 81, 166)),
+        ColorSequenceKeypoint.new(1, sa.fov_fill_color2 or Color3.fromRGB(255, 255, 255)),
+    })
+    local s_stroke = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, sa.fov_color or Color3.fromRGB(120, 81, 166)),
+        ColorSequenceKeypoint.new(1, sa.fov_color2 or sa.fov_color or Color3.fromRGB(255, 255, 255)),
+    })
+
+    sfov.Visible = true
+    sfov.BackgroundColor3 = sa.fov_fill_color or Color3.fromRGB(120, 81, 166)
+    sfov.BackgroundTransparency = sa.show_fill and (sa.fov_fill_transparency or 0.6) or 1
+    sfov.Size = UDim2.fromOffset(sfov_current_radius * 2, sfov_current_radius * 2)
+    sfov.Position = UDim2.fromOffset(
+        sfov_current_pos.X - sfov_current_radius,
+        sfov_current_pos.Y - sfov_current_radius
+    )
+    sfov.Rotation = fov_rotation
+    sfov_stroke.Color = sa.fov_color or Color3.fromRGB(120, 81, 166)
+    sfov_stroke.Transparency = sa.fov_outline_transparency or 0.2
+    sfov_stroke.Thickness = sa.fov_thickness or 2
+    sfov_fill_gradient.Enabled = sa.show_fill == true
+    sfov_fill_gradient.Color = s_fill
+    sfov_fill_gradient.Rotation = fov_rotation
+    sfov_stroke_gradient.Color = s_stroke
+    sfov_stroke_gradient.Rotation = fov_rotation
+end)
+
+-- ============================================================================
+-- CORE HOOK: Utility.Raycast when caller is StartShooting
+-- (This is the real silent aim — redirects bullet ray end position)
+-- ============================================================================
+local function try_hook_raycast()
+    local utility
+    pcall(function()
+        local mods = ReplicatedStorage:FindFirstChild("Modules")
+        local u = mods and mods:FindFirstChild("Utility")
+        if u then
+            utility = require(u)
+        end
+    end)
+    if not utility or type(utility.Raycast) ~= "function" then
+        warn("[Elisium SA] Utility.Raycast not found yet — will retry")
+        return false
+    end
+    if utility._elisiumSilentHooked then
+        return true
+    end
+
+    local old_raycast = utility.Raycast
+    utility.Raycast = function(...)
+        if ELI.silent_aim.enable then
+            local okName, callerName = pcall(function()
+                return debug.info(3, "n")
+            end)
+            if okName and callerName == "StartShooting" then
+                local chance = tonumber(ELI.silent_aim.hit_chance) or 100
+                if math.random(1, 100) <= chance then
+                    local closest = getclosest()
+                    if closest and closest.Character then
+                        local target_pos
+                        if ELI.silent_aim.closest_part then
+                            local part = closest_part(closest)
+                            target_pos = part and part.Position
+                        else
+                            local char = closest.Character
+                            local aim_part = char:FindFirstChild(ELI.targeting.part)
+                                or char:FindFirstChild("HitboxHead")
+                                or char:FindFirstChild("Head")
+                                or char:FindFirstChild("HumanoidRootPart")
+                            target_pos = aim_part and aim_part.Position
+                        end
+                        if target_pos then
+                            local args = { ... }
+                            -- Elisium: args[3] = world aim position
+                            args[3] = target_pos
+                            return old_raycast(table.unpack(args))
+                        end
+                    end
+                end
+            end
+        end
+        return old_raycast(...)
+    end
+    utility._elisiumSilentHooked = true
+    print("[Elisium SA] Utility.Raycast hooked (StartShooting redirect)")
+    return true
+end
+
+task.spawn(function()
+    for _ = 1, 30 do
+        if try_hook_raycast() then break end
+        task.wait(0.5)
+    end
+end)
+
+-- Optional key toggle: RightAlt
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.RightAlt then
+        ELI.silent_aim.enable = not ELI.silent_aim.enable
+        print("[Elisium SA]", ELI.silent_aim.enable and "ON" or "OFF",
+            "| FOV", ELI.silent_aim.fov_radius,
+            "| show_fov", ELI.silent_aim.show_fov)
+    end
+end)
+
+print("[Elisium Silent Aim + FOV] loaded")
+print("  enable: getgenv().ELI.silent_aim.enable = true")
+print("  FOV:    getgenv().ELI.silent_aim.show_fov = true")
+print("  toggle: RightAlt")
+
+    end)
+    if not ok then warn("[Dv.a] silent aim load:", err) end
+end)
+
+-- ============================================================================
+-- Elisium Ragebot (wired to getgenv().ELI.ragebot)
+-- ============================================================================
+task.spawn(function()
+    local ok, err = pcall(function()
+-- ============================================================================
+-- Elisium Ragebot — Open Source Extract
+-- From Elisium v2 (Rivals): DesyncService + RagebotService
+-- Config: ELI.ragebot  |  Enable: RagebotService:Start() / Stop()
+-- ============================================================================
+
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+local function LPH_NO_VIRTUALIZE(f) return f end
+
+local Players           = game:GetService("Players")
+local RunService        = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace         = workspace
+
+local local_player      = Players.LocalPlayer
+local players           = Players
+local run_service       = RunService
+local replicated_storage = ReplicatedStorage
+local camera            = Workspace.CurrentCamera
+
+-- ELI config table (Elisium original shape)
+ELI = ELI or {}
+ELI.ragebot = ELI.ragebot or {
+    enable = false,
+    ffa_mode = false,
+    x = 0,
+    y = 2,
+    z = 0,
+    prediction = true,
+    prediction_amount = 1,
+}
+
+-- Resolve Rivals controllers / modules
+local fighter_controller, camera_controller, utility, enum_lib
+do
+    local ps = local_player:WaitForChild("PlayerScripts", 15)
+    local ctrl = ps:WaitForChild("Controllers", 15)
+    fighter_controller = require(ctrl:WaitForChild("FighterController", 15))
+    pcall(function()
+        camera_controller = require(ctrl:WaitForChild("CameraController", 8))
+    end)
+    utility = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Utility", 15))
+    pcall(function()
+        enum_lib = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("EnumLibrary", 8))
+    end)
+end
+
+if not camera_controller then
+    camera_controller = { Update = function() end }
+end
+
+-- Deflect / riot helpers (Elisium)
+local deflecting = {}
+
+is_deflecting = LPH_NO_VIRTUALIZE(function(plr)
+    return deflecting[plr]
+end)
+
+has_riot = LPH_NO_VIRTUALIZE(function(plr)
+    return workspace.ViewModels:FindFirstChild(plr.Name .. " - Riot Shield - Riot Shield") ~= nil
+end)
+
+-- Best-effort deflect mark (attribute scan)
+task.spawn(function()
+    RunService.Heartbeat:Connect(function()
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr == local_player then continue end
+            local char = plr.Character
+            if not char then continue end
+            local flag = false
+            for _, attr in ipairs({"Reflecting", "IsReflecting", "BulletReflect", "Reflect", "Deflecting", "Parrying"}) do
+                if char:GetAttribute(attr) == true then flag = true break end
+            end
+            if flag then
+                deflecting[plr] = true
+                task.delay(1.0, function()
+                    if deflecting[plr] then deflecting[plr] = false end
+                end)
+            end
+        end
+    end)
+end)
+
+
+local DesyncService = {}
+do
+    function DesyncService:Init()
+        self.active = false;
+        self.connection = nil;
+        self.server = nil;
+        self.client = nil;
+        self.angle = 0;
+        self.speed = 9000;
+        self.fighter = fighter_controller.LocalFighter;
+
+        local ref = camera_controller.Update;
+        camera_controller.Update = function(...)
+            if self.active and self.fighter and self.fighter.Entity.RootPart and self.client then
+                self.fighter.Entity.RootPart.CFrame = self.client;
+            end;
+            return ref(...);
+        end;
+    end;
+
+    function DesyncService:Start(target)
+        if self.active then return end;
+        if not local_player.Character then return end;
+        if not self.fighter or not self.fighter.Entity.RootPart then return end;
+
+        self.active = true;
+        self.connection = run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function(dt)
+            if not self.active then
+                if self.connection then
+                    self.connection:Disconnect();
+                    self.connection = nil;
+                end;
+                return
+            end;
+
+            if not target or not target.Character or not target.Character:FindFirstChild('HumanoidRootPart') or not self.fighter or not self.fighter.Entity.RootPart then
+                if self.connection then
+                    self.connection:Disconnect();
+                    self.connection = nil;
+                end;
+                if self.client and self.fighter and self.fighter.Entity.RootPart then
+                    self.fighter.Entity.RootPart.CFrame = self.client;
+                end;
+                self.active = false;
+                self.client = nil;
+                self.server = nil;
+                return
+            end;
+
+            self.client = self.fighter.Entity.RootPart.CFrame;
+
+            local item = self.fighter.EquippedItem;
+            if not item then return end;
+
+            local targetPos = target.Character.HumanoidRootPart.Position;
+
+            if is_deflecting(target) or has_riot(target) then
+            self.server = Vector3.new(0, 2^26, 0);
+            return
+            end;
+
+            if item.Name == "Slingshot" then
+                self.server = Vector3.new(0, 2^26, 0);
+            else
+                self.server = targetPos + Vector3.new(ELI.ragebot.x, ELI.ragebot.y, ELI.ragebot.z);
+            end;
+
+            self.fighter.Entity.RootPart.CFrame = CFrame.new(self.server);
+        end));
+    end;
+
+    function DesyncService:Stop()
+        if not self.active then return end;
+        if self.connection then
+            self.connection:Disconnect();
+            self.connection = nil;
+        end;
+        if self.client and self.fighter and self.fighter.Entity.RootPart then
+            self.fighter.Entity.RootPart.CFrame = self.client;
+        end;
+        self.active = false;
+        self.server = nil;
+        self.client = nil;
+    end;
+
+    DesyncService:Init();
+end
+
+local RagebotService = {}
+do
+    function RagebotService:Init()
+        self.active = false;
+        self.debounce = false;
+        self.lastShot = os.clock();
+        self.connection = nil;
+    end;
+
+    function RagebotService:IsValid(player)
+        if not (player
+            and player.Character
+            and player.Character:FindFirstChild("Humanoid")
+            and player.Character.Humanoid.Health > 0
+            and player:GetAttribute('EnvironmentID') == local_player:GetAttribute('EnvironmentID')) then
+            return false;
+        end;
+
+        if ELI.ragebot.ffa_mode then
+            return true;
+        end;
+
+        return local_player:GetAttribute('TeamID') ~= player:GetAttribute('TeamID');
+    end;
+
+    function RagebotService:GetClosest()
+        local closest, best = nil, math.huge;
+
+        for _, player in next, players:GetPlayers() do
+            if player ~= local_player and self:IsValid(player) then
+                local rootpos = player.Character.HumanoidRootPart.Position;
+                local mag = local_player:DistanceFromCharacter(rootpos);
+
+                if mag < best then
+                    closest, best = player, mag;
+                end;
+            end;
+        end;
+
+        return closest;
+    end;
+
+    function RagebotService:FireWeapon(target)
+        if not target or not target.Character then return end;
+
+        local fighter = fighter_controller.LocalFighter;
+        if not fighter then return end;
+
+        local item = fighter.EquippedItem;
+        if not item then return end;
+        if is_deflecting(target) or has_riot(target) then
+            return
+        end;
+        local head = target.Character:FindFirstChild('HitboxHead')
+            or target.Character:FindFirstChild('HitboxTorso')
+            or target.Character:FindFirstChild('HumanoidRootPart');
+        if not head then return end;
+
+        local character = local_player.Character;
+        if not character or not character:FindFirstChild('HumanoidRootPart') then return end;
+
+        local shootPos = DesyncService.active and DesyncService.server or character.HumanoidRootPart.Position;
+
+        local aimPos = head.Position;
+
+        if ELI.ragebot.prediction then
+            local troot = target.Character:FindFirstChild('HumanoidRootPart');
+            if troot then
+                local ping = 0.05;
+                pcall(function() ping = local_player:GetNetworkPing() end);
+                local lead = math.clamp(ping, 0, 0.4) * (ELI.ragebot.prediction_amount or 1);
+                aimPos = aimPos + troot.AssemblyLinearVelocity * lead;
+            end;
+        end;
+
+        local data = {
+            [utf8.char(1)] = {
+                [utf8.char(0)] = utility:EncodeCFrame(CFrame.new(shootPos, aimPos)),
+                [utf8.char(1)] = utility:EncodeCFrame(CFrame.new(shootPos, aimPos)),
+                [utf8.char(2)] = head,
+                [utf8.char(1)] = utility:EncodeCFrame(CFrame.new(shootPos, aimPos)),
+            },
+        };
+
+        replicated_storage.Remotes.Replication.Fighter.UseItem:FireServer(item:Get('ObjectID'), enum_lib:ToEnum('StartShooting'), data, nil);
+    end;
+
+    function RagebotService:ProjectileHandler()
+        workspace.DescendantAdded:Connect(function(child)
+            if not ELI.ragebot.enable then return end;
+
+            if child:IsA('BasePart') or child:IsA('Model') then
+                if child.Name == "Slingshot" or child.Name == "CoreProjectile" or child.Name == "OuterProjectile" then
+                    task.spawn(function()
+                        task.wait(0.03);
+
+                        local proj = child:IsA('BasePart') and child or child:FindFirstChildWhichIsA('BasePart');
+                        if not proj then return end;
+
+                        proj.CanTouch = true;
+
+                        for i = 1, 45 do
+                            if not ELI.ragebot.enable then break end;
+
+                            local target = self:GetClosest();
+                            if target and target.Character then
+                                local hitpart = target.Character:FindFirstChild('HitboxHead') or target.Character:FindFirstChild('HumanoidRootPart');
+
+                                if hitpart and hitpart:IsA("BasePart")
+                                    and hitpart.Parent
+                                    and proj.Parent
+                                    and hitpart:IsDescendantOf(workspace)
+                                    and proj:IsDescendantOf(workspace)
+                                then
+                                    pcall(firetouchinterest, hitpart, proj, 0);
+                                    pcall(firetouchinterest, hitpart, proj, 1);
+                                end;
+                            end;
+                            task.wait();
+                        end;
+                    end);
+                end;
+            end;
+        end);
+    end;
+
+    function RagebotService:Start()
+        if self.connection then return end;
+
+        self.connection = run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
+            if not ELI.ragebot.enable then
+                self:Stop();
+                return
+            end;
+
+            local target = self:GetClosest();
+            if not target then DesyncService:Stop() return end;
+
+            local fighter = fighter_controller.LocalFighter;
+            if not fighter then DesyncService:Stop() return end;
+
+            local item = fighter.EquippedItem;
+            if not item then DesyncService:Stop() return end;
+
+            local target_fighter = fighter_controller:GetFighter(target);
+            if not target_fighter then DesyncService:Stop() return end;
+
+            local viewmodel = item.ViewModel;
+            if not viewmodel then DesyncService:Stop() return end;
+            local target_entity = target_fighter.Entity;
+            if not target_entity or target_entity:Get('IsInvincible') then DesyncService:Stop() return end;
+
+            if item:Get('Ammo') and item:Get('Ammo') > 0 and not viewmodel:IsAnimationPlaying('Reload') then
+                if self.debounce == false then
+                    self.debounce = os.clock() + 0.5;
+                    return
+                end;
+
+                if typeof(self.debounce) == 'number' and os.clock() < self.debounce then
+                    return
+                end;
+
+                if typeof(self.debounce) == 'number' then
+                    self.debounce = true;
+                end;
+
+                DesyncService:Start(target);
+
+                if not target.Character then return end;
+
+                if DesyncService.server then
+                    self.lastShot = os.clock();
+                    self:FireWeapon(target);
+                end;
+            else
+                if not viewmodel:IsAnimationPlaying('Reload') then
+                    setthreadidentity(2);
+                    item:Input('StartReloading');
+                    setthreadidentity(7);
+                end;
+            end;
+        end));
+    end;
+
+    function RagebotService:Stop()
+        if self.connection then
+            self.connection:Disconnect();
+            self.connection = nil;
+        end;
+        self.debounce = false;
+        DesyncService:Stop();
+    end;
+
+    RagebotService:Init();
+    RagebotService:ProjectileHandler();
+end;
+
+
+-- Public helpers
+function ELI.RagebotEnable(state)
+    ELI.ragebot.enable = state and true or false
+    if ELI.ragebot.enable then
+        RagebotService:Start()
+    else
+        RagebotService:Stop()
+    end
+end
+
+print("[Elisium Ragebot OS] loaded")
+print("  config : ELI.ragebot  (x/y/z, prediction, ffa_mode)")
+print("  enable : ELI.RagebotEnable(true)  /  ELI.RagebotEnable(false)")
+
+    end)
+    if not ok then warn("[Dv.a] ragebot load:", err) end
+end)
+
+-- Keep DvA <-> ELI in sync
+task.spawn(function()
+    while true do
+        task.wait(0.25)
+        local D = getgenv().DvA
+        local E = getgenv().ELI
+        if not (D and E) then continue end
+        if E.silent_aim then
+            E.silent_aim.enable = D.SilentAim == true
+            E.silent_aim.show_fov = D.ShowFOV == true
+            if D.SilentFOV then E.silent_aim.fov_radius = D.SilentFOV end
+        end
+        if E.ragebot then
+            E.ragebot.enable = D.Ragebot == true
+        end
+        if E.aimbot then
+            E.aimbot.enable = D.Aimbot == true
+        end
+    end
+end)
+
+print("[Dv.a Premium v3] Mobile UI + Elisium silent aim/ragebot attached")
+
