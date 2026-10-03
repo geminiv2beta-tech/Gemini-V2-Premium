@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Dv.a Premium v3 | Full Elisium port (embedded Linoria-style Library)
--- Theme: pure black hub (1n2ee-style) | thin gray border | UI size unchanged
+-- Theme: pure black hub (1n2ee-style) | white border | no click sounds | UI size unchanged
 -- Includes: Silent Aim + FOV, Aimbot FOV, Ragebot, ESP, AA, Widgets, Config
 -- No Key / No HWID | Toggle: "Dv.a premium" + Locker | Hit notify: small / right
 -- Anti-Cheat bypass pack applied | Source: Elisium rivals full script
@@ -616,11 +616,11 @@ local Library = {
 
     HudRegistry = {};
 
-    FontColor = Color3.fromHex("e8e8e8");
+    FontColor = Color3.fromHex("ffffff");
     MainColor = Color3.fromHex("000000");
     BackgroundColor = Color3.fromHex("000000");
-    AccentColor = Color3.fromHex("c8c8c8");
-    OutlineColor = Color3.fromHex("3a3a3a");
+    AccentColor = Color3.fromHex("ffffff");
+    OutlineColor = Color3.fromHex("ffffff");
     SelectedTabColor = Color3.fromHex("10101c");
     GradientColor = Color3.fromHex("4a3a9a");
     ShadowColor = Color3.new(0, 0, 0);
@@ -647,14 +647,14 @@ local Library = {
     MenuOpen = true;
     NotificationSpot = 'Top Right'; -- hit + default right side
     NotificationAnimation = 'Slide Right to Left';
-    ToggleSoundEnabled = true;
-    NotificationSoundEnabled = true;
-    SliderSoundEnabled = true;
-    ToggleSoundVolume = 1;
+    ToggleSoundEnabled = false;
+    NotificationSoundEnabled = false;
+    SliderSoundEnabled = false;
+    ToggleSoundVolume = 0;
     ToggleSoundSpeed = 1;
-    NotificationSoundVolume = 1;
+    NotificationSoundVolume = 0;
     NotificationSoundSpeed = 1;
-    SliderSoundVolume = 1;
+    SliderSoundVolume = 0;
     SliderSoundSpeed = 1;
     MobileOverlayScale = 0.55;
     MobilePickerScale = 0.6;
@@ -1987,7 +1987,7 @@ function Library:BindHoldButton(Button, StepCallback)
 
     local function stop()
         holding = false;
-        Library:StopSliderSound();
+        -- Library:StopSliderSound(); muted
     end;
 
     Button.MouseButton1Down:Connect(function()
@@ -5747,7 +5747,7 @@ do
 
         ToggleRegion.InputBegan:Connect(function(Input)
             if IsPrimaryPress(Input) and not Library:MouseIsOverOpenedFrame() then
-                Library:PlayToggleSound();
+                -- Library:PlayToggleSound(); muted
                 Toggle:SetValue(not Toggle.Value);
                 Library:AttemptSave();
             end;
@@ -6032,7 +6032,7 @@ do
                     Slider:Display();
 
                     if nValue ~= OldValue then
-                        Library:PlaySliderSound();
+                        -- Library:PlaySliderSound(); muted
                         Library:SafeCallback(Slider.Callback, Slider.Value);
                         Library:SafeCallback(Slider.Changed, Slider.Value);
                     end;
@@ -6040,7 +6040,7 @@ do
                     RenderStepped:Wait();
                 end;
 
-                Library:StopSliderSound();
+                -- Library:StopSliderSound(); muted
                 Library:AttemptSave();
             end;
         end);
@@ -6050,7 +6050,7 @@ do
             local OldValue = Slider.Value;
             Slider:SetValue(Slider.Value - step);
             if Slider.Value ~= OldValue then
-                Library:PlaySliderSound();
+                -- Library:PlaySliderSound(); muted
             end;
             Library:AttemptSave();
         end);
@@ -6060,7 +6060,7 @@ do
             local OldValue = Slider.Value;
             Slider:SetValue(Slider.Value + step);
             if Slider.Value ~= OldValue then
-                Library:PlaySliderSound();
+                -- Library:PlaySliderSound(); muted
             end;
             Library:AttemptSave();
         end);
@@ -6295,7 +6295,7 @@ do
                     Slider:Display();
 
                     if Slider.ValueLower ~= oldLower or Slider.ValueUpper ~= oldUpper then
-                        Library:PlaySliderSound();
+                        -- Library:PlaySliderSound(); muted
                         Library:SafeCallback(Slider.Callback, Slider.ValueLower, Slider.ValueUpper);
                         Library:SafeCallback(Slider.Changed, Slider.ValueLower, Slider.ValueUpper);
                     end;
@@ -6303,7 +6303,7 @@ do
                     RenderStepped:Wait();
                 end;
 
-                Library:StopSliderSound();
+                -- Library:StopSliderSound(); muted
                 Library:AttemptSave();
             end;
         end);
@@ -9349,7 +9349,7 @@ local Toggles = Library.Toggles;
 getgenv().silent_load = getgenv().silent_load or false;
 getgenv().auto_load_enable = getgenv().auto_load_enable or false;
 local Window = Library:CreateWindow({
-    Title = 'Dv.a Premium v3',
+    Title = 'Dv.a HUB v3',
     AutoShow = true,
     BackgroundImage = "",
     SubTitle = "Premium v3",
@@ -21410,18 +21410,15 @@ end)()
         panel.Name = 'DvAHookPanel';
         panel.Size = UDim2.fromOffset(128, 58);
         panel.Position = UDim2.fromOffset(12, 12);
-        panel.BackgroundColor3 = Library.MainColor or Color3.fromRGB(18, 18, 22);
-        panel.BorderSizePixel = 0;
+        panel.BackgroundColor3 = Color3.fromRGB(0, 0, 0);
+        panel.BorderSizePixel = 1;
+        panel.BorderColor3 = Color3.fromRGB(58, 58, 58);
         panel.Active = true;
         panel.Parent = toggleGui;
-        Instance.new('UICorner', panel).CornerRadius = UDim.new(0, 8);
         local stroke = Instance.new('UIStroke', panel);
-        stroke.Color = Library.AccentColor or Color3.fromRGB(166, 93, 103);
-        stroke.Thickness = 1.2;
-        local accent = Instance.new('Frame', panel);
-        accent.Size = UDim2.new(1, 0, 0, 2);
-        accent.BackgroundColor3 = Library.AccentColor or Color3.fromRGB(166, 93, 103);
-        accent.BorderSizePixel = 0;
+        stroke.Color = Color3.fromRGB(58, 58, 58);
+        stroke.Thickness = 1;
+        -- no rounded corners / no accent bar (1n2ee flat black style)
 
         local btn = Library:Create('TextButton', {
             Name = 'DvAMobileToggle';
@@ -21583,11 +21580,11 @@ end)()
 
     pcall(function()
         -- 1n2ee HUB style: pure black + light gray accent/outline
-        Library.FontColor = Color3.fromHex('e8e8e8');
+        Library.FontColor = Color3.fromHex('ffffff');
         Library.MainColor = Color3.fromHex('000000');
         Library.BackgroundColor = Color3.fromHex('000000');
-        Library.AccentColor = Color3.fromHex('c8c8c8');
-        Library.OutlineColor = Color3.fromHex('3a3a3a');
+        Library.AccentColor = Color3.fromHex('ffffff');
+        Library.OutlineColor = Color3.fromHex('ffffff');
         Library.AccentColorDark = Library:GetDarkerColor(Library.AccentColor);
         Library.AccentColorLight = Library:GetLighterColor(Library.AccentColor);
         BRAND_ACCENT = Library.AccentColor;
