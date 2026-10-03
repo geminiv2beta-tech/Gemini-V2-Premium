@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Dv.a Premium v3 | Full Elisium port (embedded Linoria-style Library)
--- Theme: PIXEL font + blue/purple accent (#6b6bff) | UI size unchanged
+-- Theme: pure black hub (1n2ee-style) | thin gray border | UI size unchanged
 -- Includes: Silent Aim + FOV, Aimbot FOV, Ragebot, ESP, AA, Widgets, Config
 -- No Key / No HWID | Toggle: "Dv.a premium" + Locker | Hit notify: small / right
 -- Anti-Cheat bypass pack applied | Source: Elisium rivals full script
@@ -616,11 +616,11 @@ local Library = {
 
     HudRegistry = {};
 
-    FontColor = Color3.fromHex("d4d4ff");
-    MainColor = Color3.fromHex("0c0c14");
-    BackgroundColor = Color3.fromHex("080810");
-    AccentColor = Color3.fromHex("6b6bff");
-    OutlineColor = Color3.new(0, 0, 0);
+    FontColor = Color3.fromHex("e8e8e8");
+    MainColor = Color3.fromHex("000000");
+    BackgroundColor = Color3.fromHex("000000");
+    AccentColor = Color3.fromHex("c8c8c8");
+    OutlineColor = Color3.fromHex("3a3a3a");
     SelectedTabColor = Color3.fromHex("10101c");
     GradientColor = Color3.fromHex("4a3a9a");
     ShadowColor = Color3.new(0, 0, 0);
@@ -21277,7 +21277,7 @@ SaveManager:BuildConfigSection(Tabs['UI Settings'])
 end)()
 
 ;(function()
-    local BRAND_ACCENT = Color3.fromHex('6b6bff');
+    local BRAND_ACCENT = Color3.fromHex('c8c8c8');
 
     local function detach(overlay)
         if not overlay or not Library.Overlays then return end;
@@ -21582,9 +21582,29 @@ end)()
     end);
 
     pcall(function()
-        Library.AccentColor = BRAND_ACCENT;
+        -- 1n2ee HUB style: pure black + light gray accent/outline
+        Library.FontColor = Color3.fromHex('e8e8e8');
+        Library.MainColor = Color3.fromHex('000000');
+        Library.BackgroundColor = Color3.fromHex('000000');
+        Library.AccentColor = Color3.fromHex('c8c8c8');
+        Library.OutlineColor = Color3.fromHex('3a3a3a');
+        Library.AccentColorDark = Library:GetDarkerColor(Library.AccentColor);
+        Library.AccentColorLight = Library:GetLighterColor(Library.AccentColor);
+        BRAND_ACCENT = Library.AccentColor;
         if Options and Options.AccentColor and Options.AccentColor.SetValueRGB then
-            Options.AccentColor:SetValueRGB(BRAND_ACCENT);
+            Options.AccentColor:SetValueRGB(Library.AccentColor);
+        end;
+        if Options and Options.MainColor and Options.MainColor.SetValueRGB then
+            pcall(function() Options.MainColor:SetValueRGB(Library.MainColor) end);
+        end;
+        if Options and Options.BackgroundColor and Options.BackgroundColor.SetValueRGB then
+            pcall(function() Options.BackgroundColor:SetValueRGB(Library.BackgroundColor) end);
+        end;
+        if Options and Options.OutlineColor and Options.OutlineColor.SetValueRGB then
+            pcall(function() Options.OutlineColor:SetValueRGB(Library.OutlineColor) end);
+        end;
+        if Options and Options.FontColor and Options.FontColor.SetValueRGB then
+            pcall(function() Options.FontColor:SetValueRGB(Library.FontColor) end);
         end;
         Library:UpdateColorsUsingRegistry();
     end);
