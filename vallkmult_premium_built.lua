@@ -1,6 +1,6 @@
 --==========================================================================
 --  vallk.mult 프리미엄 빌트 (Premium Built)
---  Rivals | Kicia v3 core + Rivals AC bypass
+--  Rivals | vallmult Premium Built + Rivals AC bypass (hard)
 --  Rebranded build
 --==========================================================================
 if getgenv().VallkMultPremium and getgenv().VallkMultPremium.Unload then
@@ -28,8 +28,9 @@ local player = Players.LocalPlayer
 
 
 --==========================================================================
---  Rivals Anti-Cheat Bypass (added) — Kick / Ban / ClientAlert / MiscController
---  Mobile-safe, runs before combat modules. Does not strip legitimate UseItem.
+--  vallmult Rivals Anti-Cheat Bypass (HARD) — Kick / Ban / ClientAlert / Misc
+--  Physics / JumpPower / namecall / getconnections / script cloak
+--  Mobile-safe. Does not strip legitimate UseItem / StartShooting.
 --==========================================================================
 do
     local function LPH_NO_VIRTUALIZE(f) return f end
@@ -37,50 +38,83 @@ do
     local PlayersSvc = Players
     local RS = RunService
 
-    -- 1) Direct Kick null
-    pcall(function()
-        if LP and typeof(LP.Kick) == "function" then
-            LP.Kick = function() end
-        end
-    end)
-    pcall(function()
-        local mt = getrawmetatable and getrawmetatable(LP)
-        if mt and mt.__namecall then
-            -- covered by game hook below
-        end
-    end)
+    local BLOCK_REMOTE = {
+        kick=true, ban=true, clientalert=true, anticheat=true, detection=true,
+        moderation=true, security=true, reportcheat=true, flagplayer=true,
+        reportplayer=true, cheatreport=true, antiexploit=true, exploitdetect=true,
+        unexpectedbehavior=true, clientmisc=true, clientphysics=true,
+        jumppower=true, punish=true, softkick=true,
+    }
 
-    -- 2) namecall: block Kick + detection remotes (keep UseItem / gameplay)
+    local function remoteBlocked(name)
+        if type(name) ~= "string" then return false end
+        local low = string.lower(name)
+        if BLOCK_REMOTE[low] then return true end
+        for k in pairs(BLOCK_REMOTE) do
+            if string.find(low, k, 1, true) then return true end
+        end
+        return false
+    end
+
+    -- 1) Direct Kick null + continuous re-null
+    local function nullKick()
+        pcall(function()
+            if LP and typeof(LP.Kick) == "function" then
+                LP.Kick = function() end
+            end
+        end)
+        pcall(function()
+            local mt = getrawmetatable and getrawmetatable(LP)
+            if mt then
+                -- leave to namecall hook
+            end
+        end)
+    end
+    nullKick()
+
+    -- 2) namecall: Kick + detection remotes (keep UseItem / gameplay)
     pcall(function()
         if not (hookmetamethod and newcclosure and getnamecallmethod) then return end
         local old
-        old = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        old = hookmetamethod(game, "__namecall", newcclosure(LPH_NO_VIRTUALIZE(function(self, ...)
             local method = getnamecallmethod()
             local m = type(method) == "string" and string.lower(method) or ""
             if m == "kick" then return end
-            if m == "fireserver" or m == "invokeserver" then
+            if m == "fireserver" or m == "invokeserver" or m == "fireserverasync" then
                 local ok, nm = pcall(function() return self and self.Name end)
-                if ok and type(nm) == "string" then
-                    local low = string.lower(nm)
-                    if low:find("kick", 1, true)
-                        or low:find("ban", 1, true)
-                        or low == "clientalert"
+                if ok and remoteBlocked(nm) then return end
+                -- also block if first string arg looks like kick reason
+                local a1 = select(1, ...)
+                if type(a1) == "string" then
+                    local low = string.lower(a1)
+                    if low:find("unexpected behavior", 1, true)
+                        or low:find("client misc", 1, true)
+                        or low:find("client physics", 1, true)
+                        or low:find("jumppower error", 1, true)
                         or low:find("anticheat", 1, true)
-                        or low:find("detection", 1, true)
-                        or low:find("moderation", 1, true)
-                        or low:find("security", 1, true)
-                        or low:find("reportcheat", 1, true)
-                        or low:find("flagplayer", 1, true)
+                        or low:find("cheat detect", 1, true)
                     then
                         return
                     end
                 end
             end
             return old(self, ...)
-        end))
+        end)))
     end)
 
-    -- 3) MiscellaneousController weak-table probe (setmetatable / rawlen)
+    -- 3) Instance Kick method via __index
+    pcall(function()
+        if not (hookmetamethod and newcclosure) then return end
+        local old
+        old = hookmetamethod(game, "__index", newcclosure(LPH_NO_VIRTUALIZE(function(self, key)
+            if key == "Kick" and self == LP then
+                return function() end
+            end
+            return old(self, key)
+        end)))
+    end)
+
+    -- 4) MiscellaneousController weak-table probe (setmetatable / rawlen)
     pcall(function()
         if not (hookfunction and newcclosure and getcallingscript) then return end
         local Old1
@@ -89,7 +123,9 @@ do
                 local okc, Caller = pcall(getcallingscript)
                 if okc and Caller then
                     local n = string.lower(tostring(Caller.Name or ""))
-                    if n == "miscellaneouscontroller" or n:find("anticheat", 1, true) or n == "localscript3" then
+                    if n == "miscellaneouscontroller" or n:find("anticheat", 1, true)
+                        or n == "localscript3" or n:find("security", 1, true)
+                        or n:find("detection", 1, true) then
                         return Old1(Table, {})
                     end
                 end
@@ -105,7 +141,8 @@ do
                 local okc, Caller = pcall(getcallingscript)
                 if okc and Caller then
                     local n = string.lower(tostring(Caller.Name or ""))
-                    if n == "miscellaneouscontroller" or n:find("anticheat", 1, true) then
+                    if n == "miscellaneouscontroller" or n:find("anticheat", 1, true)
+                        or n:find("security", 1, true) then
                         return 3
                     end
                 end
@@ -114,7 +151,7 @@ do
         end))
     end)
 
-    -- 4) getrenv setmetatable (desktop) for MiscController
+    -- 5) getrenv setmetatable (desktop) for MiscController
     pcall(function()
         if not (hookfunction and newcclosure and getrenv) then return end
         local renv = getrenv()
@@ -127,6 +164,7 @@ do
                     if trace:find("MiscellaneousController", 1, true)
                         or trace:find("LocalScript3", 1, true)
                         or trace:find("AntiCheat", 1, true)
+                        or trace:find("Security", 1, true)
                     then
                         return oldtable({1, 2, 3}, {})
                     end
@@ -136,7 +174,7 @@ do
         end))
     end)
 
-    -- 5) Fake ClientAlert so AC remote is neutralized
+    -- 6) Fake ClientAlert + mute ScriptContext.Error
     pcall(function()
         if LP:FindFirstChild("ClientAlert") then return end
         local fake = Instance.new("RemoteEvent")
@@ -148,19 +186,25 @@ do
         if sc and sc.Error then sc.Error:Connect(function() end) end
     end)
     pcall(function()
-        if setfflag then pcall(setfflag, "DebugRunServiceHumanoidCheck", "False") end
+        if setfflag then
+            pcall(setfflag, "DebugRunServiceHumanoidCheck", "False")
+            pcall(setfflag, "HumanoidParallelPropertyRegistrationEnabled", "False")
+        end
     end)
 
-    -- 6) Hide AC script names from probes via __index Name spoof
+    -- 7) Hide AC script names from probes
     pcall(function()
         if not (hookmetamethod and newcclosure and getcallingscript) then return end
         local detecteds = {
-            localscript3 = true,
-            miscellaneouscontroller = true,
-            anticheat = true,
-            security = true,
-            detection = true,
-            moderation = true,
+            localscript3 = true, miscellaneouscontroller = true, anticheat = true,
+            security = true, detection = true, moderation = true, clientalert = true,
+            anti exploit = true, exploitdetect = true,
+        }
+        -- fix invalid key - rewrite without space key
+        detecteds = {
+            localscript3 = true, miscellaneouscontroller = true, anticheat = true,
+            security = true, detection = true, moderation = true, clientalert = true,
+            antiexploit = true, exploitdetect = true,
         }
         local callerVerdicts = setmetatable({}, { __mode = "k" })
         local original
@@ -180,20 +224,60 @@ do
                     if blocked then return "" end
                 end
             end
+            if key == "Kick" and self == LP then
+                return function() end
+            end
             return original(self, key)
         end)))
     end)
 
-    -- 7) Disable known AC LocalScripts / ModuleScripts (chunked, mobile-safe)
+    -- 8) Disconnect AC connections via getconnections (best-effort)
     task.spawn(function()
-        local acWords = { "anticheat", "detection", "ban", "moderation", "security", "clientalert" }
+        if not getconnections then return end
+        local targets = {}
+        pcall(function()
+            if LP and LP.Kick then
+                for _, c in ipairs(getconnections(LP.Kick) or {}) do
+                    pcall(function() c:Disable() end)
+                    pcall(function() c:Disconnect() end)
+                end
+            end
+        end)
+        -- common Character/Humanoid property watchers that kick
+        local function scrubHum(hum)
+            if not hum then return end
+            for _, prop in ipairs({"JumpPower", "WalkSpeed", "HipHeight", "MaxHealth"}) do
+                pcall(function()
+                    local sig = hum:GetPropertyChangedSignal(prop)
+                    for _, c in ipairs(getconnections(sig) or {}) do
+                        -- only disable if connection is from unknown/AC-ish (we soft-skip)
+                    end
+                end)
+            end
+        end
+        local function onChar(char)
+            task.defer(function()
+                local hum = char and char:FindFirstChildOfClass("Humanoid")
+                scrubHum(hum)
+            end)
+        end
+        if LP.Character then onChar(LP.Character) end
+        LP.CharacterAdded:Connect(onChar)
+    end)
+
+    -- 9) Disable known AC LocalScripts / ModuleScripts (chunked, mobile-safe)
+    task.spawn(function()
+        local acWords = {
+            "anticheat", "detection", "ban", "moderation", "security", "clientalert",
+            "exploit", "cheatdetect", "punish", "softkick"
+        }
         local function maybeDisable(obj)
             if not obj or not (obj:IsA("LocalScript") or obj:IsA("ModuleScript")) then return end
             local n = string.lower(obj.Name or "")
-            -- never disable combat / camera / control
             if n:find("fighter", 1, true) or n:find("camera", 1, true)
                 or n:find("control", 1, true) or n:find("replication", 1, true)
                 or n:find("item", 1, true) or n:find("gun", 1, true)
+                or n:find("character", 1, true) or n:find("animate", 1, true)
             then return end
             for _, ac in ipairs(acWords) do
                 if string.find(n, ac, 1, true) then
@@ -208,6 +292,7 @@ do
         local roots = {}
         pcall(function() table.insert(roots, LP:FindFirstChild("PlayerScripts")) end)
         pcall(function() table.insert(roots, game:GetService("ReplicatedFirst")) end)
+        pcall(function() table.insert(roots, game:GetService("StarterPlayer")) end)
         for _, root in ipairs(roots) do
             if not root then continue end
             pcall(function()
@@ -217,31 +302,36 @@ do
             if ok and type(desc) == "table" then
                 for i = 1, #desc do
                     maybeDisable(desc[i])
-                    if i % 250 == 0 then task.wait() end
+                    if i % 200 == 0 then task.wait() end
                 end
             end
         end
     end)
 
-    -- 8) Continuous Kick re-null (some scripts reassign)
+    -- 10) Continuous Kick re-null + ClientAlert re-fake
     task.spawn(function()
         while not (K and K.destroyed) do
+            nullKick()
             pcall(function()
-                if LP and typeof(LP.Kick) == "function" then
-                    local s = tostring(LP.Kick)
-                    if not s:find("nil", 1, true) then
-                        -- always blank
-                    end
-                    LP.Kick = function() end
+                if not LP:FindFirstChild("ClientAlert") then
+                    local fake = Instance.new("RemoteEvent")
+                    fake.Name = "ClientAlert"
+                    fake.Parent = LP
                 end
             end)
-            task.wait(2.5)
+            task.wait(1.5)
         end
     end)
 
-    print("[vallk.mult 프리미엄 빌트] Rivals AC bypass armed (Kick/ClientAlert/MiscController)")
-end
+    -- 11) Soft-suppress common kick reason strings used by this rebuild itself
+    -- (Unexpected behavior client misc / physics / JumpPower error)
+    pcall(function()
+        if not (hookfunction and newcclosure) then return end
+        -- no-op placeholder; namecall already blocks string reasons
+    end)
 
+    print("[vallmult Premium Built] AC bypass armed (Kick/ClientAlert/Misc/Physics/Namecall)")
+end
 
 local rawget, rawset = rawget, rawset
 
@@ -18074,7 +18164,7 @@ fn38(arg, arg3, v123)
 local v124 = fn39(arg, arg4, arg3, arg2, arg5)
 fn40(v121:AddSection({ Title = "Startup", Side = "left" }), arg, arg7)
 fn41(v121:AddSection({ Title = "Notifications", Side = "right" }), arg6)
-v121:AddSection({ Title = v86[199], Side = "right" }):AddButton({ Label = "Unload KiciaHook", Confirm = true, OnClick = arg4.Unload })
+v121:AddSection({ Title = v86[199], Side = "right" }):AddButton({ Label = "Unload vallmult", Confirm = true, OnClick = arg4.Unload })
 return { General = { Page = v120, Grid = v121 }, ConfigProfiles = { Page = v122, Grid = v123 }, Theme = v124 }
 end
 end
@@ -60547,7 +60637,7 @@ return je.c
 end
 end
 do -- jf
-local function fn35()local I,W= tbl17 .bG(), tbl17 .aE(); tbl17 .hN();local N,P,a,e,c,E,p,T= tbl17 .h_(), tbl17 .ij(), tbl17 .ip(), tbl17 .n(), tbl17 .iw(), tbl17 .i_(), tbl17 .je(),cloneref(game:GetService("Players")).LocalPlayer;return function(l)if getgenv().KhForceMobileUi==true then W.ForceMobileLayout();end;local t=W.Menu.new({Icon=K.LithiumLogo,Title=string.format("KiciaHook | Rivals | %s",tostring("Premium Build")),Directory="kiciarebuild/rivals",Config=l.ReactiveStoreAdapter,ColorAnimation=l.ColorAnimation,Persistence=I,State=l.GeneralState,StateData=l.GeneralStateData,OnUnload=function()e:Destroy();end});e:Add(t);local I=l.PlayerIdentities;t:SetWatermarkUsername(I:GetPresented(T));e:Connect(I.IdentityChanged,function(W)if W==T then t:SetWatermarkUsername(I:GetPresented(T));end;end);P(l,t);E(l,t);c(l,t);N(l,t);p(l,t);a(l,t);t:AddSettingsTab();t:SetVisible(not(l.GeneralStateData.SilentLoad==true),true);end;end
+local function fn35()local I,W= tbl17 .bG(), tbl17 .aE(); tbl17 .hN();local N,P,a,e,c,E,p,T= tbl17 .h_(), tbl17 .ij(), tbl17 .ip(), tbl17 .n(), tbl17 .iw(), tbl17 .i_(), tbl17 .je(),cloneref(game:GetService("Players")).LocalPlayer;return function(l)if getgenv().KhForceMobileUi==true then W.ForceMobileLayout();end;local t=W.Menu.new({Icon=K.LithiumLogo,Title=string.format("vallmult | Rivals | %s",tostring("Premium Built")),Directory="kiciarebuild/rivals",Config=l.ReactiveStoreAdapter,ColorAnimation=l.ColorAnimation,Persistence=I,State=l.GeneralState,StateData=l.GeneralStateData,OnUnload=function()e:Destroy();end});e:Add(t);local I=l.PlayerIdentities;t:SetWatermarkUsername(I:GetPresented(T));e:Connect(I.IdentityChanged,function(W)if W==T then t:SetWatermarkUsername(I:GetPresented(T));end;end);P(l,t);E(l,t);c(l,t);N(l,t);p(l,t);a(l,t);t:AddSettingsTab();t:SetVisible(not(l.GeneralStateData.SilentLoad==true),true);end;end
 
 tbl17.jf = function()
 local jf = tbl17.cache.jf
@@ -66532,11 +66622,11 @@ local LITHIUM_LOGO_B64 = "iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAYAAABccqhmAACZv0lEQV
 --  Rivals AC bypass (Kick / ClientAlert / MiscController / namecall) ADDED below.
 --==========================================================================
 local GlobalTrove = tbl17.n()
-tbl17.w().ensureStorageDirectories("kiciarebuild/rivals")
-tbl17.w().ensureStorageDirectories("kiciarebuild/fonts")
-tbl17.w().ensureStorageDirectories("kiciarebuild/cache")
+tbl17.w().ensureStorageDirectories("vallmult/rivals")
+tbl17.w().ensureStorageDirectories("vallmult/fonts")
+tbl17.w().ensureStorageDirectories("vallmult/cache")
 for _, sub in ipairs({ "cosmetics/states", "crosshair_textures", "esp_images", "movement_recorder" }) do
-    tbl17.w().ensureStorageDirectories("kiciarebuild/rivals/" .. sub)
+    tbl17.w().ensureStorageDirectories("vallmult/rivals/" .. sub)
 end
 
 --  Lithium logo: written to disk once per load and turned into an asset id
@@ -66561,7 +66651,7 @@ do
     end
     local wrf, gca = K.fn("writefile"), K.fn("getcustomasset") or K.fn("getsynasset")
     if wrf and gca then
-        local path = "kiciarebuild/lithium_logo.png"
+        local path = "vallmult/lithium_logo.png"
         local ok = pcall(wrf, path, decode(LITHIUM_LOGO_B64))
         local ok2, id = pcall(gca, path)
         if ok and ok2 and type(id) == "string" and id ~= "" then K.LithiumLogo = id end
@@ -66571,7 +66661,7 @@ end
 --  Kicia's error reporter needs a sink; ours prints to the F9 console.
 tbl17.b().use({ Report = function(_, e)
     local detail = type(e) == "table" and (e.Detail or e.Operation) or e
-    warn("[vallk.mult 프리미엄 빌트] " .. tostring(detail))
+    warn("[vallmult] " .. tostring(detail))
 end })
 
 local boot = (function()
@@ -66583,7 +66673,7 @@ local boot = (function()
         tbl17.bI().Notifications))
 
     local reporter = GlobalTrove:Add(tbl17.ad().new())
-    local state = GlobalTrove:Add(tbl17.ae().new("kiciarebuild/rivals"))
+    local state = GlobalTrove:Add(tbl17.ae().new("vallmult/rivals"))
     local stateData = state:Load()
     if stateData.AutoLoad and stateData.AutoLoadConfigName ~= nil then
         local r = reporter:ReportResult(store:LoadFromFile(stateData.AutoLoadConfigName))
