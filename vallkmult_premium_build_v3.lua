@@ -347,16 +347,10 @@ end
 
 
 --==========================================================================
---  vallkmult Rage status HUD (white)
---  rage ON + target  -> vallkmult:kill NAME
---  rage ON + no tgt  -> vallkmult:kill void
---  on kill           -> Vallmult&NoVa:kill NAME (2.5s)
---  rage OFF          -> hidden
+--  vallkmult Rage status HUD: Vallkmult&NoVa:kill NAME / void
 --==========================================================================
 task.spawn(function()
-    getgenv()._VallkRageEnabled = getgenv()._VallkRageEnabled or false
-    getgenv()._VallkRageStatus = getgenv()._VallkRageStatus or "vallkmult:kill void"
-    getgenv()._VallkRageKillUntil = getgenv()._VallkRageKillUntil or 0
+    getgenv()._VallkRageStatus = getgenv()._VallkRageStatus or "Vallkmult&NoVa:kill void"
     local parent = nil
     pcall(function()
         parent = (gethui and gethui()) or game:GetService("CoreGui")
@@ -378,30 +372,32 @@ task.spawn(function()
     local label = Instance.new("TextLabel")
     label.Name = "Status"
     label.BackgroundTransparency = 1
-    label.Size = UDim2.new(0, 480, 0, 22)
-    label.Position = UDim2.new(0.5, -240, 0, 12)
+    label.Size = UDim2.new(0, 420, 0, 22)
+    label.Position = UDim2.new(0.5, -210, 0, 12)
     label.Font = Enum.Font.GothamBold
     label.TextSize = 16
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextStrokeTransparency = 0.35
+    label.TextColor3 = Color3.fromRGB(255, 80, 120)
+    label.TextStrokeTransparency = 0.4
     label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    label.Text = ""
-    label.Visible = false
+    label.Text = getgenv()._VallkRageStatus
     label.Parent = gui
     K.onUnload(function()
         pcall(function() gui:Destroy() end)
     end)
     while not (K and K.destroyed) do
-        local on = getgenv()._VallkRageEnabled == true
-        label.Visible = on
-        if on then
-            local st = getgenv()._VallkRageStatus or "vallkmult:kill void"
+        local st = getgenv()._VallkRageStatus or "Vallkmult&NoVa:kill void"
+        if label.Text ~= st then
             label.Text = st
-            label.TextColor3 = Color3.fromRGB(255, 255, 255)
+            if getgenv()._VallkRageHasTarget then
+                label.TextColor3 = Color3.fromRGB(255, 70, 110)
+            else
+                label.TextColor3 = Color3.fromRGB(160, 160, 170)
+            end
         end
-        task.wait(0.08)
+        task.wait(0.1)
     end
 end)
+
 
 local rawget, rawset = rawget, rawset
 
@@ -63622,13 +63618,9 @@ end)
 arg._trove:Add(v118:ObserveEnabledKeybind({ "Ragebot" }, function(arg2)
 arg:SetEnabled(arg2)
 arg:_Reset()
-getgenv()._VallkRageEnabled = arg2 and true or false
 if not arg2 then
-getgenv()._VallkRageStatus = "vallkmult:kill void"
+getgenv()._VallkRageStatus = "Vallkmult&NoVa:kill void"
 getgenv()._VallkRageHasTarget = false
-getgenv()._VallkRageLastName = nil
-getgenv()._VallkRageLastPlayer = nil
-getgenv()._VallkRageKillUntil = 0
 end
 end))
 end
@@ -63679,76 +63671,22 @@ local target = arg._targetSelection:GetTarget()
 
 if target ~= nil then
 arg._lastTargetWorld = target.AliveState.RootPart.Position
--- vallkmult status indicator (only while ragebot on)
+-- vallkmult status indicator
 do
     local nm = "?"
-    local plrRef = nil
     pcall(function()
-        plrRef = target.FighterState and target.FighterState.Player
-        if plrRef then
-            nm = plrRef.DisplayName or plrRef.Name or "?"
+        local plr = target.FighterState and target.FighterState.Player
+        if plr then
+            nm = plr.DisplayName or plr.Name or "?"
         end
     end)
-    getgenv()._VallkRageEnabled = true
+    getgenv()._VallkRageStatus = "Vallkmult&NoVa:kill " .. tostring(nm)
     getgenv()._VallkRageHasTarget = true
-    -- if kill celebration still active, keep NoVa line briefly
-    local untilT = getgenv()._VallkRageKillUntil or 0
-    if tick() < untilT then
-        -- keep kill text
-    else
-        getgenv()._VallkRageStatus = "vallkmult:kill " .. tostring(nm)
-    end
-    -- detect kill: previous target dead / removed
-    local prev = getgenv()._VallkRageLastName
-    local prevPlr = getgenv()._VallkRageLastPlayer
-    if prevPlr and prevPlr ~= plrRef and prev and prev ~= "?" then
-        -- switched away; check if old died
-        local dead = false
-        pcall(function()
-            local char = prevPlr.Character
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
-            if not char or not hum or hum.Health <= 0 then dead = true end
-        end)
-        if dead then
-            getgenv()._VallkRageStatus = "Vallmult&NoVa:kill " .. tostring(prev)
-            getgenv()._VallkRageKillUntil = tick() + 2.5
-        end
-    end
-    getgenv()._VallkRageLastName = nm
-    getgenv()._VallkRageLastPlayer = plrRef
 end
 else
 arg._lastTargetWorld = nil
-getgenv()._VallkRageEnabled = true
+getgenv()._VallkRageStatus = "Vallkmult&NoVa:kill void"
 getgenv()._VallkRageHasTarget = false
--- kill detect when target becomes nil
-do
-    local prev = getgenv()._VallkRageLastName
-    local prevPlr = getgenv()._VallkRageLastPlayer
-    local untilT = getgenv()._VallkRageKillUntil or 0
-    if tick() < untilT then
-        -- keep kill message
-    elseif prevPlr and prev then
-        local dead = false
-        pcall(function()
-            local char = prevPlr.Character
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
-            if not char or not hum or hum.Health <= 0 then dead = true end
-        end)
-        if dead then
-            getgenv()._VallkRageStatus = "Vallmult&NoVa:kill " .. tostring(prev)
-            getgenv()._VallkRageKillUntil = tick() + 2.5
-            getgenv()._VallkRageLastName = nil
-            getgenv()._VallkRageLastPlayer = nil
-        else
-            getgenv()._VallkRageStatus = "vallkmult:kill void"
-        end
-    else
-        if tick() >= untilT then
-            getgenv()._VallkRageStatus = "vallkmult:kill void"
-        end
-    end
-end
 end
 
 local v131 = arg:_Plan(arg2, v130, target, state.RootPart, clientCFrame, mode)
