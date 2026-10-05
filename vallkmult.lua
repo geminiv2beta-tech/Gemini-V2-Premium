@@ -25930,12 +25930,29 @@ return setmetatable({ _info = v102(arg, "Info"), _data = v102(arg, "Data"), Inne
 end
 
 index2.IsDeflecting = function(arg)
-local v115 = v102(arg.Inner, "_deflect_cooldown")
-if v115 == nil then
-return false
+-- Fixed: detect katana/melee deflect so ragebot does not shoot into block
+local now = tick()
+local cd = v102(arg.Inner, "_deflect_cooldown")
+if type(cd) == "number" then
+    -- end-timestamp model (same pattern as IsAttacking)
+    if now < cd then
+        return true
+    end
+    local deflectCooldown = v102(arg._info, "DeflectCooldown")
+    -- start-timestamp + duration fallback
+    if type(deflectCooldown) == "number" and deflectCooldown > 0 and now < cd + deflectCooldown then
+        return true
+    end
 end
-local deflectCooldown = v102(arg._info, "DeflectCooldown")
-return deflectCooldown ~= nil and tick() < v115 - deflectCooldown
+-- name/active swing soft-detect for Katana (server may not set cooldown yet)
+local nm = arg.Name or v102(arg, "Name") or ""
+if type(nm) == "string" and string.find(string.lower(nm), "katana", 1, true) then
+    local atk = v102(arg.Inner, "_attack_cooldown")
+    if type(atk) == "number" and now < atk then
+        return true
+    end
+end
+return false
 end
 
 index2.IsAttacking = function(arg)
@@ -30569,9 +30586,28 @@ if v124 == nil then
 return
 end
 
+-- block shots into shield / deflect
 if v118.isShielded(v120, v124, v122.Position, true, false) then
 arg2.Block = v86[34]
+return
 end
+
+-- extra: block when target holds katana and is deflecting / swinging
+pcall(function()
+    local melee = v124.ItemObserver and v124.ItemObserver:EquippedItemAsMelee()
+    if melee == nil then return end
+    local nm = tostring(melee.Name or "")
+    local isKatana = string.find(string.lower(nm), "katana", 1, true) ~= nil
+    local deflecting = false
+    pcall(function() deflecting = melee:IsDeflecting() == true end)
+    local attacking = false
+    pcall(function() attacking = melee:IsAttacking() == true end)
+    if isKatana and (deflecting or attacking) then
+        arg2.Block = true
+    elseif deflecting then
+        arg2.Block = true
+    end
+end)
 end
 
 index2.Destroy = function(arg)
@@ -63546,18 +63582,31 @@ arg._trove:Add(arg._playerContext:ObserveContext("ragebot", function(innerContex
 if not flag2 then
 return
 end
+-- respawn / re-context: restore inner and keep ragebot running if still enabled
 arg._innerContext = innerContext
 arg:_ClearReloadTransport()
 end))
 
 arg._trove:Connect(arg._playerContext.ContextRemoved, function()
-arg:_Reset()
+-- death/leave: soft clear only (do not force-disable keybind)
+arg:_ClearReloadTransport()
+arg._lastTargetWorld = nil
 arg._innerContext = nil
 end)
 
 arg._trove:Add(v118:ObserveEnabledKeybind({ "Ragebot" }, function(arg2)
 arg:SetEnabled(arg2)
-arg:_Reset()
+arg:_ClearReloadTransport()
+arg._lastTargetWorld = nil
+if not arg2 then
+    pcall(function()
+        local ic = arg._innerContext
+        if ic and ic.CharacterController then
+            ic.CharacterController:SetServerCFrame(nil)
+            ic.CharacterController:SendViewAngles(20, nil)
+        end
+    end)
+end
 end))
 end
 
@@ -63589,7 +63638,8 @@ return
 end
 local state = fighterState.Character.State
 if not state.Alive then
-arg:_Reset()
+-- soft pause while dead: keep enabled + context so ragebot resumes on respawn
+arg:_ClearReloadTransport()
 return
 end
 local characterController = innerContext.CharacterController
