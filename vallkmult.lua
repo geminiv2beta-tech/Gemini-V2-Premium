@@ -25929,12 +25929,53 @@ return setmetatable({ _info = v102(arg, "Info"), _data = v102(arg, "Data"), Inne
 end
 
 index2.IsDeflecting = function(arg)
-local v115 = v102(arg.Inner, "_deflect_cooldown")
-if v115 == nil then
+-- Pure active katana/melee DEFLECT only (not holding, not attacking, not post-deflect cooldown)
+local inner = arg.Inner
+if inner == nil then
 return false
 end
+local now = tick()
+-- explicit boolean / until-timestamp fields (if game sets them)
+for _, key in ipairs({
+    "_is_deflecting", "IsDeflecting", "_deflecting",
+    "_parryUntil", "_deflect_until", "DeflectEnd", "_deflect_end",
+    "_deflect_start",
+}) do
+    local v = v102(inner, key)
+    if v == true then
+        return true
+    end
+    if type(v) == "number" then
+        if key == "_deflect_start" then
+            -- active for short window after start
+            if now >= v and now < v + 0.4 then
+                return true
+            end
+        elseif now < v then
+            return true
+        end
+    end
+end
+local cd = v102(inner, "_deflect_cooldown")
+if type(cd) ~= "number" then
+    return false
+end
 local deflectCooldown = v102(arg._info, "DeflectCooldown")
-return deflectCooldown ~= nil and tick() < v115 - deflectCooldown
+if type(deflectCooldown) == "number" and deflectCooldown > 0 then
+    -- _deflect_cooldown is usually END of full cooldown after a parry.
+    -- Active reflect is only the early slice, not the whole cooldown.
+    local start = cd - deflectCooldown
+    local activeLen = math.clamp(deflectCooldown * 0.3, 0.15, 0.45)
+    if now >= start and now < start + activeLen then
+        return true
+    end
+    return false
+end
+-- fallback: only treat as deflect if cooldown ends very soon (<0.4s left)
+if cd - now > 0 and cd - now < 0.4 then
+    return true
+end
+return false
 end
 
 index2.IsAttacking = function(arg)
@@ -62381,9 +62422,16 @@ end
 if not arg.Character.State.Alive then
 return false
 end
-local v116 = arg.ItemObserver:EquippedItemAsMelee()
-if v116 ~= nil and v116:IsDeflecting() then
-return false
+-- Katana/melee: only skip while ACTIVELY deflecting.
+-- Holding katana / swinging / post-deflect cooldown = STILL valid target (attack immediately).
+local okMelee, melee = pcall(function()
+    return arg.ItemObserver:EquippedItemAsMelee()
+end)
+if okMelee and melee ~= nil then
+    local okDef, def = pcall(function() return melee:IsDeflecting() end)
+    if okDef and def == true then
+        return false
+    end
 end
 return true
 end
@@ -63724,6 +63772,19 @@ end
 
 local target = nil
 pcall(function() target = arg._targetSelection:GetTarget() end)
+-- the instant deflect ends, allow fire again (clear hitscan lock)
+if target ~= nil then
+    pcall(function()
+        if arg._hitscanStrategy and arg._hitscanStrategy.Reset then
+            -- only clear if we are not currently facing an active deflector
+            local melee = target.FighterState and target.FighterState.ItemObserver and target.FighterState.ItemObserver:EquippedItemAsMelee()
+            local def = melee and melee:IsDeflecting()
+            if not def then
+                arg._hitscanStrategy:Reset()
+            end
+        end
+    end)
+end
 -- dead/invalid target must not crash
 if target ~= nil then
     local okPos, pos = pcall(function()
