@@ -26,6 +26,43 @@ local Lighting = game:GetService("Lighting")
 local player = Players.LocalPlayer
 
 --==========================================================================
+--  Platform: PC (Real) / Mobile / Tablet / Gamepad — all supported
+--==========================================================================
+do
+    local UIS = UserInputService
+    local function detectPlatform()
+        local touch = false
+        local kb = false
+        local gp = false
+        pcall(function() touch = UIS.TouchEnabled == true end)
+        pcall(function() kb = UIS.KeyboardEnabled == true end)
+        pcall(function() gp = UIS.GamepadEnabled == true end)
+        -- PC real: keyboard/mouse, even if touch is also reported
+        if kb then return "PC" end
+        if touch and not kb then return "Mobile" end
+        if gp and not kb then return "Gamepad" end
+        return "PC"
+    end
+    getgenv()._VallkPlatform = detectPlatform()
+    -- Prefer CoreGui/gethui on all platforms; PlayerGui fallback for restricted executors
+    getgenv()._VallkHudParent = function()
+        local h
+        pcall(function()
+            if gethui then h = gethui() end
+        end)
+        if h then return h end
+        pcall(function() h = game:GetService("CoreGui") end)
+        if h then return h end
+        pcall(function()
+            h = player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui", 3)
+        end)
+        return h
+    end
+    print("[vallkmult] platform:", getgenv()._VallkPlatform)
+end
+
+
+--==========================================================================
 --  vallkmult Rivals Anti-Cheat Bypass (HARD)
 --  From Halmu free + extended Kick / Ban / ClientAlert / MiscController
 --  Physics / JumpPower / namecall / getconnections / script cloak
@@ -338,21 +375,22 @@ do
     print("[vallkmult] AC bypass armed (Halmu + hard Rivals)")
 end
 
-
-
 --==========================================================================
---  vallkmult Rage status HUD (white, bottom)
---  ON + target -> vallkmult&NoVa:kill NAME
---  ON + none   -> vallkmult&NoVa:kill void
---  OFF         -> hidden
+--  Rage status HUD (white, bottom) — PC + Mobile
+--  ON+target -> vallkmult&NoVa:kill NAME
+--  ON+none   -> vallkmult&NoVa:kill void
+--  OFF       -> hidden
 --==========================================================================
 task.spawn(function()
     getgenv()._VallkRageEnabled = getgenv()._VallkRageEnabled or false
     getgenv()._VallkRageStatus = getgenv()._VallkRageStatus or "vallkmult&NoVa:kill void"
     local parent = nil
     pcall(function()
-        parent = (gethui and gethui()) or game:GetService("CoreGui")
+        if getgenv()._VallkHudParent then parent = getgenv()._VallkHudParent() end
     end)
+    if not parent then
+        pcall(function() parent = (gethui and gethui()) or game:GetService("CoreGui") end)
+    end
     if not parent then
         parent = player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui", 5)
     end
@@ -366,16 +404,25 @@ task.spawn(function()
     gui.ResetOnSpawn = false
     gui.IgnoreGuiInset = true
     gui.DisplayOrder = 9999
-    gui.Parent = parent
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    pcall(function() gui.Parent = parent end)
+    if not gui.Parent then
+        pcall(function() gui.Parent = game:GetService("CoreGui") end)
+    end
+    if not gui.Parent then
+        pcall(function()
+            gui.Parent = player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui", 3)
+        end)
+    end
     local label = Instance.new("TextLabel")
     label.Name = "Status"
     label.BackgroundTransparency = 1
-    label.Size = UDim2.new(0, 520, 0, 22)
-    label.Position = UDim2.new(0.5, -260, 1, -36)
+    label.Size = UDim2.new(0, 560, 0, 22)
+    label.Position = UDim2.new(0.5, -280, 1, -40)
     label.Font = Enum.Font.GothamBold
     label.TextSize = 15
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextStrokeTransparency = 0.35
+    label.TextStrokeTransparency = 0.3
     label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     label.Text = ""
     label.Visible = false
@@ -385,7 +432,6 @@ task.spawn(function()
     end
     while not (K and K.destroyed) do
         local on = getgenv()._VallkRageEnabled == true
-        label.Visible = on
         if on then
             local st = getgenv()._VallkRageStatus
             if type(st) ~= "string" or st == "" then
@@ -396,10 +442,13 @@ task.spawn(function()
             label.Visible = true
         else
             label.Text = ""
+            label.Visible = false
         end
         task.wait(0.05)
     end
 end)
+
+
 
 
 local rawget, rawset = rawget, rawset
@@ -424,6 +473,12 @@ end
 K.identity = identity
 local function hudParent()
     local ok, h = pcall(function() return gethui_ and gethui_() end)
+    if ok and h then return h end
+    ok, h = pcall(function() return game:GetService("CoreGui") end)
+    if ok and h then return h end
+    ok, h = pcall(function()
+        return player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui", 3)
+    end)
     if ok and h then return h end
     return game:GetService("CoreGui")
 end
@@ -63733,9 +63788,7 @@ do
     local nm = nil
     pcall(function()
         local plr = target.FighterState and target.FighterState.Player
-        if plr then
-            nm = plr.Name or plr.DisplayName
-        end
+        if plr then nm = plr.Name or plr.DisplayName end
     end)
     if not nm then
         pcall(function()
@@ -63749,10 +63802,9 @@ do
             if char then nm = char.Name end
         end)
     end
-    nm = tostring(nm or "?")
     getgenv()._VallkRageEnabled = true
     getgenv()._VallkRageHasTarget = true
-    getgenv()._VallkRageStatus = "vallkmult&NoVa:kill " .. nm
+    getgenv()._VallkRageStatus = "vallkmult&NoVa:kill " .. tostring(nm or "?")
 end
 else
 arg._lastTargetWorld = nil
