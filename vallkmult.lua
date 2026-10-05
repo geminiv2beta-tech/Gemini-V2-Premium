@@ -26,24 +26,26 @@ local Lighting = game:GetService("Lighting")
 local player = Players.LocalPlayer
 
 --==========================================================================
---  Platform: PC (Real) / Mobile / Tablet / Gamepad — all supported
+--  Platform: PC (Real / Wave / Solara / Delta PC) / Mobile / Tablet / Gamepad
+--  All executors supported — HUD parent: gethui > CoreGui > PlayerGui
 --==========================================================================
 do
     local UIS = UserInputService
     local function detectPlatform()
-        local touch, kb, gp, mouse = false, false, false, false
+        local touch = false
+        local kb = false
+        local gp = false
         pcall(function() touch = UIS.TouchEnabled == true end)
         pcall(function() kb = UIS.KeyboardEnabled == true end)
         pcall(function() gp = UIS.GamepadEnabled == true end)
-        pcall(function() mouse = UIS.MouseEnabled == true end)
-        -- PC / Real executors: keyboard or mouse wins even if touch is also true
-        if kb or mouse then return "PC" end
+        -- PC real: keyboard/mouse, even if touch is also reported
+        if kb then return "PC" end
         if touch and not kb then return "Mobile" end
         if gp and not kb then return "Gamepad" end
         return "PC"
     end
     getgenv()._VallkPlatform = detectPlatform()
-    -- Prefer gethui / CoreGui on PC+Mobile; PlayerGui last (restricted executors)
+    -- Prefer CoreGui/gethui on all platforms; PlayerGui fallback for restricted executors
     getgenv()._VallkHudParent = function()
         local h
         pcall(function()
@@ -53,15 +55,10 @@ do
         pcall(function() h = game:GetService("CoreGui") end)
         if h then return h end
         pcall(function()
-            h = player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui", 5)
+            h = player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui", 3)
         end)
         return h
     end
-    -- Keep mouse usable on PC Real while menu is open
-    pcall(function()
-        UIS.MouseIconEnabled = true
-        UIS.MouseBehavior = Enum.MouseBehavior.Default
-    end)
     print("[vallkmult] platform:", getgenv()._VallkPlatform)
 end
 
@@ -434,15 +431,6 @@ task.spawn(function()
     if K and K.onUnload then
         K.onUnload(function() pcall(function() gui:Destroy() end) end)
     end
-    -- respawn: keep HUD parent alive on PC + mobile
-    pcall(function()
-        player.CharacterAdded:Connect(function()
-            if gui and not gui.Parent then
-                local p = getgenv()._VallkHudParent and getgenv()._VallkHudParent()
-                if p then pcall(function() gui.Parent = p end) end
-            end
-        end)
-    end)
     while not (K and K.destroyed) do
         local on = getgenv()._VallkRageEnabled == true
         if on then
@@ -63709,8 +63697,6 @@ return tbl18
 end
 
 index2._Initialize = function(arg)
-arg._hadTargetName = nil
-arg._killFlashUntil = 0
 arg._trove:Add(arg._playerContext:ObserveContext("ragebot", function(innerContext)
 if not flag2 then
 return
@@ -63718,35 +63704,60 @@ end
 -- respawn / re-context: restore inner and keep ragebot running if still enabled
 arg._innerContext = innerContext
 arg:_ClearReloadTransport()
-arg._lastTargetWorld = nil
-arg._lastDefensiveViewAngles = nil
--- if user left ragebot ON, stay ON after death/respawn
 if arg._enabled then
     getgenv()._VallkRageEnabled = true
 end
 end))
 
 arg._trove:Connect(arg._playerContext.ContextRemoved, function()
--- death/leave: soft clear only (do not force-disable keybind / do not SetEnabled false)
+-- death/leave: soft clear only (do not force-disable keybind / do not call full Reset)
 arg:_ClearReloadTransport()
 arg._lastTargetWorld = nil
-arg._lastDefensiveViewAngles = nil
+-- keep _innerContext briefly so next ObserveContext can overwrite; nil only after soft state
 arg._innerContext = nil
 if arg._enabled then
     getgenv()._VallkRageEnabled = true
     getgenv()._VallkRageHasTarget = false
-    if not (arg._killFlashUntil and os.clock() < arg._killFlashUntil) then
-        getgenv()._VallkRageStatus = "vallkmult&NoVa:kill void"
-    end
+    getgenv()._VallkRageStatus = "vallkmult&NoVa:kill void"
 end
-end))
+end)
+
+-- CharacterAdded backup: after local respawn, re-enable status and wait for context
+pcall(function()
+    local lp = game:GetService("Players").LocalPlayer
+    if not lp then return end
+    arg._trove:Connect(lp.CharacterAdded, function(char)
+        if not arg._enabled then return end
+        getgenv()._VallkRageEnabled = true
+        getgenv()._VallkRageHasTarget = false
+        getgenv()._VallkRageStatus = "vallkmult&NoVa:kill void"
+        task.spawn(function()
+            local hum = char:WaitForChild("Humanoid", 8)
+            if hum then
+                pcall(function()
+                    hum.Died:Connect(function()
+                        if arg._enabled then
+                            getgenv()._VallkRageEnabled = true
+                            getgenv()._VallkRageHasTarget = false
+                            getgenv()._VallkRageStatus = "vallkmult&NoVa:kill void"
+                            arg:_ClearReloadTransport()
+                        end
+                    end)
+                end)
+            end
+            -- wait for context reattach (up to ~4s)
+            for _ = 1, 40 do
+                if arg._innerContext ~= nil then break end
+                task.wait(0.1)
+            end
+        end)
+    end)
+end)
 
 arg._trove:Add(v118:ObserveEnabledKeybind({ "Ragebot" }, function(arg2)
 arg:SetEnabled(arg2)
 arg:_ClearReloadTransport()
 arg._lastTargetWorld = nil
-arg._hadTargetName = nil
-arg._killFlashUntil = 0
 getgenv()._VallkRageEnabled = arg2 and true or false
 if arg2 then
     getgenv()._VallkRageStatus = "vallkmult&NoVa:kill void"
@@ -63783,55 +63794,76 @@ end
 index2.Update = function(arg, arg2)
 local innerContext = arg._innerContext
 if innerContext == nil then
--- waiting for respawn context — do NOT disable keybind
+-- keep keybind/enabled; only soft-reset pose so respawn can reattach context
 arg:_ClearReloadTransport()
+arg._lastTargetWorld = nil
 if arg._enabled then
     getgenv()._VallkRageEnabled = true
     getgenv()._VallkRageHasTarget = false
-    if not (arg._killFlashUntil and os.clock() < arg._killFlashUntil) then
-        getgenv()._VallkRageStatus = "vallkmult&NoVa:kill void"
-    end
-end
-return
-end
-local fighterState = innerContext.FighterState
-if not arg._enabled then
-arg:_Reset()
-return
-end
-if fighterState.EnvironmentId == nil then
--- map/transition soft wait
-arg:_ClearReloadTransport()
-getgenv()._VallkRageEnabled = true
-return
-end
-local state = fighterState.Character.State
-if not state.Alive then
--- soft pause while local dead: keep enabled so ragebot resumes on respawn
-arg:_ClearReloadTransport()
-arg._lastTargetWorld = nil
-getgenv()._VallkRageEnabled = true
-getgenv()._VallkRageHasTarget = false
-if not (arg._killFlashUntil and os.clock() < arg._killFlashUntil) then
     getgenv()._VallkRageStatus = "vallkmult&NoVa:kill void"
 end
 return
 end
+local fighterState = innerContext.FighterState
+if fighterState == nil or fighterState.EnvironmentId == nil or not arg._enabled then
+arg:_ClearReloadTransport()
+if not arg._enabled then
+    arg:_Reset()
+end
+return
+end
+local charState = fighterState.Character and fighterState.Character.State
+if not charState or not charState.Alive then
+-- soft pause while local dead: do NOT disable ragebot / do NOT drop keybind
+arg:_ClearReloadTransport()
+getgenv()._VallkRageEnabled = true
+getgenv()._VallkRageHasTarget = false
+getgenv()._VallkRageStatus = "vallkmult&NoVa:kill void"
+return
+end
+local state = charState
 local characterController = innerContext.CharacterController
-local clientCFrame = characterController:GetClientCFrame()
+if characterController == nil then
+arg:_ClearReloadTransport()
+return
+end
+local okCF, clientCFrame = pcall(function() return characterController:GetClientCFrame() end)
+if not okCF or clientCFrame == nil then
+arg:_ClearReloadTransport()
+return
+end
 local mode = v115.Data.Ragebot.Evasion.Mode
 local v130 = v128.getAction(innerContext)
 
 if mode == "Translocate" and arg._reloadGun == nil and (v130 == nil or v130.Type ~= "Reload") then
 arg:_ApplyForcedCrouch(v86[153])
-characterController:SetServerCFrame(v125.compute(clientCFrame, arg._targetSelection:HasTargets()))
+pcall(function()
+    characterController:SetServerCFrame(v125.compute(clientCFrame, arg._targetSelection:HasTargets()))
+end)
 return
 end
 
-local target = arg._targetSelection:GetTarget()
+local target = nil
+pcall(function() target = arg._targetSelection:GetTarget() end)
 
+-- validate target still alive (opponent death must not crash ragebot)
+local targetAlive = false
+local targetPos = nil
 if target ~= nil then
-arg._lastTargetWorld = target.AliveState.RootPart.Position
+    pcall(function()
+        local as = target.AliveState
+        if as and as.RootPart and as.RootPart.Parent then
+            local hum = as.Humanoid or (as.Model and as.Model:FindFirstChildOfClass("Humanoid"))
+            if hum == nil or hum.Health > 0 then
+                targetAlive = true
+                targetPos = as.RootPart.Position
+            end
+        end
+    end)
+end
+
+if target ~= nil and targetAlive and targetPos ~= nil then
+arg._lastTargetWorld = targetPos
 do
     local nm = nil
     pcall(function()
@@ -63852,22 +63884,14 @@ do
     end
     getgenv()._VallkRageEnabled = true
     getgenv()._VallkRageHasTarget = true
-    arg._hadTargetName = tostring(nm or "?")
     getgenv()._VallkRageStatus = "vallkmult&NoVa:kill " .. tostring(nm or "?")
 end
 else
--- opponent dead / no target: flash last kill name briefly, then void; clear sticky state so next target works
-if arg._hadTargetName and arg._hadTargetName ~= "" then
-    getgenv()._VallkRageStatus = "vallkmult&NoVa:kill " .. arg._hadTargetName
-    arg._killFlashUntil = os.clock() + 2.5
-    arg._hadTargetName = nil
-elseif not (arg._killFlashUntil and os.clock() < arg._killFlashUntil) then
-    getgenv()._VallkRageStatus = "vallkmult&NoVa:kill void"
-end
+target = nil
 arg._lastTargetWorld = nil
-arg:_ClearReloadTransport()
 getgenv()._VallkRageEnabled = true
 getgenv()._VallkRageHasTarget = false
+getgenv()._VallkRageStatus = "vallkmult&NoVa:kill void"
 end
 
 local v131 = arg:_Plan(arg2, v130, target, state.RootPart, clientCFrame, mode)
