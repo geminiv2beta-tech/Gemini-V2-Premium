@@ -373,7 +373,115 @@ do
         end
     end)
 
-    print("[vallkmult] AC bypass armed (Halmu + hard Rivals)")
+    -- 12) StarterGui / Core kick-ban dialog mute + extra report keywords
+    pcall(function()
+        local more = {
+            violat=true, desync=true, speedhack=true, flyhack=true, teleportcheck=true,
+            remoteabuse=true, exploitreport=true, autoscript=true, injector=true,
+            handshakefail=true, integrity=true, signature=true, clientflag=true,
+        }
+        for k,v in pairs(more) do BLOCK_REMOTE[k] = v end
+    end)
+    pcall(function()
+        local SG = game:GetService("StarterGui")
+        if SG and hookfunction and newcclosure and typeof(SG.SetCore) == "function" then
+            local oldSC
+            oldSC = hookfunction(SG.SetCore, newcclosure(function(self, name, ...)
+                local n = type(name) == "string" and string.lower(name) or ""
+                if n:find("kick", 1, true) or n:find("ban", 1, true) or n:find("disconnect", 1, true)
+                    or n:find("error", 1, true) and (select("#", ...) > 0) then
+                    -- allow normal UI errors; block only explicit moderation cores if present
+                    if n == "kick" or n == "banned" or n == "sendnotification" then
+                        local a1 = select(1, ...)
+                        if type(a1) == "table" then
+                            local t = string.lower(tostring(a1.Title or "") .. " " .. tostring(a1.Text or a1.Message or ""))
+                            if t:find("kick", 1, true) or t:find("ban", 1, true) or t:find("exploit", 1, true)
+                                or t:find("cheat", 1, true) or t:find("anticheat", 1, true) then
+                                return
+                            end
+                        end
+                    end
+                end
+                return oldSC(self, name, ...)
+            end))
+        end
+    end)
+
+    -- 13) ReplicatedStorage AC remote soft-cloak (name scan, do not break UseItem)
+    task.spawn(function()
+        local function cloak(obj)
+            if not obj or not (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") or obj:IsA("UnreliableRemoteEvent")) then
+                return
+            end
+            local n = string.lower(obj.Name or "")
+            if n:find("useitem", 1, true) or n:find("replication", 1, true)
+                or n:find("fighter", 1, true) or n:find("shoot", 1, true)
+                or n:find("equip", 1, true) or n:find("camera", 1, true) then
+                return
+            end
+            if remoteBlocked(n) or n:find("report", 1, true) or n:find("flag", 1, true)
+                or n:find("detect", 1, true) or n:find("integrity", 1, true) then
+                pcall(function()
+                    if obj:IsA("RemoteEvent") or obj:IsA("UnreliableRemoteEvent") then
+                        -- leave instance; namecall layer already blocks FireServer
+                    end
+                end)
+            end
+        end
+        pcall(function()
+            local rs = game:GetService("ReplicatedStorage")
+            for _, d in ipairs(rs:GetDescendants()) do
+                cloak(d)
+            end
+            rs.DescendantAdded:Connect(function(d) task.defer(cloak, d) end)
+        end)
+    end)
+
+    -- 14) LogService / ScriptContext noise mute + continuous Kick rebind on character
+    pcall(function()
+        local LogService = game:GetService("LogService")
+        if LogService and getconnections then
+            pcall(function()
+                for _, c in ipairs(getconnections(LogService.MessageOut) or {}) do
+                    -- soft: do not disconnect gameplay logs
+                end
+            end)
+        end
+    end)
+    task.spawn(function()
+        local function hardenChar(char)
+            nullKick()
+            pcall(function()
+                if LP and typeof(LP.Kick) == "function" then
+                    LP.Kick = function() end
+                end
+            end)
+            -- keep rage enabled flag across respawn if user left it on
+            if getgenv()._VallkRageEnabled == true then
+                getgenv()._VallkRageStatus = getgenv()._VallkRageStatus or "vallkmult&NoVa:kill void"
+            end
+        end
+        if LP.Character then hardenChar(LP.Character) end
+        LP.CharacterAdded:Connect(function(c)
+            task.defer(hardenChar, c)
+            task.delay(0.5, function() nullKick() end)
+            task.delay(1.5, function() nullKick() end)
+        end)
+    end)
+
+    -- 15) Identity restore loop (some AC lowers identity to break hooks)
+    task.spawn(function()
+        local setid = setthreadidentity or setidentity or set_thread_identity
+        while not (K and K.destroyed) do
+            pcall(function()
+                if setid then setid(8) end
+            end)
+            nullKick()
+            task.wait(2.5)
+        end
+    end)
+
+    print("[vallkmult] AC bypass armed (Halmu + hard Rivals + layers 12-15)")
 end
 
 --==========================================================================
@@ -26049,28 +26157,41 @@ return setmetatable({ _info = v102(arg, "Info"), _data = v102(arg, "Data"), Inne
 end
 
 index2.IsDeflecting = function(arg)
--- Fixed: detect katana/melee deflect so ragebot does not shoot into block
+-- Deflect/parry only (not normal attack). Skip shots into Katana bounce frames.
 local now = tick()
-local cd = v102(arg.Inner, "_deflect_cooldown")
-if type(cd) == "number" then
-    -- end-timestamp model (same pattern as IsAttacking)
-    if now < cd then
-        return true
-    end
-    local deflectCooldown = v102(arg._info, "DeflectCooldown")
-    -- start-timestamp + duration fallback
-    if type(deflectCooldown) == "number" and deflectCooldown > 0 and now < cd + deflectCooldown then
+local inner = arg.Inner
+if inner == nil then return false end
+-- end-timestamp style fields
+for _, key in ipairs({"_deflect_cooldown", "_deflectCooldown", "_parryUntil", "DeflectEnd", "_blockUntil"}) do
+    local cd = v102(inner, key)
+    if type(cd) == "number" and now < cd then
         return true
     end
 end
--- name/active swing soft-detect for Katana (server may not set cooldown yet)
-local nm = arg.Name or v102(arg, "Name") or ""
-if type(nm) == "string" and string.find(string.lower(nm), "katana", 1, true) then
-    local atk = v102(arg.Inner, "_attack_cooldown")
-    if type(atk) == "number" and now < atk then
+-- start + duration
+local duration = v102(arg._info, "DeflectCooldown") or v102(arg._info, "DeflectDuration") or 0.55
+if type(duration) ~= "number" or duration <= 0 then duration = 0.55 end
+for _, key in ipairs({"_deflect_start", "_lastDeflect", "_parryStart", "_deflectBegan"}) do
+    local st = v102(inner, key)
+    if type(st) == "number" and now < st + duration then
         return true
     end
 end
+-- some builds store end as start+cd where cd is absolute
+local cd2 = v102(inner, "_deflect_cooldown")
+if type(cd2) == "number" then
+    if now < cd2 then return true end
+    if now < cd2 + duration then return true end
+end
+-- Data / flag fields
+local data = arg._data
+if data ~= nil then
+    local d = v102(data, "IsDeflecting") or v102(data, "Deflecting") or v102(data, "IsParrying")
+    if d == true then return true end
+end
+local fl = v102(inner, "IsDeflecting") or v102(inner, "_isDeflecting") or v102(inner, "Deflecting")
+if fl == true then return true end
+-- Katana-only: do NOT treat normal attack as deflect (user: only bounce frames)
 return false
 end
 
@@ -30711,20 +30832,30 @@ arg2.Block = v86[34]
 return
 end
 
--- extra: block when target holds katana and is deflecting / swinging
+-- extra: only skip when target is DEFLECTING (bounce frames). Normal katana swing is still shootable.
 pcall(function()
     local melee = v124.ItemObserver and v124.ItemObserver:EquippedItemAsMelee()
     if melee == nil then return end
-    local nm = tostring(melee.Name or "")
-    local isKatana = string.find(string.lower(nm), "katana", 1, true) ~= nil
     local deflecting = false
     pcall(function() deflecting = melee:IsDeflecting() == true end)
-    local attacking = false
-    pcall(function() attacking = melee:IsAttacking() == true end)
-    if isKatana and (deflecting or attacking) then
+    if deflecting then
         arg2.Block = true
-    elseif deflecting then
-        arg2.Block = true
+        return
+    end
+    -- short grace if Inner still has deflect timestamps (IsDeflecting may lag 1 frame)
+    local inner = melee.Inner
+    if inner ~= nil then
+        local now = tick()
+        for _, key in ipairs({"_deflect_cooldown", "_parryUntil", "_blockUntil"}) do
+            local cd = rawget and rawget(inner, key) or nil
+            if type(cd) ~= "number" then
+                pcall(function() cd = inner[key] end)
+            end
+            if type(cd) == "number" and now < cd + 0.08 then
+                arg2.Block = true
+                return
+            end
+        end
     end
 end)
 end
@@ -63727,16 +63858,21 @@ pcall(function()
     local lp = game:GetService("Players").LocalPlayer
     if not lp then return end
     arg._trove:Connect(lp.CharacterAdded, function(char)
-        if not arg._enabled then return end
-        getgenv()._VallkRageEnabled = true
-        getgenv()._VallkRageHasTarget = false
-        getgenv()._VallkRageStatus = "vallkmult&NoVa:kill void"
+        -- if keybind was on, force enabled back after death
+        if arg._enabled or getgenv()._VallkRageEnabled == true then
+            arg._enabled = true
+            getgenv()._VallkRageEnabled = true
+            getgenv()._VallkRageHasTarget = false
+            getgenv()._VallkRageStatus = "vallkmult&NoVa:kill void"
+            pcall(function() arg:SetEnabled(true) end)
+        end
         task.spawn(function()
             local hum = char:WaitForChild("Humanoid", 8)
             if hum then
                 pcall(function()
                     hum.Died:Connect(function()
-                        if arg._enabled then
+                        if arg._enabled or getgenv()._VallkRageEnabled == true then
+                            arg._enabled = true
                             getgenv()._VallkRageEnabled = true
                             getgenv()._VallkRageHasTarget = false
                             getgenv()._VallkRageStatus = "vallkmult&NoVa:kill void"
@@ -63745,10 +63881,14 @@ pcall(function()
                     end)
                 end)
             end
-            -- wait for context reattach (up to ~4s)
-            for _ = 1, 40 do
+            -- wait for context reattach (up to ~6s) then force SetEnabled again
+            for _ = 1, 60 do
                 if arg._innerContext ~= nil then break end
                 task.wait(0.1)
+            end
+            if arg._enabled then
+                pcall(function() arg:SetEnabled(true) end)
+                getgenv()._VallkRageEnabled = true
             end
         end)
     end)
@@ -63814,11 +63954,21 @@ return
 end
 local charState = fighterState.Character and fighterState.Character.State
 if not charState or not charState.Alive then
--- soft pause while local dead: do NOT disable ragebot / do NOT drop keybind
+-- soft pause while local dead: keep enabled + keybind; resume on respawn
 arg:_ClearReloadTransport()
-getgenv()._VallkRageEnabled = true
-getgenv()._VallkRageHasTarget = false
-getgenv()._VallkRageStatus = "vallkmult&NoVa:kill void"
+arg._lastTargetWorld = nil
+if not arg._enabled then
+    -- keybind may still be on; re-assert if global flag says user wants rage
+    if getgenv()._VallkRageEnabled == true then
+        arg._enabled = true
+    end
+end
+getgenv()._VallkRageEnabled = arg._enabled and true or getgenv()._VallkRageEnabled
+if arg._enabled then
+    getgenv()._VallkRageEnabled = true
+    getgenv()._VallkRageHasTarget = false
+    getgenv()._VallkRageStatus = "vallkmult&NoVa:kill void"
+end
 return
 end
 local state = charState
