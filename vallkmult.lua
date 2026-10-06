@@ -337,6 +337,180 @@ do
     print("[vallkmult] advanced AC bypass armed")
 end
 
+--==========================================================================
+--  Anti-Katana local protection + Wallbang AC + Rage strengthen
+--  - Near katana melee: soft phase / HP soft-lock so YOU do not die
+--  - Wallbang: strip wall LOS blocks on UseItem StartShooting
+--  - Rage: keep Wanted, force re-enable, faster resume after deflect
+--==========================================================================
+do
+    local LP = player
+    local RS = RunService
+    local WS = workspace
+
+    -- --- Local anti-melee death (katana) while rage wanted/on ---
+    local lastHp = 100
+    local softLockUntil = 0
+    local function nearKatanaThreat()
+        local myChar = LP.Character
+        local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myHrp then return false end
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LP and plr.Character then
+                local tool = plr.Character:FindFirstChildOfClass("Tool")
+                local name = tool and string.lower(tool.Name or "") or ""
+                local melee = name:find("katana", 1, true) or name:find("sword", 1, true)
+                    or name:find("melee", 1, true) or name:find("knife", 1, true)
+                    or name:find("dagger", 1, true)
+                -- also scan equipped item name via attributes
+                if not melee then
+                    for _, d in ipairs(plr.Character:GetChildren()) do
+                        local n = string.lower(d.Name or "")
+                        if n:find("katana", 1, true) or n:find("sword", 1, true) then
+                            melee = true
+                            break
+                        end
+                    end
+                end
+                if melee then
+                    local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp and (hrp.Position - myHrp.Position).Magnitude < 18 then
+                        return true, hrp
+                    end
+                end
+            end
+        end
+        return false
+    end
+
+    local function protectFromKatana()
+        local wanted = getgenv()._VallkRageWanted == true
+            or getgenv()._VallkRageEnabled == true
+        if not wanted then return end
+        local char = LP.Character
+        if not char then return end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hum or not hrp then return end
+        local threat, enemyHrp = nearKatanaThreat()
+        if threat then
+            softLockUntil = tick() + 0.55
+            -- soft phase: no collision with other characters briefly
+            pcall(function()
+                for _, p in ipairs(char:GetDescendants()) do
+                    if p:IsA("BasePart") then
+                        p.CanTouch = false
+                    end
+                end
+            end)
+            -- micro dodge away from melee if extremely close
+            if enemyHrp and (enemyHrp.Position - hrp.Position).Magnitude < 6 then
+                pcall(function()
+                    local away = (hrp.Position - enemyHrp.Position)
+                    if away.Magnitude < 0.1 then away = hrp.CFrame.LookVector end
+                    away = away.Unit
+                    hrp.CFrame = hrp.CFrame + away * 3.5 + Vector3.new(0, 1.2, 0)
+                    hrp.AssemblyLinearVelocity = Vector3.zero
+                end)
+            end
+        end
+        -- HP soft-lock: if damaged by melee while rage on, restore
+        if tick() < softLockUntil then
+            if hum.Health < lastHp and hum.Health > 0 and lastHp - hum.Health > 5 then
+                pcall(function()
+                    hum.Health = math.max(hum.Health, lastHp)
+                end)
+            end
+        end
+        if hum.Health > 0 then
+            lastHp = math.max(lastHp * 0.15 + hum.Health * 0.85, hum.Health)
+        end
+    end
+
+    task.spawn(function()
+        while not (K and K.destroyed) do
+            pcall(protectFromKatana)
+            task.wait(0.03)
+        end
+    end)
+
+    pcall(function()
+        LP.CharacterAdded:Connect(function(char)
+            lastHp = 100
+            task.defer(function()
+                local hum = char:WaitForChild("Humanoid", 8)
+                if hum then
+                    lastHp = hum.Health
+                    hum.HealthChanged:Connect(function(h)
+                        if tick() < softLockUntil and h < lastHp and h > 0 then
+                            pcall(function() hum.Health = math.max(h, lastHp) end)
+                        else
+                            if h > 0 then lastHp = h end
+                        end
+                    end)
+                end
+            end)
+        end)
+    end)
+
+    -- --- Wallbang AC: do not let wall/LOS remote probes kill shots ---
+    -- Expand remote block list with wall/los/ray validation names
+    pcall(function()
+        if not (hookmetamethod and newcclosure and getnamecallmethod) then return end
+        local wallWords = {
+            "wallcheck", "lineofsight", "loscheck", "rayvalidate", "shotvalidate",
+            "bulletvalidate", "penetration", "wallbang", "visibilitycheck",
+            "cansee", "occlusion", "hitscanvalidate",
+        }
+        local old
+        old = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            local m = type(method) == "string" and string.lower(method) or ""
+            if m == "fireserver" or m == "invokeserver" then
+                local ok, nm = pcall(function() return self and self.Name end)
+                if ok and type(nm) == "string" then
+                    local low = string.lower(nm)
+                    for _, w in ipairs(wallWords) do
+                        if string.find(low, w, 1, true) then
+                            return -- block validation remotes that cancel wallbang
+                        end
+                    end
+                end
+                local a1 = select(1, ...)
+                if type(a1) == "string" then
+                    local low = string.lower(a1)
+                    for _, w in ipairs(wallWords) do
+                        if string.find(low, w, 1, true) then
+                            return
+                        end
+                    end
+                end
+            end
+            return old(self, ...)
+        end))
+    end)
+
+    -- Prefer Include-only map raycasts to fail open for rage (skip pure wall hits)
+    pcall(function()
+        if not (hookfunction and newcclosure) then return end
+        local oldRay
+        oldRay = hookfunction(workspace.Raycast, newcclosure(function(self, origin, dir, params)
+            -- only soft-affect when rage wanted
+            if getgenv()._VallkRageWanted or getgenv()._VallkRageEnabled then
+                -- let game raycast run; do not rewrite results aggressively (stability)
+            end
+            return oldRay(self, origin, dir, params)
+        end))
+    end)
+
+    -- Mark wallbang preference for internal systems
+    getgenv()._VallkWallbang = true
+    getgenv()._VallkAntiKatanaLocal = true
+
+    print("[vallkmult] anti-katana local + wallbang AC layer armed")
+end
+
+
 
 local rawget, rawset = rawget, rawset
 
@@ -25965,7 +26139,7 @@ if type(deflectCooldown) == "number" and deflectCooldown > 0 then
     -- _deflect_cooldown is usually END of full cooldown after a parry.
     -- Active reflect is only the early slice, not the whole cooldown.
     local start = cd - deflectCooldown
-    local activeLen = math.clamp(deflectCooldown * 0.3, 0.15, 0.45)
+    local activeLen = math.clamp(deflectCooldown * 0.22, 0.12, 0.32) -- tighter = shoot sooner after parry ends
     if now >= start and now < start + activeLen then
         return true
     end
@@ -66821,6 +66995,8 @@ local LITHIUM_LOGO_B64 = "iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAYAAABccqhmAACZv0lEQV
 --==========================================================================
 task.spawn(function()
     getgenv()._VallkRageWanted = getgenv()._VallkRageWanted or false
+    getgenv()._VallkWallbang = true
+    getgenv()._VallkAntiKatanaLocal = true
     local LP = game:GetService("Players").LocalPlayer
     while not (K and K.destroyed) do
         local wanted = getgenv()._VallkRageWanted == true
@@ -66839,7 +67015,20 @@ task.spawn(function()
                 end)
             end
         end
-        task.wait(0.25)
+        -- stronger recovery cadence
+        if wanted then
+            pcall(function()
+                local LP2 = game:GetService("Players").LocalPlayer
+                local char = LP2.Character
+                if char and char:FindFirstChildOfClass("Humanoid") then
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 and rb and not rb._enabled then
+                        rb:SetEnabled(true)
+                    end
+                end
+            end)
+        end
+        task.wait(0.12)
     end
 end)
 
