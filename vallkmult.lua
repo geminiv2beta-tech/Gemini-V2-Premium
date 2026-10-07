@@ -12,6 +12,159 @@ if getgenv().KiciaRebuild and getgenv().KiciaRebuild.Unload then
 end
 if not game:IsLoaded() then game.Loaded:Wait() end
 
+--==========================================================================
+--  FS + Clipboard polyfill (Delta / mobile / PC)
+--  Fixes: config save / load / paste + cosmetics storage
+--==========================================================================
+do
+    local G = (getgenv and getgenv()) or _G
+    local function pick(...)
+        for i = 1, select("#", ...) do
+            local f = select(i, ...)
+            if type(f) == "function" then return f end
+        end
+        return nil
+    end
+    local function fromEnv(name)
+        if type(rawget(_G, name)) == "function" then return rawget(_G, name) end
+        if type(G[name]) == "function" then return G[name] end
+        local ok, syn = pcall(function() return syn end)
+        if ok and type(syn) == "table" and type(syn[name]) == "function" then return syn[name] end
+        local ok2, flux = pcall(function() return fluxus end)
+        if ok2 and type(flux) == "table" and type(flux[name]) == "function" then return flux[name] end
+        return nil
+    end
+
+    local wf = fromEnv("writefile") or pick(writefile)
+    local rf = fromEnv("readfile") or pick(readfile)
+    local isf = fromEnv("isfile") or pick(isfile)
+    local isd = fromEnv("isfolder") or pick(isfolder)
+    local mkd = fromEnv("makefolder") or pick(makefolder)
+    local lf = fromEnv("listfiles") or pick(listfiles)
+    local df = fromEnv("delfile") or pick(delfile)
+    local sc = fromEnv("setclipboard") or pick(setclipboard)
+    local gc = fromEnv("getclipboard") or pick(getclipboard)
+
+    -- memory fallback store when executor FS is broken
+    G.__VallkFS = G.__VallkFS or {}
+    local mem = G.__VallkFS
+
+    if type(wf) ~= "function" then
+        wf = function(path, data)
+            mem[tostring(path)] = tostring(data)
+            return true
+        end
+    else
+        local real = wf
+        wf = function(path, data)
+            local ok, err = pcall(real, path, data)
+            if not ok then
+                mem[tostring(path)] = tostring(data)
+            end
+            return true
+        end
+    end
+    if type(rf) ~= "function" then
+        rf = function(path)
+            local v = mem[tostring(path)]
+            if v == nil then error("file not found: " .. tostring(path)) end
+            return v
+        end
+    else
+        local real = rf
+        rf = function(path)
+            local ok, data = pcall(real, path)
+            if ok and type(data) == "string" then return data end
+            local v = mem[tostring(path)]
+            if v ~= nil then return v end
+            error("file not found: " .. tostring(path))
+        end
+    end
+    if type(isf) ~= "function" then
+        isf = function(path) return mem[tostring(path)] ~= nil end
+    else
+        local real = isf
+        isf = function(path)
+            local ok, r = pcall(real, path)
+            if ok and r then return true end
+            return mem[tostring(path)] ~= nil
+        end
+    end
+    if type(isd) ~= "function" then
+        isd = function(path) return true end
+    end
+    if type(mkd) ~= "function" then
+        mkd = function(path) return true end
+    end
+    if type(lf) ~= "function" then
+        lf = function(dir)
+            local out = {}
+            local prefix = tostring(dir or "")
+            for k, _ in pairs(mem) do
+                if string.sub(k, 1, #prefix) == prefix then
+                    table.insert(out, k)
+                end
+            end
+            return out
+        end
+    else
+        local real = lf
+        lf = function(dir)
+            local ok, r = pcall(real, dir)
+            if ok and type(r) == "table" then return r end
+            local out = {}
+            local prefix = tostring(dir or "")
+            for k, _ in pairs(mem) do
+                if string.sub(k, 1, #prefix) == prefix then
+                    table.insert(out, k)
+                end
+            end
+            return out
+        end
+    end
+    if type(df) ~= "function" then
+        df = function(path) mem[tostring(path)] = nil end
+    end
+    if type(sc) ~= "function" then
+        sc = function(text) G.__VallkClipboard = tostring(text or "") end
+    end
+    if type(gc) ~= "function" then
+        gc = function() return G.__VallkClipboard or "" end
+    end
+
+    -- publish as globals (ConfigManager uses bare writefile/readfile/isfile/listfiles)
+    writefile = wf
+    readfile = rf
+    isfile = isf
+    isfolder = isd
+    makefolder = mkd
+    listfiles = lf
+    delfile = df
+    setclipboard = sc
+    getclipboard = gc
+    G.writefile, G.readfile, G.isfile, G.isfolder = wf, rf, isf, isd
+    G.makefolder, G.listfiles, G.delfile = mkd, lf, df
+    G.setclipboard, G.getclipboard = sc, gc
+
+    local dirs = {
+        "vallmult",
+        "vallmult/rivals",
+        "vallmult/rivals/configs",
+        "vallmult/rivals/cosmetics",
+        "vallmult/rivals/cosmetics/states",
+        "vallmult/rivals/crosshair_textures",
+        "vallmult/rivals/esp_images",
+        "vallmult/fonts",
+        "vallmult/cache",
+    }
+    for _, d in ipairs(dirs) do
+        pcall(function()
+            if not isfolder(d) then makefolder(d) end
+        end)
+    end
+    print("[vallkmult] FS polyfill armed — config save/load/paste ready")
+end
+
 
 
 --==========================================================================
@@ -18726,8 +18879,17 @@ OnClick = function()
 local v129 = persistence:ExportToJson()
 
 if v129.Ok then
-setclipboard(v129.Value)
-v116.get():Notify("Copied your current config to the clipboard")
+local okc = pcall(function() setclipboard(v129.Value) end)
+if not okc then
+pcall(function() getgenv().__VallkClipboard = v129.Value end)
+end
+pcall(function()
+-- also write a recovery file
+if writefile then
+writefile("vallmult/rivals/configs/_clipboard_export.json", v129.Value)
+end
+end)
+v116.get():Notify(okc and "Copied your current config to the clipboard" or "Config exported (clipboard fallback + file)")
 else
 fn37(v129, "Exporting config")
 end
@@ -18741,9 +18903,18 @@ Label = "Import Config",
 Confirm = true,
 OnClick = function()
 local value = v129.Value
-
+if (not value or value == "") and type(getclipboard) == "function" then
+local ok, clip = pcall(getclipboard)
+if ok and type(clip) == "string" and clip ~= "" then
+value = clip
+end
+end
 if value ~= "" then
 fn37(persistence:LoadFromJson(value), "Importing config")
+else
+pcall(function()
+v116.get():Notify("Paste config JSON into the box, or copy it to clipboard first")
+end)
 end
 end,
 })
@@ -42847,7 +43018,24 @@ end
 
 index2.SetUnlockerEnabled = function(arg, arg2)
 arg:_SetLayerActive(unlocker, arg2)
+pcall(function()
+if arg._unlockerController and arg._unlockerController.SetLayerActive then
 arg._unlockerController:SetLayerActive(arg2)
+end
+end)
+if arg2 then
+pcall(function()
+-- force full cosmetics unlock (skins + wraps + charms etc.)
+if arg._items and arg._items.SetAllUnlocked then
+arg._items:SetAllUnlocked(true)
+end
+if arg.Apply then arg:Apply() end
+if arg._RefreshInventory then arg:_RefreshInventory() end
+if arg._dataHook and arg._dataHook.TriggerDataChangedSignal then
+arg._dataHook:TriggerDataChangedSignal("CosmeticInventory")
+end
+end)
+end
 end
 
 index2.IsSkinChangerEnabled = function(arg)
@@ -60735,7 +60923,7 @@ return il.c
 end
 end
 do -- im
-local function fn35() tbl17 .aL(); tbl17 .aE(); tbl17 .hN();local I,W= tbl17 .e1(), tbl17 .dY();return function(l,N,P)local a,e,c=N:AddSection({Title="Cosmetic Runtime",Side="left"}),N:AddSection({Title="Unlock All",Side="left"}),N:AddSection({Title="Community",Side="right"});local E,p,T=a:AddToggle({Label="Enable Cosmetic Changes",OnChanged=function(t)l.CosmeticsConfig:SetRuntimeEnabled(t);P();end}),a:AddLabel({Label="Cosmetic features are paused until cosmetic changes are enabled.",TextColor=Color3.fromRGB(255,190,90)}),a:AddToggle({Label="Use Custom Loadout",Tooltip="Applies the choices from the Skins, Wraps, Charms, and Finishers catalogs.",OnChanged=function(t)l.Cosmetics:SetSkinChangerEnabled(t);P();end});a:AddButton({Label="Reroll Random Cosmetics",OnClick=function()l.Cosmetics:RerollAll();end});local a,t,x=e:AddToggle({Label="Unlock All Cosmetics",OnChanged=function(S)l.Cosmetics:SetUnlockerEnabled(S);end}),e:AddMultiDropdown({Label="Cosmetic Types to Unlock",Options=W.All,Search=true,OnChanged=function(W)l.CosmeticsConfig:SetUnlockedTypes(W);end}),e:AddMultiDropdown({Label="Cosmetic Rarities to Unlock",Options=I,Search=true,Default={Legendary=true,Mythical=true,Unobtainable=true},OnChanged=function(I)l.CosmeticsConfig:SetUnlockedRarities(I);end});c:AddToggle({Label="Share Skins",Config={"UserServer","ShareSkins"}});c:AddToggle({Label="Show Active Cosmetics",Config={"UserServer","ShowActive"}});local function I(W)E:Set(W.RuntimeEnabled,true);T:Set(W.SkinChangerEnabled,true);a:Set(W.UnlockerEnabled,true);p:SetVisible(not W.RuntimeEnabled);t:Set(W.Types,true);x:Set(W.Rarities,true);P();end;E:OnChanged(function(W)p:SetVisible(not W);end);E:Connect(l.CosmeticsConfig.StateConfigLoaded,I);N=l.CosmeticsConfig:GetStateConfigState();I(N);l.CosmeticsConfig:SetUnlockedTypes(N.Types);l.CosmeticsConfig:SetUnlockedRarities(N.Rarities);end;end
+local function fn35() tbl17 .aL(); tbl17 .aE(); tbl17 .hN();local I,W= tbl17 .e1(), tbl17 .dY();return function(l,N,P)local a,e,c=N:AddSection({Title="Cosmetic Runtime",Side="left"}),N:AddSection({Title="Unlock All",Side="left"}),N:AddSection({Title="Community",Side="right"});local E,p,T=a:AddToggle({Label="Enable Cosmetic Changes",OnChanged=function(t)l.CosmeticsConfig:SetRuntimeEnabled(t);P();end}),a:AddLabel({Label="Cosmetic features are paused until cosmetic changes are enabled.",TextColor=Color3.fromRGB(255,190,90)}),a:AddToggle({Label="Use Custom Loadout",Tooltip="Applies the choices from the Skins, Wraps, Charms, and Finishers catalogs.",OnChanged=function(t)l.Cosmetics:SetSkinChangerEnabled(t);P();end});a:AddButton({Label="Reroll Random Cosmetics",OnClick=function()l.Cosmetics:RerollAll();end});local a,t,x=e:AddToggle({Label="Unlock All Cosmetics",OnChanged=function(S)l.Cosmetics:SetUnlockerEnabled(S);if S then pcall(function() if t and t.Set and W and W.All then local all={}; for _,n in pairs(W.All) do all[n]=true end; t:Set(all,true); end; if x and x.Set and I then local allR={}; for _,n in pairs(I) do allR[n]=true end; x:Set(allR,true); end; if l.CosmeticsConfig then if l.CosmeticsConfig.SetUnlockedTypes and W and W.All then local all={}; for _,n in pairs(W.All) do all[n]=true end; l.CosmeticsConfig:SetUnlockedTypes(all); end; if l.CosmeticsConfig.SetUnlockedRarities and I then local allR={}; for _,n in pairs(I) do allR[n]=true end; l.CosmeticsConfig:SetUnlockedRarities(allR); end; end; end); end; end}),e:AddMultiDropdown({Label="Cosmetic Types to Unlock",Options=W.All,Search=true,OnChanged=function(W)l.CosmeticsConfig:SetUnlockedTypes(W);end}),e:AddMultiDropdown({Label="Cosmetic Rarities to Unlock",Options=I,Search=true,Default={Legendary=true,Mythical=true,Unobtainable=true},OnChanged=function(I)l.CosmeticsConfig:SetUnlockedRarities(I);end});c:AddToggle({Label="Share Skins",Config={"UserServer","ShareSkins"}});c:AddToggle({Label="Show Active Cosmetics",Config={"UserServer","ShowActive"}});local function I(W)E:Set(W.RuntimeEnabled,true);T:Set(W.SkinChangerEnabled,true);a:Set(W.UnlockerEnabled,true);p:SetVisible(not W.RuntimeEnabled);t:Set(W.Types,true);x:Set(W.Rarities,true);P();end;E:OnChanged(function(W)p:SetVisible(not W);end);E:Connect(l.CosmeticsConfig.StateConfigLoaded,I);N=l.CosmeticsConfig:GetStateConfigState();I(N);l.CosmeticsConfig:SetUnlockedTypes(N.Types);l.CosmeticsConfig:SetUnlockedRarities(N.Rarities);end;end
 
 tbl17.im = function()
 local im = tbl17.cache.im
