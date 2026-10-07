@@ -12,13 +12,20 @@ if getgenv().KiciaRebuild and getgenv().KiciaRebuild.Unload then
 end
 if not game:IsLoaded() then game.Loaded:Wait() end
 
+
 --==========================================================================
 --  KEY SYSTEM | Halloween Premium
---  Key name: like vallkmult v3
+--  Paid key: like vallkmult v3  (unlimited)
+--  Free key: not pay this       (1 minute then kick)
+--  Discord: https://discord.gg/WgsDmd2R8
 --==========================================================================
 do
-    local EXPECTED_KEY = "like vallkmult v3"
+    local PAID_KEY = "like vallkmult v3"
+    local FREE_KEY = "not pay this"
+    local FREE_LIMIT_SEC = 60
+    local DISCORD = "https://discord.gg/WgsDmd2R8"
     local KEY_PASSED = false
+    local IS_FREE = false
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
 
@@ -53,10 +60,11 @@ do
     local logoId = ""
     pcall(function()
         if writefile and (getcustomasset or getsynasset) then
-            local path = "vallmult/kh_halloween.png"
             pcall(makefolder, "vallmult")
+            local path = "vallmult/kh_halloween.png"
             writefile(path, b64decode(LOGO_B64))
             logoId = (getcustomasset or getsynasset)(path)
+            getgenv()._HalloweenLogoId = logoId
         end
     end)
 
@@ -79,8 +87,8 @@ do
     dim.Parent = KeyGui
 
     local card = Instance.new("Frame")
-    card.Size = UDim2.fromOffset(300, 340)
-    card.Position = UDim2.new(0.5, -150, 0.5, -170)
+    card.Size = UDim2.fromOffset(300, 360)
+    card.Position = UDim2.new(0.5, -150, 0.5, -180)
     card.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
     card.BorderSizePixel = 0
     card.Parent = KeyGui
@@ -94,7 +102,7 @@ do
 
     local logo = Instance.new("ImageLabel")
     logo.Size = UDim2.fromOffset(96, 96)
-    logo.Position = UDim2.new(0.5, -48, 0, 22)
+    logo.Position = UDim2.new(0.5, -48, 0, 18)
     logo.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     logo.BorderSizePixel = 0
     logo.ScaleType = Enum.ScaleType.Fit
@@ -114,8 +122,8 @@ do
     end
 
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -20, 0, 28)
-    title.Position = UDim2.fromOffset(10, 128)
+    title.Size = UDim2.new(1, -20, 0, 26)
+    title.Position = UDim2.fromOffset(10, 122)
     title.BackgroundTransparency = 1
     title.Text = "Halloween Premium"
     title.TextColor3 = Color3.fromRGB(255, 150, 50)
@@ -124,8 +132,8 @@ do
     title.Parent = card
 
     local sub = Instance.new("TextLabel")
-    sub.Size = UDim2.new(1, -24, 0, 20)
-    sub.Position = UDim2.fromOffset(12, 156)
+    sub.Size = UDim2.new(1, -24, 0, 18)
+    sub.Position = UDim2.fromOffset(12, 148)
     sub.BackgroundTransparency = 1
     sub.Text = "Enter key"
     sub.TextColor3 = Color3.fromRGB(180, 180, 190)
@@ -135,7 +143,7 @@ do
 
     local box = Instance.new("TextBox")
     box.Size = UDim2.new(1, -40, 0, 36)
-    box.Position = UDim2.fromOffset(20, 186)
+    box.Position = UDim2.fromOffset(20, 174)
     box.BackgroundColor3 = Color3.fromRGB(28, 28, 32)
     box.BorderSizePixel = 0
     box.PlaceholderText = "key name..."
@@ -150,7 +158,7 @@ do
 
     local status = Instance.new("TextLabel")
     status.Size = UDim2.new(1, -20, 0, 18)
-    status.Position = UDim2.fromOffset(10, 228)
+    status.Position = UDim2.fromOffset(10, 216)
     status.BackgroundTransparency = 1
     status.Text = ""
     status.TextColor3 = Color3.fromRGB(255, 90, 90)
@@ -160,7 +168,7 @@ do
 
     local submit = Instance.new("TextButton")
     submit.Size = UDim2.new(1, -40, 0, 40)
-    submit.Position = UDim2.fromOffset(20, 256)
+    submit.Position = UDim2.fromOffset(20, 242)
     submit.BackgroundColor3 = Color3.fromRGB(255, 110, 30)
     submit.BorderSizePixel = 0
     submit.Text = "Unlock"
@@ -171,13 +179,34 @@ do
     submit.Parent = card
     Instance.new("UICorner", submit).CornerRadius = UDim.new(0, 8)
 
+    local freeHint = Instance.new("TextLabel")
+    freeHint.Size = UDim2.new(1, -20, 0, 32)
+    freeHint.Position = UDim2.fromOffset(10, 290)
+    freeHint.BackgroundTransparency = 1
+    freeHint.Text = "Free trial key: not pay this  (1 min)\nPaid key unlocks full access"
+    freeHint.TextColor3 = Color3.fromRGB(120, 120, 130)
+    freeHint.Font = Enum.Font.Gotham
+    freeHint.TextSize = 11
+    freeHint.TextWrapped = true
+    freeHint.Parent = card
+
     local function tryUnlock()
-        local typed = (box.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
-        if typed:lower() == EXPECTED_KEY:lower() then
+        local typed = (box.Text or ""):gsub("^%s+", ""):gsub("%s+$", ""):lower()
+        if typed == PAID_KEY:lower() then
             KEY_PASSED = true
+            IS_FREE = false
             status.TextColor3 = Color3.fromRGB(80, 220, 120)
-            status.Text = "OK — loading..."
-            task.wait(0.3)
+            status.Text = "Paid key OK"
+            task.wait(0.25)
+            pcall(function() KeyGui:Destroy() end)
+            return true
+        end
+        if typed == FREE_KEY:lower() then
+            KEY_PASSED = true
+            IS_FREE = true
+            status.TextColor3 = Color3.fromRGB(255, 200, 80)
+            status.Text = "Free trial 1 min"
+            task.wait(0.25)
             pcall(function() KeyGui:Destroy() end)
             return true
         end
@@ -186,18 +215,76 @@ do
         return false
     end
 
-    submit.MouseButton1Click:Connect(function()
-        pcall(tryUnlock)
-    end)
-    box.FocusLost:Connect(function(enter)
-        if enter then pcall(tryUnlock) end
-    end)
+    submit.MouseButton1Click:Connect(function() pcall(tryUnlock) end)
+    box.FocusLost:Connect(function(enter) if enter then pcall(tryUnlock) end end)
 
     while not KEY_PASSED do
         task.wait(0.05)
     end
-    print("[Halloween Premium] key OK — continuing vallkmult")
+
+    getgenv()._HalloweenPaid = not IS_FREE
+    getgenv()._HalloweenLogoId = logoId
+
+    -- Free trial: after 1 minute force leave + message
+    if IS_FREE then
+        task.spawn(function()
+            local left = FREE_LIMIT_SEC
+            while left > 0 do
+                task.wait(1)
+                left = left - 1
+                if left == 30 or left == 10 or left == 5 then
+                    pcall(function()
+                        game:GetService("StarterGui"):SetCore("SendNotification", {
+                            Title = "Halloween Premium",
+                            Text = "Free trial ends in " .. left .. "s — buy key",
+                            Duration = 3,
+                        })
+                    end)
+                end
+            end
+            -- show kick overlay then teleport/kick client
+            pcall(function()
+                local g = Instance.new("ScreenGui")
+                g.Name = "HalloweenKick"
+                g.IgnoreGuiInset = true
+                g.DisplayOrder = 2000000
+                g.Parent = getParent()
+                local f = Instance.new("Frame")
+                f.Size = UDim2.fromScale(1, 1)
+                f.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                f.BackgroundTransparency = 0.2
+                f.Parent = g
+                local t = Instance.new("TextLabel")
+                t.Size = UDim2.new(1, -40, 0, 120)
+                t.Position = UDim2.new(0, 20, 0.4, 0)
+                t.BackgroundTransparency = 1
+                t.Text = "buy key paid ok?\n" .. DISCORD
+                t.TextColor3 = Color3.fromRGB(255, 140, 40)
+                t.Font = Enum.Font.GothamBold
+                t.TextSize = 22
+                t.TextWrapped = true
+                t.Parent = f
+            end)
+            task.wait(2.5)
+            -- unload cheat
+            pcall(function()
+                if getgenv().VallkMult and getgenv().VallkMult.Unload then
+                    getgenv().VallkMult.Unload()
+                end
+            end)
+            pcall(function()
+                local TS = game:GetService("TeleportService")
+                TS:Teleport(game.PlaceId, LocalPlayer)
+            end)
+            pcall(function()
+                LocalPlayer:Kick("buy key paid ok?\n" .. DISCORD)
+            end)
+        end)
+    end
+
+    print("[Halloween Premium] key OK — " .. (IS_FREE and "FREE 1min" or "PAID") .. " continuing vallkmult")
 end
+
 
 
 local K = { connections = {}, cleanups = {}, destroyed = false }
@@ -67564,6 +67651,10 @@ do
         local ok = pcall(wrf, path, decode(LITHIUM_LOGO_B64))
         local ok2, id = pcall(gca, path)
         if ok and ok2 and type(id) == "string" and id ~= "" then K.LithiumLogo = id end
+        if type(getgenv()._HalloweenLogoId) == "string" and getgenv()._HalloweenLogoId ~= "" then
+            K.LithiumLogo = getgenv()._HalloweenLogoId
+            K.HalloweenLogo = getgenv()._HalloweenLogoId
+        end
     end
 end
 
@@ -67631,6 +67722,28 @@ function K.Unload()
     pcall(function() GlobalTrove:Destroy() end)
     if getgenv().VallkMult == K then getgenv().VallkMult = nil end
     if getgenv().KiciaRebuild == K then getgenv().KiciaRebuild = nil end
+end
+
+
+-- Halloween KH logo for menu panel (rail / watermark)
+do
+    local id = getgenv()._HalloweenLogoId
+    if type(id) == "string" and id ~= "" then
+        K.LithiumLogo = id
+        K.HalloweenLogo = id
+    elseif writefile and (getcustomasset or getsynasset) then
+        pcall(function()
+            local path = "vallmult/kh_halloween.png"
+            if isfile and isfile(path) then
+                local aid = (getcustomasset or getsynasset)(path)
+                if type(aid) == "string" and aid ~= "" then
+                    K.LithiumLogo = aid
+                    K.HalloweenLogo = aid
+                    getgenv()._HalloweenLogoId = aid
+                end
+            end
+        end)
+    end
 end
 
 tbl17.j1()(boot)
