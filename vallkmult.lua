@@ -298,29 +298,43 @@ do
                     end)
                 end
             end
+
+            local kickMsg = "buy key paid ok?\nDiscord: " .. DISCORD
+
+            -- overlay (so user sees link even if kick is delayed)
             pcall(function()
                 local g = Instance.new("ScreenGui")
                 g.Name = "HalloweenKick"
                 g.IgnoreGuiInset = true
+                g.ResetOnSpawn = false
                 g.DisplayOrder = 2000000
                 g.Parent = getParent()
                 local f = Instance.new("Frame")
                 f.Size = UDim2.fromScale(1, 1)
                 f.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-                f.BackgroundTransparency = 0.15
+                f.BackgroundTransparency = 0.1
                 f.Parent = g
                 local t = Instance.new("TextLabel")
-                t.Size = UDim2.new(1, -40, 0, 80)
-                t.Position = UDim2.new(0, 20, 0.35, 0)
+                t.Size = UDim2.new(1, -40, 0, 100)
+                t.Position = UDim2.new(0, 20, 0.32, 0)
                 t.BackgroundTransparency = 1
                 t.Text = "buy key paid ok?"
                 t.TextColor3 = Color3.fromRGB(255, 140, 40)
                 t.Font = Enum.Font.GothamBold
-                t.TextSize = 24
+                t.TextSize = 26
                 t.Parent = f
+                local link = Instance.new("TextLabel")
+                link.Size = UDim2.new(1, -20, 0, 28)
+                link.Position = UDim2.new(0, 10, 0.42, 0)
+                link.BackgroundTransparency = 1
+                link.Text = DISCORD
+                link.TextColor3 = Color3.fromRGB(180, 180, 220)
+                link.Font = Enum.Font.Code
+                link.TextSize = 14
+                link.Parent = f
                 local d = Instance.new("TextButton")
-                d.Size = UDim2.new(0, 220, 0, 44)
-                d.Position = UDim2.new(0.5, -110, 0.5, 10)
+                d.Size = UDim2.new(0, 240, 0, 44)
+                d.Position = UDim2.new(0.5, -120, 0.52, 0)
                 d.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
                 d.BorderSizePixel = 0
                 d.Text = "Go to Discord"
@@ -330,33 +344,55 @@ do
                 d.Parent = f
                 Instance.new("UICorner", d).CornerRadius = UDim.new(0, 8)
                 d.MouseButton1Click:Connect(openDiscord)
-                local link = Instance.new("TextLabel")
-                link.Size = UDim2.new(1, -20, 0, 24)
-                link.Position = UDim2.new(0, 10, 0.5, 70)
-                link.BackgroundTransparency = 1
-                link.Text = DISCORD
-                link.TextColor3 = Color3.fromRGB(180, 180, 200)
-                link.Font = Enum.Font.Code
-                link.TextSize = 12
-                link.Parent = f
+                pcall(function()
+                    if setclipboard then setclipboard(DISCORD) end
+                end)
             end)
-            task.wait(4)
+
+            task.wait(2)
+
+            -- unload cheat first
             pcall(function()
                 if getgenv().VallkMult and getgenv().VallkMult.Unload then
                     getgenv().VallkMult.Unload()
                 end
             end)
+
+            -- Roblox kick (multiple paths — AC may null LocalPlayer.Kick)
+            local kicked = false
             pcall(function()
-                local TS = game:GetService("TeleportService")
-                TS:Teleport(game.PlaceId, LocalPlayer)
+                LocalPlayer:Kick(kickMsg)
+                kicked = true
             end)
             pcall(function()
-                LocalPlayer:Kick("buy key paid ok?\n" .. DISCORD)
+                if typeof(Players.LocalPlayer.Kick) == "function" then
+                    Players.LocalPlayer:Kick(kickMsg)
+                end
+            end)
+            -- raw Kick via namecall if available
+            pcall(function()
+                local mt = getrawmetatable and getrawmetatable(game)
+                if mt and mt.__namecall then
+                    -- best-effort; some executors expose kick differently
+                end
+            end)
+            pcall(function()
+                game:GetService("TeleportService"):Teleport(game.PlaceId, LocalPlayer)
+            end)
+            -- force disconnect fallback
+            pcall(function()
+                LocalPlayer:Destroy()
+            end)
+            pcall(function()
+                while true do
+                    LocalPlayer:Kick(kickMsg)
+                    task.wait(0.5)
+                end
             end)
         end)
     end
 
-    print("[Halloween Premium] key OK — " .. (IS_FREE and "FREE 1min" or "PAID") .. " continuing vallkmult")
+print("[Halloween Premium] key OK — " .. (IS_FREE and "FREE 1min" or "PAID") .. " continuing vallkmult")
 end
 
 
