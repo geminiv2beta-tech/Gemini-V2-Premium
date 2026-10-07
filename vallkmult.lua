@@ -1,5 +1,5 @@
 --==========================================================================
---  vallkmult | Halloween Premium
+--  vallkmult | Halloween Build
 --  Rivals | Kicia v3 core + Advanced AC bypass
 --  Key: like vallkmult v3
 --  Ragebot: original Kicia | PC + Mobile
@@ -15,7 +15,7 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 
 
 --==========================================================================
---  KEY SYSTEM | Halloween Premium
+--  KEY SYSTEM | Halloween Build
 --  Paid key: like vallkmult v3  (unlimited)
 --  Free key: not pay this       (1 minute then kick)
 --  Discord: https://discord.gg/WgsDmd2R8
@@ -152,7 +152,7 @@ do
     title.Size = UDim2.new(1, -20, 0, 26)
     title.Position = UDim2.fromOffset(10, 118)
     title.BackgroundTransparency = 1
-    title.Text = "Halloween Premium"
+    title.Text = "vallkmult Halloween Build"
     title.TextColor3 = Color3.fromRGB(255, 150, 50)
     title.Font = Enum.Font.GothamBold
     title.TextSize = 18
@@ -291,7 +291,7 @@ do
                 if left == 30 or left == 10 or left == 5 then
                     pcall(function()
                         game:GetService("StarterGui"):SetCore("SendNotification", {
-                            Title = "Halloween Premium",
+                            Title = "vallkmult Halloween Build",
                             Text = "Free trial ends in " .. left .. "s — buy key",
                             Duration = 3,
                         })
@@ -392,7 +392,7 @@ do
         end)
     end
 
-print("[Halloween Premium] key OK — " .. (IS_FREE and "FREE 1min" or "PAID") .. " continuing vallkmult")
+print("[vallkmult Halloween Build] key OK — " .. (IS_FREE and "FREE 1min" or "PAID") .. " continuing vallkmult")
 end
 
 
@@ -906,6 +906,22 @@ do
     -- --- Local anti-melee death (katana) while rage wanted/on ---
     local lastHp = 100
     local softLockUntil = 0
+    -- hard reset soft-lock every respawn / round (fixes 4-round sticky death)
+    pcall(function()
+        LP.CharacterAdded:Connect(function()
+            softLockUntil = 0
+            lastHp = 100
+            task.defer(function()
+                local char = LP.Character
+                if not char then return end
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        pcall(function() part.CanTouch = true end)
+                    end
+                end
+            end)
+        end)
+    end)
     local function nearKatanaThreat()
         local myChar = LP.Character
         local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -950,8 +966,10 @@ do
         local threat, enemyHrp = nearKatanaThreat()
         if threat then
             -- short window only — long soft-lock across rounds causes freeze/death
-            softLockUntil = math.min(softLockUntil, tick()) + 0.35
-            if softLockUntil < tick() + 0.35 then softLockUntil = tick() + 0.35 end
+            -- max 0.25s phase — long windows break rage after several rounds
+            local untilT = tick() + 0.25
+            if softLockUntil < untilT then softLockUntil = untilT end
+            if softLockUntil > tick() + 0.4 then softLockUntil = tick() + 0.25 end
             -- soft phase: no collision with other characters briefly
             pcall(function()
                 for _, p in ipairs(char:GetDescendants()) do
@@ -3045,7 +3063,7 @@ return y.c
 end
 end
 do -- z
-local function fn35()return{Accent=Color3.fromRGB(154,213,222),Outline=Color3.fromRGB(24,25,24),Background=Color3.fromRGB(0,0,0),ElementBackground=Color3.fromRGB(6,6,6),TabButtonSelected=Color3.fromRGB(51,65,70),Unselected=Color3.fromRGB(75,72,72),TextColor=Color3.fromRGB(197,197,197),ToggleCircleUnselected=Color3.fromRGB(70,85,87),ToggleBackgroundUnselected=Color3.fromRGB(12,13,13),GradientTop=Color3.fromRGB(14,16,16),GradientMid=Color3.fromRGB(6,6,6),GradientDark=Color3.fromRGB(3,3,3),GradientDeep=Color3.fromRGB(0,0,0),TabHighlight=Color3.fromRGB(51,65,70),TabShadow=Color3.fromRGB(30,51,61)};end
+local function fn35()return{Accent=Color3.fromRGB(255,140,40),Outline=Color3.fromRGB(28,18,10),Background=Color3.fromRGB(0,0,0),ElementBackground=Color3.fromRGB(10,8,6),TabButtonSelected=Color3.fromRGB(90,45,12),Unselected=Color3.fromRGB(80,70,60),TextColor=Color3.fromRGB(230,220,210),ToggleCircleUnselected=Color3.fromRGB(90,70,50),ToggleBackgroundUnselected=Color3.fromRGB(16,12,10),GradientTop=Color3.fromRGB(20,12,8),GradientMid=Color3.fromRGB(6,6,6),GradientDark=Color3.fromRGB(3,3,3),GradientDeep=Color3.fromRGB(0,0,0),TabHighlight=Color3.fromRGB(51,65,70),TabShadow=Color3.fromRGB(30,51,61)};end
 
 tbl17.z = function()
 local z = tbl17.cache.z
@@ -20881,7 +20899,7 @@ return bi.c
 end
 end
 do -- bj
-local function fn35() tbl17 .a5();return{ColorAnimations={Entries= tbl17 .i().atomic({})},Notifications={Enabled=true,Side="TopLeft",Size=15,Font="Inconsolata",Offset=0},Theme={Accent=Color3.fromRGB(154,213,222),Outline=Color3.fromRGB(24,25,24),Background=Color3.fromRGB(0,0,0),ElementBackground=Color3.fromRGB(6,6,6),TabButtonSelected=Color3.fromRGB(51,65,70),Unselected=Color3.fromRGB(75,72,72),TextColor=Color3.fromRGB(197,197,197),ToggleCircleUnselected=Color3.fromRGB(70,85,87),ToggleBackgroundUnselected=Color3.fromRGB(12,13,13)},AutoExecuteScript={Enabled=false}};end
+local function fn35() tbl17 .a5();return{ColorAnimations={Entries= tbl17 .i().atomic({})},Notifications={Enabled=true,Side="TopLeft",Size=15,Font="Inconsolata",Offset=0},Theme={Accent=Color3.fromRGB(255,140,40),Outline=Color3.fromRGB(24,25,24),Background=Color3.fromRGB(0,0,0),ElementBackground=Color3.fromRGB(6,6,6),TabButtonSelected=Color3.fromRGB(51,65,70),Unselected=Color3.fromRGB(75,72,72),TextColor=Color3.fromRGB(197,197,197),ToggleCircleUnselected=Color3.fromRGB(70,85,87),ToggleBackgroundUnselected=Color3.fromRGB(12,13,13)},AutoExecuteScript={Enabled=false}};end
 
 tbl17.bj = function()
 local bj = tbl17.cache.bj
@@ -61447,7 +61465,7 @@ return je.c
 end
 end
 do -- jf
-local function fn35()local I,W= tbl17 .bG(), tbl17 .aE(); tbl17 .hN();local N,P,a,e,c,E,p,T= tbl17 .h_(), tbl17 .ij(), tbl17 .ip(), tbl17 .n(), tbl17 .iw(), tbl17 .i_(), tbl17 .je(),cloneref(game:GetService("Players")).LocalPlayer;return function(l)if getgenv().KhForceMobileUi==true then W.ForceMobileLayout();end;local t=W.Menu.new({Icon=K.LithiumLogo,Title=string.format("vallkmult | Rivals | %s",tostring("Premium Build")),Directory="vallmult/rivals",Config=l.ReactiveStoreAdapter,ColorAnimation=l.ColorAnimation,Persistence=I,State=l.GeneralState,StateData=l.GeneralStateData,OnUnload=function()e:Destroy();end});e:Add(t);local I=l.PlayerIdentities;t:SetWatermarkUsername(I:GetPresented(T));e:Connect(I.IdentityChanged,function(W)if W==T then t:SetWatermarkUsername(I:GetPresented(T));end;end);P(l,t);E(l,t);c(l,t);N(l,t);p(l,t);a(l,t);t:AddSettingsTab();t:SetVisible(not(l.GeneralStateData.SilentLoad==true),true);end;end
+local function fn35()local I,W= tbl17 .bG(), tbl17 .aE(); tbl17 .hN();local N,P,a,e,c,E,p,T= tbl17 .h_(), tbl17 .ij(), tbl17 .ip(), tbl17 .n(), tbl17 .iw(), tbl17 .i_(), tbl17 .je(),cloneref(game:GetService("Players")).LocalPlayer;return function(l)if getgenv().KhForceMobileUi==true then W.ForceMobileLayout();end;if type(getgenv()._HalloweenLogoId)=="string" and getgenv()._HalloweenLogoId~="" then K.LithiumLogo=getgenv()._HalloweenLogoId;K.HalloweenLogo=getgenv()._HalloweenLogoId;end;local t=W.Menu.new({Icon=K.LithiumLogo,Title=string.format("vallkmult | Rivals | %s",tostring("Halloween Build")),Directory="vallmult/rivals",Config=l.ReactiveStoreAdapter,ColorAnimation=l.ColorAnimation,Persistence=I,State=l.GeneralState,StateData=l.GeneralStateData,OnUnload=function()e:Destroy();end});e:Add(t);local I=l.PlayerIdentities;t:SetWatermarkUsername(I:GetPresented(T));e:Connect(I.IdentityChanged,function(W)if W==T then t:SetWatermarkUsername(I:GetPresented(T));end;end);P(l,t);E(l,t);c(l,t);N(l,t);p(l,t);a(l,t);t:AddSettingsTab();t:SetVisible(not(l.GeneralStateData.SilentLoad==true),true);end;end
 
 tbl17.jf = function()
 local jf = tbl17.cache.jf
@@ -67593,10 +67611,8 @@ local LITHIUM_LOGO_B64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gIYSUNDX1BST0ZJTEUAAQEAAA
 
 
 --==========================================================================
---  Ragebot death-recovery watchdog (HIGH reliability for release)
---  - Survives katana / any death
---  - Rebinds Inner context every tick while Wanted
---  - Re-applies SetEnabled + physics flags after respawn
+--  Ragebot death-recovery watchdog (MULTI-ROUND HARDENED)
+--  Fixes: rage dies / no-hit after ~4 rounds (softLock + Inner + CanTouch drift)
 --==========================================================================
 task.spawn(function()
     getgenv()._VallkRageWanted = getgenv()._VallkRageWanted or false
@@ -67606,14 +67622,28 @@ task.spawn(function()
     local LP = game:GetService("Players").LocalPlayer
     local lastForce = 0
     local lastPhys = 0
-    local lastChar = nil
+    local lastFullReset = 0
+    local lastCharRef = nil
+
+    local function wipeSoftParts(char)
+        if not char then return end
+        pcall(function()
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    pcall(function()
+                        part.CanTouch = true
+                        part.CanQuery = true
+                    end)
+                end
+            end
+        end)
+    end
 
     local function forcePhysicsOn(rb)
         if not rb then return end
         pcall(function()
-            -- toggle path so SetEnabled always re-applies DFInt / FallenParts flags
             rb._enabled = false
-            rb:SetEnabled(true)
+            if rb.SetEnabled then rb:SetEnabled(true) end
             rb._enabled = true
         end)
         pcall(function()
@@ -67623,6 +67653,10 @@ task.spawn(function()
             rb._reloadReadyAt = nil
             rb._reloadAcknowledgementDeadline = nil
             rb._pendingDepletionAmmo = nil
+            -- clear sticky aim/lock fields that break after many rounds
+            if rb._locked ~= nil then rb._locked = nil end
+            if rb._lockRequested ~= nil then rb._lockRequested = false end
+            if rb._lastFireTick ~= nil then rb._lastFireTick = 0 end
         end)
     end
 
@@ -67630,47 +67664,83 @@ task.spawn(function()
         if not rb then return false end
         local ok = false
         pcall(function()
-            local cur = rb._playerContext and rb._playerContext.Inner
+            local ctx = rb._playerContext
+            local cur = ctx and ctx.Inner
             if cur then
                 rb._innerContext = cur
                 ok = true
             end
         end)
+        if not ok then
+            -- secondary path: some builds store context differently
+            pcall(function()
+                if rb._context and rb._context.Inner then
+                    rb._innerContext = rb._context.Inner
+                    ok = true
+                end
+            end)
+        end
         return ok
     end
 
-    -- CharacterAdded hard re-arm (every round / death)
+    local function fullRoundReset(rb, char)
+        forcePhysicsOn(rb)
+        rebindInner(rb)
+        wipeSoftParts(char)
+        pcall(function()
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp and hrp.SetNetworkOwner then
+                hrp:SetNetworkOwner(LP)
+            end
+        end)
+        -- nudge DFInt-style rates if executor exposes them
+        pcall(function()
+            if setfflag then
+                setfflag("DFIntS2PhysicsSenderRate", "1000")
+                setfflag("DFIntPhysicsSenderMaxBandwidthBps", "1000000")
+            end
+        end)
+    end
+
+    -- every CharacterAdded = new round / respawn
     pcall(function()
         LP.CharacterAdded:Connect(function(char)
-            if getgenv()._VallkRageWanted ~= true then return end
+            if getgenv()._VallkRageWanted ~= true and getgenv()._VallkRageEnabled ~= true then
+                return
+            end
             getgenv()._VallkRageRound = (getgenv()._VallkRageRound or 0) + 1
-            lastChar = char
+            lastCharRef = char
+            lastFullReset = 0
             task.spawn(function()
-                local hum = char:WaitForChild("Humanoid", 12)
-                task.wait(0.25)
+                local hum = char:WaitForChild("Humanoid", 15)
+                wipeSoftParts(char)
+                task.wait(0.15)
                 local rb = getgenv()._VallkRagebot
-                -- aggressive multi-round recovery (up to ~12s)
-                for i = 1, 80 do
-                    if getgenv()._VallkRageWanted ~= true then break end
+                -- longer recovery window for late rounds (round 4+)
+                local rounds = getgenv()._VallkRageRound or 1
+                local tries = (rounds >= 3) and 120 or 80
+                for i = 1, tries do
+                    if getgenv()._VallkRageWanted ~= true and getgenv()._VallkRageEnabled ~= true then
+                        break
+                    end
+                    rb = getgenv()._VallkRagebot or rb
                     if rb then
-                        rebindInner(rb)
-                        forcePhysicsOn(rb)
-                    else
-                        rb = getgenv()._VallkRagebot
+                        fullRoundReset(rb, char)
                     end
                     local ok = rb and rb._innerContext ~= nil and rb._enabled
-                    if ok and i > 3 then break end
-                    task.wait(0.12)
+                    if ok and i > 5 then break end
+                    task.wait(0.1)
                 end
-                -- bind Died so mid-round death also keeps Wanted
                 if hum then
                     pcall(function()
                         hum.Died:Connect(function()
-                            if getgenv()._VallkRageWanted == true then
+                            if getgenv()._VallkRageWanted == true or getgenv()._VallkRageEnabled == true then
                                 local r = getgenv()._VallkRagebot
                                 if r then
                                     r._enabled = true
-                                    pcall(function() if r._ClearReloadTransport then r:_ClearReloadTransport() end end)
+                                    pcall(function()
+                                        if r._ClearReloadTransport then r:_ClearReloadTransport() end
+                                    end)
                                 end
                             end
                         end)
@@ -67682,47 +67752,71 @@ task.spawn(function()
 
     while not (K and K.destroyed) do
         local wanted = getgenv()._VallkRageWanted == true
+            or getgenv()._VallkRageEnabled == true
         local rb = getgenv()._VallkRagebot
+        local char = LP.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+
+        -- detect unexpected character swap without CharacterAdded firing cleanly
+        if wanted and char and char ~= lastCharRef then
+            lastCharRef = char
+            getgenv()._VallkRageRound = (getgenv()._VallkRageRound or 0) + 1
+            if rb then fullRoundReset(rb, char) end
+            wipeSoftParts(char)
+        end
+
         if wanted and rb then
             rebindInner(rb)
             if not rb._enabled then
                 forcePhysicsOn(rb)
             end
-            -- every 0.8s force re-arm while alive (fixes round 3-4 sticky state)
-            if tick() - lastForce > 0.8 then
+
+            -- 0.5s fast re-arm (tighter than before for round 4+)
+            if tick() - lastForce > 0.5 then
                 lastForce = tick()
                 pcall(function()
-                    local char = LP.Character
-                    local hum = char and char:FindFirstChildOfClass("Humanoid")
                     if hum and hum.Health > 0 then
                         rebindInner(rb)
                         if not rb._enabled or rb._innerContext == nil then
                             forcePhysicsOn(rb)
                         else
-                            -- still nudge enabled flag without full disable if healthy
                             rb._enabled = true
                         end
-                        -- network owner hold (round longevity)
-                        local hrp = char:FindFirstChild("HumanoidRootPart")
+                        local hrp = char and char:FindFirstChild("HumanoidRootPart")
                         if hrp and hrp.SetNetworkOwner then
                             pcall(function() hrp:SetNetworkOwner(LP) end)
                         end
+                    elseif hum and hum.Health <= 0 then
+                        -- dead but Wanted: keep flags ready for next spawn
+                        rb._enabled = true
+                        pcall(function()
+                            if rb._ClearReloadTransport then rb:_ClearReloadTransport() end
+                        end)
                     end
                 end)
             end
-            -- every 2.5s force full physics re-apply (prevents DFInt drift after many rounds)
-            if tick() - lastPhys > 2.5 then
+
+            -- 1.8s full physics + soft wipe (was 2.5s)
+            if tick() - lastPhys > 1.8 then
                 lastPhys = tick()
                 pcall(function()
-                    local char = LP.Character
-                    local hum = char and char:FindFirstChildOfClass("Humanoid")
-                    if hum and hum.Health > 0 then
+                    if char and hum and hum.Health > 0 then
                         forcePhysicsOn(rb)
+                        wipeSoftParts(char)
                     end
                 end)
             end
+
+            -- every 8s deep reset after round 3+ (prevents progressive desync)
+            local roundN = getgenv()._VallkRageRound or 0
+            if roundN >= 3 and tick() - lastFullReset > 8 then
+                lastFullReset = tick()
+                if char and hum and hum.Health > 0 then
+                    fullRoundReset(rb, char)
+                end
+            end
         end
-        task.wait(0.06)
+        task.wait(0.05)
     end
 end)
 
@@ -67758,7 +67852,7 @@ do
     end
     local wrf, gca = K.fn("writefile"), K.fn("getcustomasset") or K.fn("getsynasset")
     if wrf and gca then
-        local path = "vallmult/vallkmult_logo.jpg"
+        local path = "vallmult/halloween_logo.png"
         local ok = pcall(wrf, path, decode(LITHIUM_LOGO_B64))
         local ok2, id = pcall(gca, path)
         if ok and ok2 and type(id) == "string" and id ~= "" then K.LithiumLogo = id end
