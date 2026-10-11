@@ -4843,8 +4843,8 @@ do -- Library
     function Library:Window(Options)
         Options = Library:Validate({
             Name = "gamesense",
-            Size = UDim2.new(0, 470, 0, 500),
-            MinResize = UDim2.new(0, 470, 0, 500),
+            Size = UDim2.new(0, 450, 0, 550),
+            MinResize = UDim2.new(0, 450, 0, 550),
             MaxResize = UDim2.new(0, 10000, 0, 10000),
             CloseBind = Enum.KeyCode.Insert,
         }, Options or {})
