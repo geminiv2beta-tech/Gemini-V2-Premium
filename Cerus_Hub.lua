@@ -1,8 +1,7 @@
 --[[
-  Hub UI + Full Elisium (~800KB)
-  Gray Hub sidebar navigates feature groups.
-  Full Elisium loads after Hub shell (all combat/visuals/esp/world/character/misc/settings).
-  RightShift = Hub panel | Elisium has its own menu keybind after load.
+  Hub UI + Full Elisium backend (~800KB)
+  Elisium native menu / keybind list / mobile toggle HIDDEN
+  All control via Hub sidebar only | RightShift toggles Hub
 ]]
 
 if not game:IsLoaded() then game.Loaded:Wait() end
@@ -283,15 +282,9 @@ local function tryOption(flag, value)
 end
 
 local function openElisiumMenu()
-    local Lib = rawget(getgenv(), "Library")
-    if type(Lib) == "table" and Lib.Toggle then
-        pcall(function() Lib:Toggle() end)
-        titleLbl.Text = "Hub  +  Elisium menu"
-        task.delay(1.2, function() titleLbl.Text = "Hub  +  Elisium" end)
-        return
-    end
-    titleLbl.Text = "Hub  ·  Elisium still loading..."
-    task.delay(1.5, function() titleLbl.Text = "Hub  +  Elisium" end)
+    -- Native Elisium menu is disabled — use Hub tabs only
+    titleLbl.Text = "Hub  ·  use sidebar tabs"
+    task.delay(1.2, function() titleLbl.Text = "Hub" end)
 end
 
 -- Expanded tabs matching Elisium groups
@@ -317,8 +310,8 @@ for _, n in ipairs(tabNames) do makeTab(n) end
 -- Overview
 do
     local s = section(pages["Overview"], "Hub + Full Elisium")
-    note(s, "Full Elisium (~800KB) is embedded below this Hub shell.\nAll Elisium features load after this UI.\nUse sidebar to jump groups, or open native Elisium menu.")
-    addBtn(s, "Open / Toggle Elisium Menu", openElisiumMenu)
+    note(s, "Elisium backend loaded. Native Elisium menu is hidden.\nUse Hub sidebar tabs and buttons only.")
+    addBtn(s, "Refresh feature bridge", openElisiumMenu)
     addBtn(s, "Reload note: run script once per session", function()
         titleLbl.Text = "Hub  ·  already loaded"
         task.delay(1, function() titleLbl.Text = "Hub  +  Elisium" end)
@@ -329,7 +322,7 @@ end
 do
     local s = section(pages["Combat"], "Combat (Elisium)")
     note(s, "Maps to Elisium combat tab after load.")
-    addBtn(s, "Open Elisium Menu (Combat)", openElisiumMenu)
+    addBtn(s, "Combat quick tips", openElisiumMenu)
     addBtn(s, "Silent Aim ON", function()
         tryToggle("silent_aim_enable", true)
         if getgenv().ELI and getgenv().ELI.silent_aim then getgenv().ELI.silent_aim.enable = true end
@@ -364,7 +357,7 @@ do
         tryToggle("silent_aim_follow_gunpoint", true)
         if getgenv().ELI and getgenv().ELI.silent_aim then getgenv().ELI.silent_aim.follow_gunpoint = true end
     end)
-    addBtn(s, "Open full Silent Aim in Elisium", openElisiumMenu)
+    addBtn(s, "Silent Aim (Hub only)", openElisiumMenu)
 end
 
 -- Aimbot
@@ -373,7 +366,7 @@ do
     note(s, "Elisium aimbot group (FOV, fill, closest part).")
     addBtn(s, "Aimbot Enable", function() tryToggle("aimbot_enable", true) end)
     addBtn(s, "Aimbot Show FOV", function() tryToggle("aimbot_show_fov_enable", true) end)
-    addBtn(s, "Open Elisium Menu", openElisiumMenu)
+    addBtn(s, "Use Hub toggles above", openElisiumMenu)
 end
 
 -- Ragebot
@@ -388,7 +381,7 @@ do
         tryToggle("ragebot_enable", false)
         if getgenv().ELI and getgenv().ELI.ragebot then getgenv().ELI.ragebot.enable = false end
     end)
-    addBtn(s, "Open Elisium Menu", openElisiumMenu)
+    addBtn(s, "Use Hub toggles above", openElisiumMenu)
 end
 
 -- ESP
@@ -396,56 +389,56 @@ do
     local s = section(pages["ESP"], "ESP")
     note(s, "Box / name / health / chams live in Elisium ESP tab.")
     addBtn(s, "ESP Master (try)", function() tryToggle("esp_enable", true) end)
-    addBtn(s, "Open Elisium ESP tab", openElisiumMenu)
+    addBtn(s, "ESP via Hub", openElisiumMenu)
 end
 
 -- Visuals
 do
     local s = section(pages["Visuals"], "Visuals")
     note(s, "Viewmodel, chams, crosshair, hitsounds — full UI in Elisium.")
-    addBtn(s, "Open Elisium Visuals", openElisiumMenu)
+    addBtn(s, "Visuals via Elisium backend", openElisiumMenu)
 end
 
 -- World
 do
     local s = section(pages["World"], "World")
     note(s, "Lighting, atmosphere, color correction.")
-    addBtn(s, "Open Elisium World", openElisiumMenu)
+    addBtn(s, "World via Elisium backend", openElisiumMenu)
 end
 
 -- Character
 do
     local s = section(pages["Character"], "Character")
     note(s, "Movement / character options in Elisium character tab.")
-    addBtn(s, "Open Elisium Character", openElisiumMenu)
+    addBtn(s, "Character via backend", openElisiumMenu)
 end
 
 -- Misc
 do
     local s = section(pages["Misc"], "Misc")
     note(s, "Device spoof, auto queue, troll, utilities.")
-    addBtn(s, "Open Elisium Misc", openElisiumMenu)
+    addBtn(s, "Misc via backend", openElisiumMenu)
 end
 
 -- Optimizations
 do
     local s = section(pages["Optimizations"], "Optimizations")
     note(s, "FPS / quality / particle options in Elisium.")
-    addBtn(s, "Open Elisium Optimizations", openElisiumMenu)
+    addBtn(s, "Optimizations via backend", openElisiumMenu)
 end
 
 -- Lua
 do
     local s = section(pages["Lua"], "Lua Executor")
     note(s, "Elisium built-in lua tab (save/load/execute).")
-    addBtn(s, "Open Elisium Lua", openElisiumMenu)
+    addBtn(s, "Lua via backend flags", openElisiumMenu)
 end
 
 -- Settings
 do
     local s = section(pages["Settings"], "UI Settings")
     note(s, "Theme, menu keybind, widgets, watermark.")
-    addBtn(s, "Toggle Elisium Menu", openElisiumMenu)
+    addBtn(s, "Menu locked (Hub only)", openElisiumMenu)
     addBtn(s, "Watermark ON", function() tryToggle("WidgetWatermark", true) end)
 end
 
@@ -464,7 +457,7 @@ do
         titleLbl.Text = "Hub  ·  autoload tried"
         task.delay(1.2, function() titleLbl.Text = "Hub  +  Elisium" end)
     end)
-    addBtn(s, "Open Elisium Settings (save UI)", openElisiumMenu)
+    addBtn(s, "Config via Hub", openElisiumMenu)
     addBtn(s, "Unload Hub Shell Only", function()
         gui:Destroy()
     end)
@@ -21825,10 +21818,118 @@ end
         warn("[Hub] Elisium load error: ", err)
         titleLbl.Text = "Hub  ·  Elisium error"
     else
-        print("[Hub] Full Elisium loaded")
-        titleLbl.Text = "Hub  +  Elisium ready"
-        task.delay(2, function()
-            if titleLbl and titleLbl.Parent then titleLbl.Text = "Hub  +  Elisium" end
+        print("[Hub] Full Elisium loaded — hiding native Elisium menus")
+        titleLbl.Text = "Hub  ·  features ready"
+
+        -- Hide ALL Elisium native UI (menu, keybind list, mobile toggle, overlays)
+        local function hideElisiumUI()
+            local Lib = rawget(getgenv(), "Library")
+            if type(Lib) == "table" then
+                -- force menu closed permanently
+                pcall(function()
+                    if Lib.Unloaded then return end
+                    Lib.MenuOpen = false
+                    if Lib.MainWindow and Lib.MainWindow.Outer then
+                        Lib.MainWindow.Outer.Visible = false
+                    end
+                    if type(Lib.ScreenGui) == "Instance" then
+                        -- keep ScreenGui alive for Drawing/backend, hide children frames
+                        for _, ch in ipairs(Lib.ScreenGui:GetChildren()) do
+                            local n = string.lower(ch.Name or "")
+                            if ch:IsA("Frame") or ch:IsA("TextButton") then
+                                -- hide main window / keybind / watermark containers
+                                if n:find("window") or n:find("keybind") or n:find("outer")
+                                    or n:find("menu") or n:find("holder") then
+                                    ch.Visible = false
+                                end
+                            end
+                        end
+                    end
+                    -- neutralize Toggle so keybind cannot reopen menu
+                    if type(Lib.Toggle) == "function" then
+                        Lib.Toggle = function()
+                            Lib.MenuOpen = false
+                            if Lib.MainWindow and Lib.MainWindow.Outer then
+                                Lib.MainWindow.Outer.Visible = false
+                            end
+                        end
+                    end
+                    pcall(function() Lib:SetWatermarkVisibility(false) end)
+                    if type(Lib.Overlays) == "table" then
+                        for _, ov in ipairs(Lib.Overlays) do
+                            pcall(function()
+                                if ov.SetVisible then ov:SetVisible(false) end
+                                if ov.Outer then ov.Outer.Visible = false end
+                            end)
+                        end
+                    end
+                end)
+            end
+            -- destroy floating Elisium mobile / keybind toggles
+            pcall(function()
+                local tg = rawget(getgenv(), "elisium_toggle_gui")
+                if typeof(tg) == "Instance" then tg:Destroy() end
+            end)
+            pcall(function()
+                for _, parent in ipairs({ game:GetService("CoreGui"), LocalPlayer:FindFirstChild("PlayerGui") }) do
+                    if not parent then continue end
+                    for _, name in ipairs({ "elisium_toggle", "ElisiumMobileToggle", "KeybindList", "Keybinds", "NotificationHolder" }) do
+                        local o = parent:FindFirstChild(name, true)
+                        if o then pcall(function() o:Destroy() end) end
+                    end
+                    -- hide any ScreenGui that looks like Linoria main (not our Hub)
+                    for _, sg in ipairs(parent:GetChildren()) do
+                        if sg:IsA("ScreenGui") and sg.Name ~= "HubUI_Shell" and sg.Name ~= "HubUI" then
+                            local hasLib = false
+                            pcall(function()
+                                if sg:FindFirstChild("Outer", true) or sg:FindFirstChild("Main", true) then
+                                    hasLib = true
+                                end
+                            end)
+                            -- only hide if Library.ScreenGui matches
+                            if type(Lib) == "table" and Lib.ScreenGui == sg then
+                                for _, ch in ipairs(sg:GetChildren()) do
+                                    if ch:IsA("Frame") then ch.Visible = false end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+
+        hideElisiumUI()
+        -- keep suppressing in case Elisium rebuilds widgets
+        task.spawn(function()
+            for i = 1, 40 do
+                task.wait(0.5)
+                hideElisiumUI()
+            end
+        end)
+        -- longer period light suppress
+        task.spawn(function()
+            while gui and gui.Parent do
+                task.wait(2)
+                local Lib = rawget(getgenv(), "Library")
+                if type(Lib) == "table" then
+                    pcall(function()
+                        Lib.MenuOpen = false
+                        if Lib.MainWindow and Lib.MainWindow.Outer then
+                            Lib.MainWindow.Outer.Visible = false
+                        end
+                    end)
+                end
+                pcall(function()
+                    local tg = rawget(getgenv(), "elisium_toggle_gui")
+                    if typeof(tg) == "Instance" and tg.Parent then
+                        for _, ch in ipairs(tg:GetChildren()) do ch.Visible = false end
+                    end
+                end)
+            end
+        end)
+
+        task.delay(1.5, function()
+            if titleLbl and titleLbl.Parent then titleLbl.Text = "Hub" end
         end)
     end
 end)
