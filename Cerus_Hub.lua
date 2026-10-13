@@ -1,7 +1,7 @@
 --[[
-  Hub UI + Full Elisium backend (~800KB)
-  Elisium native menu / keybind list / mobile toggle HIDDEN
-  All control via Hub sidebar only | RightShift toggles Hub
+  Cerus Hub — Elisium backend (name hidden)
+  Open: Cerus button or RightShift
+  Rainbow top bar | FOV color picker | features on the right
 ]]
 
 if not game:IsLoaded() then game.Loaded:Wait() end
@@ -18,31 +18,69 @@ pcall(function()
     if setthreadidentity then setthreadidentity(8) end
 end)
 
--- destroy old hub
 pcall(function()
-    for _, n in ipairs({"HubUI", "HubUI_Shell"}) do
+    for _, n in ipairs({"HubUI", "HubUI_Shell", "CerusHub"}) do
         local g = CoreGui:FindFirstChild(n) or (LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild(n))
         if g then g:Destroy() end
     end
 end)
 
-local ACCENT = Color3.fromRGB(200, 200, 210)
-local BG, BG2, BG3, BG4 = Color3.fromRGB(16,16,18), Color3.fromRGB(26,26,30), Color3.fromRGB(36,36,42), Color3.fromRGB(48,48,56)
-local TXT, TXT2 = Color3.fromRGB(240,240,245), Color3.fromRGB(140,140,150)
-local OFF, ON = Color3.fromRGB(55,55,62), Color3.fromRGB(210,210,220)
-local STROKE = Color3.fromRGB(70,70,80)
+local ACCENT = Color3.fromRGB(255, 255, 255)
+local BG, BG2, BG3, BG4 = Color3.fromRGB(14,14,18), Color3.fromRGB(22,22,28), Color3.fromRGB(34,34,42), Color3.fromRGB(48,48,58)
+local TXT, TXT2 = Color3.fromRGB(245,245,250), Color3.fromRGB(150,150,160)
+local OFF, ON = Color3.fromRGB(50,50,58), Color3.fromRGB(230,230,240)
+local STROKE = Color3.fromRGB(70,70,82)
+
+getgenv().HubBridge = getgenv().HubBridge or {}
+getgenv().ELI = getgenv().ELI or {}
+getgenv().ELI.silent_aim = getgenv().ELI.silent_aim or {
+    enable = false, show_fov = false, show_fill = false,
+    fov_radius = 180, follow_target = false, follow_gunpoint = false,
+    fov_color = Color3.fromRGB(120, 81, 166),
+    fov_fill_color = Color3.fromRGB(120, 81, 166),
+    fov_fill_color2 = Color3.fromRGB(255, 255, 255),
+    fov_fill_transparency = 0.55, fov_thickness = 2,
+}
+getgenv().ELI.hub = getgenv().ELI.hub or { motion_blur = true, mb_intensity = 14 }
 
 local function tween(o, p, t)
     return TweenService:Create(o, TweenInfo.new(t or 0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), p)
 end
 
--- flag bridge: Hub writes here, Elisium may read ELI / Toggles after load
-getgenv().HubBridge = getgenv().HubBridge or {
-    want_elisium_menu = false,
-}
+-- Motion blur
+local mbBlur = Lighting:FindFirstChild("Cerus_MotionBlur")
+if not mbBlur then
+    mbBlur = Instance.new("BlurEffect")
+    mbBlur.Name = "Cerus_MotionBlur"
+    mbBlur.Size = 0
+    mbBlur.Parent = Lighting
+end
+local lastCF, mbConn
+local function stopBlur()
+    if mbConn then mbConn:Disconnect() mbConn = nil end
+    mbBlur.Size = 0
+end
+local function startBlur()
+    stopBlur()
+    local cam = workspace.CurrentCamera
+    lastCF = cam and cam.CFrame
+    mbConn = RunService.RenderStepped:Connect(function(dt)
+        cam = workspace.CurrentCamera
+        if not cam or not getgenv().ELI.hub.motion_blur then mbBlur.Size = 0 return end
+        local cf = cam.CFrame
+        if lastCF then
+            local delta = (cf.Position - lastCF.Position).Magnitude
+            local rot = math.abs(select(2, cf:ToObjectSpace(lastCF):ToOrientation()))
+            local speed = (delta / math.max(dt, 1e-4)) + rot * 40
+            local target = math.clamp(speed * 0.08, 0, getgenv().ELI.hub.mb_intensity or 14)
+            mbBlur.Size = mbBlur.Size + (target - mbBlur.Size) * math.min(1, dt * 10)
+        end
+        lastCF = cf
+    end)
+end
 
 local gui = Instance.new("ScreenGui")
-gui.Name = "HubUI_Shell"
+gui.Name = "CerusHub"
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.DisplayOrder = 100000
@@ -52,34 +90,65 @@ pcall(function() gui.Parent = (gethui and gethui()) or CoreGui end)
 if not gui.Parent then pcall(function() gui.Parent = CoreGui end) end
 if not gui.Parent then gui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
-local hubBtn = Instance.new("TextButton")
-hubBtn.Size = UDim2.new(0, 90, 0, 40)
-hubBtn.Position = UDim2.new(0, 12, 0.36, 0)
-hubBtn.BackgroundColor3 = BG3
-hubBtn.BorderSizePixel = 0
-hubBtn.Font = Enum.Font.GothamBold
-hubBtn.Text = "Hub"
-hubBtn.TextColor3 = ACCENT
-hubBtn.TextSize = 15
-hubBtn.AutoButtonColor = false
-hubBtn.ZIndex = 200
-hubBtn.Parent = gui
-Instance.new("UICorner", hubBtn).CornerRadius = UDim.new(0, 10)
-Instance.new("UIStroke", hubBtn).Color = STROKE
+-- Floating Cerus button (left) — press to open features
+local cerusBtn = Instance.new("TextButton")
+cerusBtn.Name = "CerusButton"
+cerusBtn.Size = UDim2.new(0, 96, 0, 42)
+cerusBtn.Position = UDim2.new(0, 12, 0.36, 0)
+cerusBtn.BackgroundColor3 = BG3
+cerusBtn.BorderSizePixel = 0
+cerusBtn.Font = Enum.Font.GothamBold
+cerusBtn.Text = "Cerus"
+cerusBtn.TextColor3 = Color3.fromRGB(255, 200, 220)
+cerusBtn.TextSize = 16
+cerusBtn.AutoButtonColor = false
+cerusBtn.ZIndex = 200
+cerusBtn.Parent = gui
+Instance.new("UICorner", cerusBtn).CornerRadius = UDim.new(0, 10)
+local cerusStroke = Instance.new("UIStroke", cerusBtn)
+cerusStroke.Color = Color3.fromRGB(255, 120, 160)
+cerusStroke.Thickness = 1.5
 
+-- Main panel (starts CLOSED — open by Cerus)
 local panel = Instance.new("Frame")
-panel.Size = UDim2.new(0, 560, 0, 420)
-panel.Position = UDim2.new(0.5, -280, 0.5, -210)
+panel.Size = UDim2.new(0, 580, 0, 430)
+panel.Position = UDim2.new(0.5, -290, 0.5, -215)
 panel.BackgroundColor3 = BG
 panel.BorderSizePixel = 0
-panel.Visible = true
+panel.Visible = false
 panel.ClipsDescendants = true
 panel.Parent = gui
 Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 12)
 Instance.new("UIStroke", panel).Color = STROKE
 
+-- Rainbow top bar (빨주노초바남보)
+local rainbowBar = Instance.new("Frame")
+rainbowBar.Size = UDim2.new(1, 0, 0, 4)
+rainbowBar.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+rainbowBar.BorderSizePixel = 0
+rainbowBar.Parent = panel
+local rainbowGrad = Instance.new("UIGradient", rainbowBar)
+rainbowGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255, 40, 40)),   -- 빨
+    ColorSequenceKeypoint.new(0.16, Color3.fromRGB(255, 140, 30)),  -- 주
+    ColorSequenceKeypoint.new(0.33, Color3.fromRGB(255, 230, 40)),  -- 노
+    ColorSequenceKeypoint.new(0.50, Color3.fromRGB(50, 220, 80)),   -- 초
+    ColorSequenceKeypoint.new(0.66, Color3.fromRGB(40, 140, 255)),  -- 파
+    ColorSequenceKeypoint.new(0.83, Color3.fromRGB(90, 60, 220)),   -- 남
+    ColorSequenceKeypoint.new(1.00, Color3.fromRGB(180, 60, 255)),  -- 보
+})
+task.spawn(function()
+    local t0 = 0
+    while gui.Parent do
+        t0 = t0 + 0.015
+        rainbowGrad.Offset = Vector2.new(math.sin(t0) * 0.4, 0)
+        task.wait(0.03)
+    end
+end)
+
 local titleBar = Instance.new("Frame")
-titleBar.Size = UDim2.new(1, 0, 0, 36)
+titleBar.Size = UDim2.new(1, 0, 0, 34)
+titleBar.Position = UDim2.new(0, 0, 0, 4)
 titleBar.BackgroundColor3 = BG2
 titleBar.BorderSizePixel = 0
 titleBar.Parent = panel
@@ -89,14 +158,14 @@ titleLbl.Size = UDim2.new(1, -90, 1, 0)
 titleLbl.Position = UDim2.new(0, 14, 0, 0)
 titleLbl.BackgroundTransparency = 1
 titleLbl.Font = Enum.Font.GothamBold
-titleLbl.Text = "Hub  +  Elisium"
-titleLbl.TextColor3 = ACCENT
+titleLbl.Text = "Cerus"
+titleLbl.TextColor3 = TXT
 titleLbl.TextSize = 15
 titleLbl.TextXAlignment = Enum.TextXAlignment.Left
 titleLbl.Parent = titleBar
 
 local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 36, 0, 36)
+closeBtn.Size = UDim2.new(0, 36, 0, 34)
 closeBtn.Position = UDim2.new(1, -36, 0, 0)
 closeBtn.BackgroundTransparency = 1
 closeBtn.Font = Enum.Font.GothamBold
@@ -122,14 +191,13 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- SIDEBAR (scrollable — many tabs)
+-- LEFT sidebar tabs
 local side = Instance.new("ScrollingFrame")
-side.Size = UDim2.new(0, 148, 1, -48)
-side.Position = UDim2.new(0, 8, 0, 42)
+side.Size = UDim2.new(0, 140, 1, -50)
+side.Position = UDim2.new(0, 8, 0, 44)
 side.BackgroundColor3 = BG2
 side.BorderSizePixel = 0
 side.ScrollBarThickness = 3
-side.ScrollBarImageColor3 = ACCENT
 side.CanvasSize = UDim2.new(0, 0, 0, 0)
 side.Parent = panel
 Instance.new("UICorner", side).CornerRadius = UDim.new(0, 10)
@@ -137,16 +205,16 @@ local sidePad = Instance.new("UIPadding", side)
 sidePad.PaddingTop = UDim.new(0, 8)
 sidePad.PaddingLeft = UDim.new(0, 6)
 sidePad.PaddingRight = UDim.new(0, 6)
-sidePad.PaddingBottom = UDim.new(0, 8)
 local sideList = Instance.new("UIListLayout", side)
 sideList.Padding = UDim.new(0, 5)
 sideList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    side.CanvasSize = UDim2.new(0, 0, 0, sideList.AbsoluteContentSize.Y + 16)
+    side.CanvasSize = UDim2.new(0, 0, 0, sideList.AbsoluteContentSize.Y + 14)
 end)
 
+-- RIGHT content
 local content = Instance.new("Frame")
-content.Size = UDim2.new(1, -172, 1, -52)
-content.Position = UDim2.new(0, 164, 0, 44)
+content.Size = UDim2.new(1, -164, 1, -54)
+content.Position = UDim2.new(0, 156, 0, 46)
 content.BackgroundTransparency = 1
 content.Parent = panel
 
@@ -157,7 +225,7 @@ local function showPage(name)
     for n, b in pairs(tabBtns) do
         local active = (n == name)
         b.BackgroundColor3 = active and BG4 or BG3
-        b.TextColor3 = active and ACCENT or TXT2
+        b.TextColor3 = active and Color3.fromRGB(255, 200, 220) or TXT2
         local ind = b:FindFirstChild("Ind")
         if ind then ind.Visible = active end
     end
@@ -179,7 +247,7 @@ local function makeTab(name)
     ind.Name = "Ind"
     ind.Size = UDim2.new(0, 3, 0.5, 0)
     ind.Position = UDim2.new(0, 0, 0.25, 0)
-    ind.BackgroundColor3 = ACCENT
+    ind.BackgroundColor3 = Color3.fromRGB(255, 120, 180)
     ind.BorderSizePixel = 0
     ind.Visible = false
     ind.Parent = btn
@@ -190,7 +258,6 @@ local function makeTab(name)
     page.BackgroundTransparency = 1
     page.BorderSizePixel = 0
     page.ScrollBarThickness = 3
-    page.ScrollBarImageColor3 = ACCENT
     page.CanvasSize = UDim2.new(0, 0, 0, 0)
     page.Visible = false
     page.Parent = content
@@ -218,7 +285,7 @@ local function section(page, title)
     head.BackgroundTransparency = 1
     head.Font = Enum.Font.GothamBold
     head.Text = title
-    head.TextColor3 = ACCENT
+    head.TextColor3 = Color3.fromRGB(255, 190, 210)
     head.TextSize = 12
     head.TextXAlignment = Enum.TextXAlignment.Left
     head.Parent = box
@@ -261,6 +328,44 @@ local function addBtn(parent, text, cb)
     b.Parent = parent
     Instance.new("UICorner", b).CornerRadius = UDim.new(0, 7)
     b.MouseButton1Click:Connect(function() if cb then cb() end end)
+    return b
+end
+
+local function addToggle(parent, text, default, callback)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, -4, 0, 30)
+    row.BackgroundTransparency = 1
+    row.Parent = parent
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -72, 1, 0)
+    lbl.Position = UDim2.new(0, 10, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Font = Enum.Font.Gotham
+    lbl.Text = text
+    lbl.TextColor3 = TXT
+    lbl.TextSize = 12
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = row
+    local state = default and true or false
+    local pill = Instance.new("TextButton")
+    pill.Size = UDim2.new(0, 54, 0, 22)
+    pill.Position = UDim2.new(1, -62, 0.5, -11)
+    pill.BackgroundColor3 = state and ON or OFF
+    pill.BorderSizePixel = 0
+    pill.Font = Enum.Font.GothamBold
+    pill.Text = state and "ON" or "OFF"
+    pill.TextColor3 = state and Color3.fromRGB(20,20,24) or TXT2
+    pill.TextSize = 11
+    pill.AutoButtonColor = false
+    pill.Parent = row
+    Instance.new("UICorner", pill).CornerRadius = UDim.new(0, 11)
+    pill.MouseButton1Click:Connect(function()
+        state = not state
+        pill.BackgroundColor3 = state and ON or OFF
+        pill.Text = state and "ON" or "OFF"
+        pill.TextColor3 = state and Color3.fromRGB(20,20,24) or TXT2
+        if callback then callback(state) end
+    end)
 end
 
 local function tryToggle(flag, value)
@@ -272,213 +377,176 @@ local function tryToggle(flag, value)
     return false
 end
 
-local function tryOption(flag, value)
-    local O = rawget(getgenv(), "Options")
-    if type(O) == "table" and O[flag] and O[flag].SetValue then
-        pcall(function() O[flag]:SetValue(value) end)
-        return true
+local function setFovColor(c)
+    local sa = getgenv().ELI.silent_aim
+    sa.fov_color = c
+    sa.fov_fill_color = c
+    -- also try Options color pickers if exist
+    pcall(function()
+        local O = getgenv().Options
+        if O and O.silent_aim_fov_color and O.silent_aim_fov_color.SetValueRGB then
+            O.silent_aim_fov_color:SetValueRGB(c)
+        end
+    end)
+    titleLbl.Text = "Cerus  ·  FOV color set"
+    task.delay(1, function() titleLbl.Text = "Cerus" end)
+end
+
+for _, n in ipairs({
+    "Main", "Silent Aim", "Aimbot", "Ragebot", "ESP",
+    "Visuals", "World", "Character", "Misc", "Config"
+}) do makeTab(n) end
+
+-- MAIN (motion blur first)
+do
+    local s = section(pages["Main"], "Main")
+    note(s, "Press Cerus button to open this panel.\nFeatures load on the right.")
+    addToggle(s, "Motion Blur", true, function(v)
+        getgenv().ELI.hub.motion_blur = v
+        if v then startBlur() else stopBlur() end
+    end)
+    addBtn(s, "Blur Intensity +", function()
+        local h = getgenv().ELI.hub
+        h.mb_intensity = math.clamp((h.mb_intensity or 14) + 2, 2, 40)
+        titleLbl.Text = "Cerus  ·  blur " .. tostring(h.mb_intensity)
+        task.delay(1, function() titleLbl.Text = "Cerus" end)
+    end)
+    addBtn(s, "Blur Intensity -", function()
+        local h = getgenv().ELI.hub
+        h.mb_intensity = math.clamp((h.mb_intensity or 14) - 2, 2, 40)
+        titleLbl.Text = "Cerus  ·  blur " .. tostring(h.mb_intensity)
+        task.delay(1, function() titleLbl.Text = "Cerus" end)
+    end)
+end
+
+-- Silent Aim + FOV color picker
+do
+    local s = section(pages["Silent Aim"], "Silent Aim")
+    addToggle(s, "Enable", false, function(v)
+        getgenv().ELI.silent_aim.enable = v
+        tryToggle("silent_aim_enable", v)
+    end)
+    addToggle(s, "Show FOV", false, function(v)
+        getgenv().ELI.silent_aim.show_fov = v
+        tryToggle("show_fov_enable", v)
+    end)
+    addToggle(s, "Show Fill", false, function(v)
+        getgenv().ELI.silent_aim.show_fill = v
+        tryToggle("show_fill_enable", v)
+    end)
+    addToggle(s, "Follow Target", false, function(v)
+        getgenv().ELI.silent_aim.follow_target = v
+        tryToggle("silent_aim_follow_target", v)
+    end)
+    addToggle(s, "Follow Gunpoint", false, function(v)
+        getgenv().ELI.silent_aim.follow_gunpoint = v
+        tryToggle("silent_aim_follow_gunpoint", v)
+    end)
+    addBtn(s, "FOV +20", function()
+        local sa = getgenv().ELI.silent_aim
+        sa.fov_radius = math.clamp((sa.fov_radius or 180) + 20, 20, 500)
+        titleLbl.Text = "Cerus  ·  FOV " .. sa.fov_radius
+        task.delay(1, function() titleLbl.Text = "Cerus" end)
+    end)
+    addBtn(s, "FOV -20", function()
+        local sa = getgenv().ELI.silent_aim
+        sa.fov_radius = math.clamp((sa.fov_radius or 180) - 20, 20, 500)
+        titleLbl.Text = "Cerus  ·  FOV " .. sa.fov_radius
+        task.delay(1, function() titleLbl.Text = "Cerus" end)
+    end)
+
+    local c = section(pages["Silent Aim"], "FOV Color")
+    note(c, "Pick FOV outline / fill color")
+    -- color swatches row helper
+    local colors = {
+        {"Red",    Color3.fromRGB(255, 50, 50)},
+        {"Orange", Color3.fromRGB(255, 140, 30)},
+        {"Yellow", Color3.fromRGB(255, 230, 40)},
+        {"Green",  Color3.fromRGB(50, 220, 80)},
+        {"Blue",   Color3.fromRGB(40, 140, 255)},
+        {"Indigo", Color3.fromRGB(90, 60, 220)},
+        {"Purple", Color3.fromRGB(180, 60, 255)},
+        {"Pink",   Color3.fromRGB(255, 100, 180)},
+        {"Cyan",   Color3.fromRGB(0, 220, 255)},
+        {"White",  Color3.fromRGB(255, 255, 255)},
+    }
+    for _, pair in ipairs(colors) do
+        local name, col = pair[1], pair[2]
+        local b = addBtn(c, "FOV · " .. name, function() setFovColor(col) end)
+        -- tint left edge via stroke
+        local st = Instance.new("UIStroke", b)
+        st.Color = col
+        st.Thickness = 2
     end
-    return false
 end
 
-local function openElisiumMenu()
-    -- Native Elisium menu is disabled — use Hub tabs only
-    titleLbl.Text = "Hub  ·  use sidebar tabs"
-    task.delay(1.2, function() titleLbl.Text = "Hub" end)
-end
-
--- Expanded tabs matching Elisium groups
-local tabNames = {
-    "Overview",
-    "Combat",
-    "Silent Aim",
-    "Aimbot",
-    "Ragebot",
-    "ESP",
-    "Visuals",
-    "World",
-    "Character",
-    "Misc",
-    "Optimizations",
-    "Lua",
-    "Settings",
-    "Config",
-}
-
-for _, n in ipairs(tabNames) do makeTab(n) end
-
--- Overview
-do
-    local s = section(pages["Overview"], "Hub + Full Elisium")
-    note(s, "Elisium backend loaded. Native Elisium menu is hidden.\nUse Hub sidebar tabs and buttons only.")
-    addBtn(s, "Refresh feature bridge", openElisiumMenu)
-    addBtn(s, "Reload note: run script once per session", function()
-        titleLbl.Text = "Hub  ·  already loaded"
-        task.delay(1, function() titleLbl.Text = "Hub  +  Elisium" end)
-    end)
-end
-
--- Combat
-do
-    local s = section(pages["Combat"], "Combat (Elisium)")
-    note(s, "Maps to Elisium combat tab after load.")
-    addBtn(s, "Combat quick tips", openElisiumMenu)
-    addBtn(s, "Silent Aim ON", function()
-        tryToggle("silent_aim_enable", true)
-        if getgenv().ELI and getgenv().ELI.silent_aim then getgenv().ELI.silent_aim.enable = true end
-    end)
-    addBtn(s, "Silent Aim OFF", function()
-        tryToggle("silent_aim_enable", false)
-        if getgenv().ELI and getgenv().ELI.silent_aim then getgenv().ELI.silent_aim.enable = false end
-    end)
-end
-
--- Silent Aim
-do
-    local s = section(pages["Silent Aim"], "Silent Aim FOV")
-    note(s, "Elisium: show FOV, fill, follow gunpoint/target, colors.")
-    addBtn(s, "Enable Silent Aim", function()
-        tryToggle("silent_aim_enable", true)
-        if getgenv().ELI and getgenv().ELI.silent_aim then getgenv().ELI.silent_aim.enable = true end
-    end)
-    addBtn(s, "Show FOV", function()
-        tryToggle("show_fov_enable", true)
-        if getgenv().ELI and getgenv().ELI.silent_aim then getgenv().ELI.silent_aim.show_fov = true end
-    end)
-    addBtn(s, "Show Fill", function()
-        tryToggle("show_fill_enable", true)
-        if getgenv().ELI and getgenv().ELI.silent_aim then getgenv().ELI.silent_aim.show_fill = true end
-    end)
-    addBtn(s, "Follow Target", function()
-        tryToggle("silent_aim_follow_target", true)
-        if getgenv().ELI and getgenv().ELI.silent_aim then getgenv().ELI.silent_aim.follow_target = true end
-    end)
-    addBtn(s, "Follow Gunpoint", function()
-        tryToggle("silent_aim_follow_gunpoint", true)
-        if getgenv().ELI and getgenv().ELI.silent_aim then getgenv().ELI.silent_aim.follow_gunpoint = true end
-    end)
-    addBtn(s, "Silent Aim (Hub only)", openElisiumMenu)
-end
-
--- Aimbot
 do
     local s = section(pages["Aimbot"], "Aimbot")
-    note(s, "Elisium aimbot group (FOV, fill, closest part).")
-    addBtn(s, "Aimbot Enable", function() tryToggle("aimbot_enable", true) end)
-    addBtn(s, "Aimbot Show FOV", function() tryToggle("aimbot_show_fov_enable", true) end)
-    addBtn(s, "Use Hub toggles above", openElisiumMenu)
+    addBtn(s, "Aimbot ON", function() tryToggle("aimbot_enable", true) end)
+    addBtn(s, "Aimbot OFF", function() tryToggle("aimbot_enable", false) end)
 end
 
--- Ragebot
 do
     local s = section(pages["Ragebot"], "Ragebot")
-    note(s, "Elisium ragebot + desync when available.")
-    addBtn(s, "Ragebot Enable", function()
+    addToggle(s, "Enable Ragebot", false, function(v)
+        tryToggle("ragebot_enable", v)
+        if getgenv().ELI.ragebot then getgenv().ELI.ragebot.enable = v end
+    end)
+    addBtn(s, "Ragebot ON", function()
         tryToggle("ragebot_enable", true)
-        if getgenv().ELI and getgenv().ELI.ragebot then getgenv().ELI.ragebot.enable = true end
+        if getgenv().ELI.ragebot then getgenv().ELI.ragebot.enable = true end
     end)
-    addBtn(s, "Ragebot Disable", function()
+    addBtn(s, "Ragebot OFF", function()
         tryToggle("ragebot_enable", false)
-        if getgenv().ELI and getgenv().ELI.ragebot then getgenv().ELI.ragebot.enable = false end
+        if getgenv().ELI.ragebot then getgenv().ELI.ragebot.enable = false end
     end)
-    addBtn(s, "Use Hub toggles above", openElisiumMenu)
 end
 
--- ESP
 do
     local s = section(pages["ESP"], "ESP")
-    note(s, "Box / name / health / chams live in Elisium ESP tab.")
-    addBtn(s, "ESP Master (try)", function() tryToggle("esp_enable", true) end)
-    addBtn(s, "ESP via Hub", openElisiumMenu)
+    addBtn(s, "ESP ON", function() tryToggle("esp_enable", true) end)
+    addBtn(s, "ESP OFF", function() tryToggle("esp_enable", false) end)
 end
 
--- Visuals
-do
-    local s = section(pages["Visuals"], "Visuals")
-    note(s, "Viewmodel, chams, crosshair, hitsounds — full UI in Elisium.")
-    addBtn(s, "Visuals via Elisium backend", openElisiumMenu)
+for _, name in ipairs({"Visuals", "World", "Character", "Misc"}) do
+    local s = section(pages[name], name)
+    note(s, "Backend features active after load.\nUse toggles in other tabs or config.")
 end
 
--- World
 do
-    local s = section(pages["World"], "World")
-    note(s, "Lighting, atmosphere, color correction.")
-    addBtn(s, "World via Elisium backend", openElisiumMenu)
-end
-
--- Character
-do
-    local s = section(pages["Character"], "Character")
-    note(s, "Movement / character options in Elisium character tab.")
-    addBtn(s, "Character via backend", openElisiumMenu)
-end
-
--- Misc
-do
-    local s = section(pages["Misc"], "Misc")
-    note(s, "Device spoof, auto queue, troll, utilities.")
-    addBtn(s, "Misc via backend", openElisiumMenu)
-end
-
--- Optimizations
-do
-    local s = section(pages["Optimizations"], "Optimizations")
-    note(s, "FPS / quality / particle options in Elisium.")
-    addBtn(s, "Optimizations via backend", openElisiumMenu)
-end
-
--- Lua
-do
-    local s = section(pages["Lua"], "Lua Executor")
-    note(s, "Elisium built-in lua tab (save/load/execute).")
-    addBtn(s, "Lua via backend flags", openElisiumMenu)
-end
-
--- Settings
-do
-    local s = section(pages["Settings"], "UI Settings")
-    note(s, "Theme, menu keybind, widgets, watermark.")
-    addBtn(s, "Menu locked (Hub only)", openElisiumMenu)
-    addBtn(s, "Watermark ON", function() tryToggle("WidgetWatermark", true) end)
-end
-
--- Config
-do
-    local s = section(pages["Config"], "Config (Elisium SaveManager)")
-    note(s, "Uses Elisium SaveManager folder: elisium/rivals")
-    addBtn(s, "Load Autoload Config", function()
-        local SM = rawget(getgenv(), "Library") and getgenv().Library and nil
-        -- SaveManager is local inside Elisium; use global if exposed
-        pcall(function()
-            if getgenv().SaveManager and getgenv().SaveManager.LoadAutoloadConfig then
-                getgenv().SaveManager:LoadAutoloadConfig()
-            end
-        end)
-        titleLbl.Text = "Hub  ·  autoload tried"
-        task.delay(1.2, function() titleLbl.Text = "Hub  +  Elisium" end)
-    end)
-    addBtn(s, "Config via Hub", openElisiumMenu)
-    addBtn(s, "Unload Hub Shell Only", function()
+    local s = section(pages["Config"], "Config")
+    addBtn(s, "Unload Cerus UI", function()
+        stopBlur()
         gui:Destroy()
     end)
 end
 
-showPage("Overview")
+showPage("Main")
 
-local function openP() panel.Visible = true end
-local function closeP() panel.Visible = false end
-hubBtn.MouseButton1Click:Connect(function()
-    if panel.Visible then closeP() else openP() end
+local function openPanel()
+    panel.Visible = true
+    showPage("Main")
+    if getgenv().ELI.hub.motion_blur then startBlur() end
+end
+local function closePanel()
+    panel.Visible = false
+    stopBlur()
+end
+
+cerusBtn.MouseButton1Click:Connect(function()
+    if panel.Visible then closePanel() else openPanel() end
 end)
-closeBtn.MouseButton1Click:Connect(closeP)
+closeBtn.MouseButton1Click:Connect(closePanel)
 UserInputService.InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == Enum.KeyCode.RightShift then
-        if panel.Visible then closeP() else openP() end
+        if panel.Visible then closePanel() else openPanel() end
     end
 end)
 
-print("[Hub Shell] UI ready — loading full Elisium next...")
+print("[Cerus] UI ready — backend loading...")
+
+print("[Cerus] UI ready — loading full Elisium next...")
 
 -- ============================================================================
 -- FULL ELISIUM (~800KB) starts below
@@ -21815,11 +21883,11 @@ end
 
     end)
     if not ok then
-        warn("[Hub] Elisium load error: ", err)
-        titleLbl.Text = "Hub  ·  Elisium error"
+        warn("[Cerus] Elisium load error: ", err)
+        titleLbl.Text = "Cerus  ·  load error"
     else
-        print("[Hub] Full Elisium loaded — hiding native Elisium menus")
-        titleLbl.Text = "Hub  ·  features ready"
+        print("[Cerus] Backend loaded — menus hidden")
+        titleLbl.Text = "Cerus  ·  ready"
 
         -- Hide ALL Elisium native UI (menu, keybind list, mobile toggle, overlays)
         local function hideElisiumUI()
@@ -21879,7 +21947,7 @@ end
                     end
                     -- hide any ScreenGui that looks like Linoria main (not our Hub)
                     for _, sg in ipairs(parent:GetChildren()) do
-                        if sg:IsA("ScreenGui") and sg.Name ~= "HubUI_Shell" and sg.Name ~= "HubUI" then
+                        if sg:IsA("ScreenGui") and sg.Name ~= "CerusHub" and sg.Name ~= "HubUI" then
                             local hasLib = false
                             pcall(function()
                                 if sg:FindFirstChild("Outer", true) or sg:FindFirstChild("Main", true) then
@@ -21929,7 +21997,7 @@ end
         end)
 
         task.delay(1.5, function()
-            if titleLbl and titleLbl.Parent then titleLbl.Text = "Hub" end
+            if titleLbl and titleLbl.Parent then titleLbl.Text = "Cerus" end
         end)
     end
 end)
