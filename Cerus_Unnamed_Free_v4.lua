@@ -87,12 +87,44 @@ pcall(function()
         end
     end
 end)
-local repo = "https://raw.githubusercontent.com/mstudio45/LinoriaLib/main/"
-local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
-local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
-local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
+local function cerusHttpGet(url)
+    local ok, res = pcall(function() return game:HttpGet(url) end)
+    if ok and type(res) == "string" and #res > 100 then return res end
+    ok, res = pcall(function() return game:HttpGetAsync(url) end)
+    if ok and type(res) == "string" and #res > 100 then return res end
+    return nil
+end
+local function cerusLoadLinoria()
+    local repos = {
+        "https://raw.githubusercontent.com/mstudio45/LinoriaLib/main/",
+        "https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/",
+        "https://cdn.jsdelivr.net/gh/mstudio45/LinoriaLib@main/",
+    }
+    local lastErr
+    for _, repo in ipairs(repos) do
+        local ok, lib, theme, save = pcall(function()
+            local Lsrc = cerusHttpGet(repo .. "Library.lua")
+            assert(Lsrc, "Library.lua fetch failed")
+            local L = loadstring(Lsrc)()
+            assert(L and L.CreateWindow, "Library invalid")
+            local Tsrc = cerusHttpGet(repo .. "addons/ThemeManager.lua")
+            local Ssrc = cerusHttpGet(repo .. "addons/SaveManager.lua")
+            local T = Tsrc and loadstring(Tsrc)() or nil
+            local S = Ssrc and loadstring(Ssrc)() or nil
+            return L, T, S
+        end)
+        if ok and lib then
+            return lib, theme, save, repo
+        end
+        lastErr = theme
+        warn("[Cerus] Linoria load fail from " .. tostring(repo) .. " :: " .. tostring(theme))
+    end
+    error("[Cerus] Could not load Linoria: " .. tostring(lastErr))
+end
+local Library, ThemeManager, SaveManager = cerusLoadLinoria()
 local Options = Library.Options
 local Toggles = Library.Toggles
+print("[Cerus] Linoria library loaded OK")
 Library.ShowToggleFrameInKeybinds = true 
 Library.ShowCustomCursor = false 
 Library.NotifySide = "Left"
@@ -185,6 +217,163 @@ local Tabs = {
 	Misc = Window:AddTab("Misc"),
 	['UI Settings'] = Window:AddTab('Settings'),
 }
+
+-- FORCE SHOW LINORIA UI (executors / mobile / AutoShow fail)
+local function CerusForceShowUI(reason)
+    reason = reason or "manual"
+    pcall(function()
+        if not Library or Library.Unloaded then return end
+        -- parent ScreenGui
+        local sg = Library.ScreenGui
+        if sg then
+            local parent = nil
+            pcall(function() parent = (gethui and gethui()) or nil end)
+            if not parent then
+                pcall(function() parent = game:GetService("CoreGui") end)
+            end
+            if not parent then
+                pcall(function() parent = game.Players.LocalPlayer:WaitForChild("PlayerGui", 2) end)
+            end
+            if parent and sg.Parent ~= parent then
+                sg.Parent = parent
+            end
+            sg.Enabled = true
+            sg.DisplayOrder = 2147483646
+            pcall(function() sg.IgnoreGuiInset = true end)
+            pcall(function()
+                if syn and syn.protect_gui then syn.protect_gui(sg) end
+            end)
+            pcall(function()
+                if protectgui then protectgui(sg) end
+            end)
+        end
+        -- show window holder
+        if Window then
+            if Window.Holder then
+                Window.Holder.Visible = true
+                Window.Holder.Active = true
+            end
+            if Window.Outer then
+                Window.Outer.Visible = true
+            end
+            if type(Window.SetVisible) == "function" then
+                pcall(function() Window:SetVisible(true) end)
+            end
+        end
+        -- Linoria toggle API
+        if type(Library.Toggle) == "function" then
+            -- only open if currently closed
+            local open = false
+            pcall(function()
+                open = Window and Window.Holder and Window.Holder.Visible
+            end)
+            if not open then
+                pcall(function() Library:Toggle() end)
+            end
+        end
+        if type(Library.Show) == "function" then
+            pcall(function() Library:Show() end)
+        end
+        Library.MenuOpen = true
+        print("[Cerus] ForceShowUI:", reason)
+    end)
+end
+getgenv().CerusForceShowUI = CerusForceShowUI
+CerusForceShowUI("after CreateWindow")
+
+-- retry force show for a few seconds (late parenting / mobile)
+task.spawn(function()
+    for i = 1, 20 do
+        task.wait(0.25)
+        CerusForceShowUI("retry#" .. i)
+        local okVisible = false
+        pcall(function()
+            okVisible = Window and Window.Holder and Window.Holder.Visible
+        end)
+        if okVisible then break end
+    end
+end)
+
+-- mobile / fallback open button (always available)
+task.spawn(function()
+    pcall(function()
+        local pg = (gethui and gethui()) or game:GetService("CoreGui")
+        local old = pg:FindFirstChild("CerusForceUIBtn")
+        if old then old:Destroy() end
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "CerusForceUIBtn"
+        gui.ResetOnSpawn = false
+        gui.DisplayOrder = 2147483647
+        gui.IgnoreGuiInset = true
+        gui.Parent = pg
+        local btn = Instance.new("TextButton")
+        btn.Name = "Open"
+        btn.Size = UDim2.fromOffset(110, 32)
+        btn.Position = UDim2.new(0, 12, 0, 12)
+        btn.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
+        btn.TextColor3 = Color3.fromRGB(0, 220, 255)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 14
+        btn.Text = "Cerus Menu"
+        btn.AutoButtonColor = true
+        btn.Parent = gui
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 6)
+        corner.Parent = btn
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = Color3.fromRGB(0, 200, 255)
+        stroke.Thickness = 1
+        stroke.Parent = btn
+        btn.MouseButton1Click:Connect(function()
+            CerusForceShowUI("button")
+            pcall(function()
+                if Library and Library.Toggle then Library:Toggle() end
+            end)
+            -- hard force again
+            task.defer(function() CerusForceShowUI("button-defer") end)
+        end)
+        -- drag
+        local dragging, dragStart, startPos
+        btn.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = btn.Position
+            end
+        end)
+        game:GetService("UserInputService").InputChanged:Connect(function(input)
+            if not dragging then return end
+            if input.UserInputType == Enum.UserInputType.MouseMovement
+                or input.UserInputType == Enum.UserInputType.Touch then
+                local d = input.Position - dragStart
+                btn.Position = UDim2.new(
+                    startPos.X.Scale, startPos.X.Offset + d.X,
+                    startPos.Y.Scale, startPos.Y.Offset + d.Y
+                )
+            end
+        end)
+        game:GetService("UserInputService").InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = false
+            end
+        end)
+    end)
+end)
+
+-- RightShift / Insert also force-open as backup
+pcall(function()
+    game:GetService("UserInputService").InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode == Enum.KeyCode.RightShift
+            or input.KeyCode == Enum.KeyCode.Insert
+            or input.KeyCode == Enum.KeyCode.LeftAlt then
+            CerusForceShowUI("hotkey")
+        end
+    end)
+end)
+
 local qwe;qwe=hookfunction(getrenv().setmetatable,newcclosure(function(Table,Metatable)
     if type(Metatable)=="table" and rawget(Metatable,"__mode")=="kv" then
         local ok,src=pcall(debug.info,2,"s")
@@ -16250,3 +16439,12 @@ end)()
 
 
 SaveManager:LoadAutoloadConfig()
+
+-- final force show after full init
+task.defer(function()
+    task.wait(1)
+    if getgenv().CerusForceShowUI then
+        getgenv().CerusForceShowUI("final")
+    end
+end)
+print("[Cerus Free v4] UI force-show armed — use Cerus Menu button or RightShift")
