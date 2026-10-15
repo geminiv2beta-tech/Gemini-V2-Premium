@@ -15785,4 +15785,468 @@ ThemeManager:SetFolder("CerusFreeV4")
 SaveManager:SetFolder("CerusFreeV4/rivals")
 SaveManager:BuildConfigSection(Tabs["UI Settings"])
 ThemeManager:ApplyToTab(Tabs["UI Settings"])
+
+
+-- ============================================================================
+-- Custom Models (Rivals viewmodel swap by Asset ID)
+-- Presets e.g. AK | target weapon e.g. Assault Rifle | paste asset id
+-- ============================================================================
+;(function()
+    local InsertService = game:GetService("InsertService")
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local Workspace = workspace
+    local LocalPlayer = Players.LocalPlayer
+
+    local RIVALS_WEAPONS = {
+        "Assault Rifle", "Handgun", "Shotgun", "Sniper", "Bow",
+        "Burst Rifle", "Crossbow", "Gunblade", "RPG", "Energy Rifle",
+        "Flamethrower", "Grenade Launcher", "Minigun", "Paintball Gun",
+        "Uzi", "Revolver", "SMG", "LMG", "Melee",
+    }
+
+    -- Preset catalog: name -> mesh/model asset id (user can still paste any id)
+    -- These are example mesh/model ids; replace with your own working models.
+    local PRESETS = {
+        ["Custom (paste ID)"] = "",
+        ["AK Classic"] = "606607295",
+        ["AK Tactical"] = "116777509",
+        ["M4 Style"] = "16854840",
+        ["Pistol"] = "1235488",
+        ["Sniper Body"] = "5165576",
+    }
+
+    local state = getgenv().CerusCustomModels or {
+        enable = false,
+        targetWeapon = "Assault Rifle",
+        preset = "Custom (paste ID)",
+        assetId = "",
+        displayName = "Custom Gun",
+        scale = 1,
+        glow = false,
+        glowColor = Color3.fromRGB(255, 40, 40),
+        applied = {}, -- [weaponName] = { clone, origHidden = {parts} }
+    }
+    getgenv().CerusCustomModels = state
+
+    local function normalizeAssetId(raw)
+        if not raw then return nil end
+        local s = tostring(raw):gsub("%s", "")
+        s = s:gsub("rbxassetid://", ""):gsub("https?://www%.roblox%.com/catalog/", "")
+        s = s:gsub("https?://create%.roblox%.com/store/asset/", "")
+        local id = s:match("(%d+)")
+        return id and tonumber(id) or nil
+    end
+
+    local function findLocalViewModel(weaponName)
+        local vm = Workspace:FindFirstChild("ViewModels")
+        if not vm then return nil end
+        local fp = vm:FindFirstChild("FirstPerson") or vm
+        local pn = LocalPlayer.Name
+        local want = weaponName and weaponName:lower() or nil
+        for _, model in ipairs(fp:GetChildren()) do
+            if model:IsA("Model") and model.Name:find("^" .. pn, 1, true) then
+                if not want then return model end
+                if model.Name:lower():find(want, 1, true) then
+                    return model
+                end
+            end
+        end
+        -- fallback: any local first-person model
+        for _, model in ipairs(fp:GetChildren()) do
+            if model:IsA("Model") and model.Name:find("^" .. pn, 1, true) then
+                return model
+            end
+        end
+        return nil
+    end
+
+    local function getAnchorPart(vm)
+        if not vm then return nil end
+        local iv = vm:FindFirstChild("ItemVisual")
+        if iv then
+            local body = iv:FindFirstChild("Body")
+            if body then
+                local bp = body:FindFirstChild("BodyPrimary")
+                    or body:FindFirstChildWhichIsA("BasePart")
+                if bp then return bp end
+            end
+            local p = iv:FindFirstChildWhichIsA("BasePart", true)
+            if p then return p end
+        end
+        if vm.PrimaryPart then return vm.PrimaryPart end
+        return vm:FindFirstChildWhichIsA("BasePart", true)
+    end
+
+    local function clearApplied(weaponName)
+        local entry = state.applied[weaponName]
+        if not entry then return end
+        if entry.clone and entry.clone.Parent then
+            pcall(function() entry.clone:Destroy() end)
+        end
+        if entry.origHidden then
+            for _, part in ipairs(entry.origHidden) do
+                if part and part.Parent then
+                    pcall(function()
+                        if part:IsA("BasePart") then
+                            part.LocalTransparencyModifier = entry.origTrans[part] or 0
+                            part.Transparency = entry.origTrans[part] or part.Transparency
+                        elseif part:IsA("Decal") or part:IsA("Texture") then
+                            part.Transparency = entry.origTrans[part] or 0
+                        end
+                    end)
+                end
+            end
+        end
+        state.applied[weaponName] = nil
+    end
+
+    local function hideOriginalMeshes(vm)
+        local hidden, origTrans = {}, {}
+        local iv = vm:FindFirstChild("ItemVisual")
+        local root = iv or vm
+        for _, d in ipairs(root:GetDescendants()) do
+            if d:IsA("BasePart") and d.Name ~= "HumanoidRootPart" and not d.Name:find("Arm") then
+                -- keep small attachments parents visible structure but hide mesh look
+                if d.Name ~= "Handle" and not d:FindFirstAncestor("Left Arm") and not d:FindFirstAncestor("Right Arm") then
+                    origTrans[d] = d.Transparency
+                    d.LocalTransparencyModifier = 1
+                    table.insert(hidden, d)
+                end
+            elseif d:IsA("MeshPart") then
+                origTrans[d] = d.Transparency
+                d.LocalTransparencyModifier = 1
+                table.insert(hidden, d)
+            end
+        end
+        return hidden, origTrans
+    end
+
+    local function loadModelFromAsset(assetId)
+        local id = normalizeAssetId(assetId)
+        if not id then return nil, "invalid asset id" end
+        local model
+        local err
+        -- Try InsertService
+        local ok, result = pcall(function()
+            return InsertService:LoadAsset(id)
+        end)
+        if ok and result then
+            if result:IsA("Model") then
+                model = result:FindFirstChildWhichIsA("Model") or result:FindFirstChildWhichIsA("BasePart") and result
+                if result:IsA("Model") and not model then model = result end
+                if model and model ~= result then
+                    model.Parent = nil
+                    result:Destroy()
+                elseif result:IsA("Model") then
+                    model = result
+                end
+            end
+            if not model then
+                local m = Instance.new("Model")
+                for _, ch in ipairs(result:GetChildren()) do
+                    ch.Parent = m
+                end
+                result:Destroy()
+                model = m
+            end
+        end
+        -- Fallback GetObjects
+        if not model and game.GetObjects then
+            local ok2, objs = pcall(function()
+                return game:GetObjects("rbxassetid://" .. tostring(id))
+            end)
+            if ok2 and type(objs) == "table" and objs[1] then
+                model = objs[1]
+            end
+        end
+        if not model then
+            return nil, "failed to load asset " .. tostring(id)
+        end
+        if model:IsA("BasePart") then
+            local m = Instance.new("Model")
+            model.Parent = m
+            m.PrimaryPart = model
+            model = m
+        end
+        return model, nil
+    end
+
+    local function applyGlow(model, color)
+        for _, d in ipairs(model:GetDescendants()) do
+            if d:IsA("BasePart") or d:IsA("MeshPart") then
+                d.Material = Enum.Material.Neon
+                d.Color = color
+            end
+        end
+        -- soft highlight
+        local h = Instance.new("Highlight")
+        h.FillColor = color
+        h.OutlineColor = color
+        h.FillTransparency = 0.55
+        h.OutlineTransparency = 0.2
+        h.Parent = model
+    end
+
+    local function weldModelToAnchor(model, anchor)
+        if not model or not anchor then return end
+        local primary = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+        if not primary then return end
+        model.PrimaryPart = primary
+        -- scale
+        local sc = tonumber(state.scale) or 1
+        if sc ~= 1 then
+            pcall(function()
+                if model:GetExtentsSize then
+                    local cf = primary.CFrame
+                    model:ScaleTo(sc)
+                    primary.CFrame = cf
+                end
+            end)
+        end
+        primary.CFrame = anchor.CFrame
+        for _, d in ipairs(model:GetDescendants()) do
+            if d:IsA("BasePart") then
+                d.Anchored = false
+                d.CanCollide = false
+                d.Massless = true
+                if d ~= primary then
+                    local w = Instance.new("WeldConstraint")
+                    w.Part0 = primary
+                    w.Part1 = d
+                    w.Parent = primary
+                end
+            end
+        end
+        local w0 = Instance.new("WeldConstraint")
+        w0.Part0 = anchor
+        w0.Part1 = primary
+        w0.Parent = primary
+        -- keep following if weld fails on some executors
+        model:SetAttribute("CerusCustomModel", true)
+    end
+
+    local function applyCustomModel()
+        if not state.enable then
+            return false, "enable Custom Models first"
+        end
+        local weapon = state.targetWeapon or "Assault Rifle"
+        local assetRaw = state.assetId
+        if (not assetRaw or assetRaw == "") and PRESETS[state.preset] then
+            assetRaw = PRESETS[state.preset]
+        end
+        local id = normalizeAssetId(assetRaw)
+        if not id then
+            return false, "paste a valid asset id"
+        end
+
+        clearApplied(weapon)
+
+        local vm = findLocalViewModel(weapon)
+        if not vm then
+            -- try without filter
+            vm = findLocalViewModel(nil)
+        end
+        if not vm then
+            return false, "equip the weapon in-game first (no viewmodel)"
+        end
+
+        local anchor = getAnchorPart(vm)
+        if not anchor then
+            return false, "viewmodel anchor not found"
+        end
+
+        local model, err = loadModelFromAsset(id)
+        if not model then
+            return false, err or "load failed"
+        end
+
+        model.Name = "CerusCustom_" .. (state.displayName or "Gun"):gsub("%s+", "_")
+        local hidden, origTrans = hideOriginalMeshes(vm)
+        model.Parent = vm
+        weldModelToAnchor(model, anchor)
+        if state.glow then
+            applyGlow(model, state.glowColor or Color3.fromRGB(255, 40, 40))
+        end
+
+        state.applied[weapon] = {
+            clone = model,
+            origHidden = hidden,
+            origTrans = origTrans,
+            assetId = id,
+            vm = vm,
+        }
+
+        -- restick if viewmodel refreshes
+        return true, "applied " .. tostring(id) .. " -> " .. weapon
+    end
+
+    local function clearAll()
+        for weapon in pairs(table.clone(state.applied)) do
+            clearApplied(weapon)
+        end
+    end
+
+    -- Re-apply when viewmodel respawns
+    task.spawn(function()
+        local lastVm
+        while true do
+            task.wait(0.5)
+            if not state.enable then continue end
+            for weapon, entry in pairs(state.applied) do
+                if entry.assetId then
+                    local vm = findLocalViewModel(weapon) or findLocalViewModel(nil)
+                    if vm and (not entry.clone or not entry.clone.Parent or entry.vm ~= vm) then
+                        state.assetId = tostring(entry.assetId)
+                        state.targetWeapon = weapon
+                        pcall(applyCustomModel)
+                    end
+                end
+            end
+        end
+    end)
+
+    -- UI
+    local box
+    pcall(function()
+        box = Tabs.Visuals:AddLeftGroupbox("Custom Models")
+    end)
+    if not box then
+        pcall(function()
+            box = Tabs.World:AddLeftGroupbox("Custom Models")
+        end)
+    end
+    if not box then
+        pcall(function()
+            box = Tabs.Misc:AddLeftGroupbox("Custom Models")
+        end)
+    end
+    if not box then
+        warn("[Cerus] Custom Models UI tab missing")
+        return
+    end
+
+    box:AddToggle("CM_Enable", {
+        Text = "Enable Custom Models",
+        Default = false,
+        Callback = function(v)
+            state.enable = v
+            if not v then clearAll() end
+        end,
+    })
+
+    box:AddDropdown("CM_Weapon", {
+        Text = "Target Weapon (Rivals)",
+        Values = RIVALS_WEAPONS,
+        Default = 1,
+        Callback = function(v)
+            state.targetWeapon = v
+        end,
+    })
+
+    local presetNames = {}
+    for k in pairs(PRESETS) do table.insert(presetNames, k) end
+    table.sort(presetNames)
+
+    box:AddDropdown("CM_Preset", {
+        Text = "Preset Model",
+        Values = presetNames,
+        Default = 1,
+        Callback = function(v)
+            state.preset = v
+            local id = PRESETS[v]
+            if id and id ~= "" then
+                state.assetId = id
+                if Options.CM_AssetId and Options.CM_AssetId.SetValue then
+                    pcall(function() Options.CM_AssetId:SetValue(id) end)
+                end
+            end
+        end,
+    })
+
+    box:AddInput("CM_AssetId", {
+        Text = "Asset ID",
+        Default = "",
+        Placeholder = "Paste any asset ID",
+        Numeric = false,
+        Finished = true,
+        Callback = function(v)
+            state.assetId = tostring(v or "")
+        end,
+    })
+
+    box:AddInput("CM_Name", {
+        Text = "Display Name",
+        Default = "Custom Gun",
+        Placeholder = "e.g. AK",
+        Callback = function(v)
+            state.displayName = tostring(v or "Custom Gun")
+        end,
+    })
+
+    box:AddSlider("CM_Scale", {
+        Text = "Scale",
+        Default = 1,
+        Min = 0.2,
+        Max = 3,
+        Rounding = 2,
+        Callback = function(v)
+            state.scale = v
+        end,
+    })
+
+    box:AddToggle("CM_Glow", {
+        Text = "Neon Glow",
+        Default = false,
+        Callback = function(v)
+            state.glow = v
+        end,
+    })
+
+    box:AddLabel("Glow Color"):AddColorPicker("CM_GlowColor", {
+        Default = Color3.fromRGB(255, 40, 40),
+        Title = "Custom Model Glow",
+        Callback = function(c)
+            state.glowColor = c
+        end,
+    })
+
+    box:AddButton({
+        Text = "Apply Model",
+        Func = function()
+            local ok, msg = applyCustomModel()
+            if Library and Library.Notify then
+                Library:Notify(ok and ("OK: " .. msg) or ("Fail: " .. tostring(msg)), 4)
+            else
+                print("[Custom Models]", ok, msg)
+            end
+        end,
+    })
+
+    box:AddButton({
+        Text = "Clear Model",
+        Func = function()
+            clearApplied(state.targetWeapon or "Assault Rifle")
+            if Library and Library.Notify then
+                Library:Notify("cleared custom model for " .. tostring(state.targetWeapon), 3)
+            end
+        end,
+    })
+
+    box:AddButton({
+        Text = "Clear All",
+        Func = function()
+            clearAll()
+            if Library and Library.Notify then
+                Library:Notify("all custom models cleared", 3)
+            end
+        end,
+    })
+
+    getgenv().CerusApplyCustomModel = applyCustomModel
+    getgenv().CerusClearCustomModels = clearAll
+    print("[Cerus] Custom Models ready — Visuals tab | paste asset id | map to Assault Rifle etc.")
+end)()
+
+
 SaveManager:LoadAutoloadConfig()
