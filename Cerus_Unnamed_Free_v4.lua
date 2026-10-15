@@ -4,6 +4,231 @@
   Config: CerusFreeV4/rivals
 ]]
 
+--==========================================================================
+-- DELTA FORCE UI BUTTON (runs first, survives Linoria fail)
+--==========================================================================
+getgenv().__CerusDeltaUI = getgenv().__CerusDeltaUI or {}
+local function CerusGetGuiParent()
+    local parents = {}
+    pcall(function()
+        if gethui then table.insert(parents, gethui()) end
+    end)
+    pcall(function()
+        table.insert(parents, game:GetService("CoreGui"))
+    end)
+    pcall(function()
+        local lp = game:GetService("Players").LocalPlayer
+        if lp then table.insert(parents, lp:WaitForChild("PlayerGui", 3)) end
+    end)
+    for _, p in ipairs(parents) do
+        if p then return p end
+    end
+    return nil
+end
+
+local function CerusHardShowLinoria()
+    local Library = rawget(getgenv(), "Library") or (getgenv().__CerusDeltaUI and getgenv().__CerusDeltaUI.Library)
+    local Window = getgenv().__CerusDeltaUI and getgenv().__CerusDeltaUI.Window
+    -- also try globals from script scope via getgenv bridge
+    pcall(function()
+        if getgenv().CerusForceShowUI then getgenv().CerusForceShowUI("delta-hard") end
+    end)
+    pcall(function()
+        local lib = Library
+        if not lib then
+            -- scan for ScreenGui named like Linoria
+            local parent = CerusGetGuiParent()
+            if parent then
+                for _, g in ipairs(parent:GetChildren()) do
+                    if g:IsA("ScreenGui") then
+                        g.Enabled = true
+                        for _, d in ipairs(g:GetDescendants()) do
+                            if d:IsA("Frame") and (d.Name == "Main" or d.Name == "Window" or d.Name == "Holder" or d.Name:find("Linoria") or d.Name:find("Outer")) then
+                                d.Visible = true
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        if lib then
+            if lib.ScreenGui then
+                local parent = CerusGetGuiParent()
+                if parent then lib.ScreenGui.Parent = parent end
+                lib.ScreenGui.Enabled = true
+                lib.ScreenGui.DisplayOrder = 2147483646
+            end
+            if type(lib.Toggle) == "function" then
+                pcall(function() lib:Toggle() end)
+            end
+            lib.MenuOpen = true
+        end
+        if Window then
+            if Window.Holder then Window.Holder.Visible = true end
+            if Window.Outer then Window.Outer.Visible = true end
+        end
+    end)
+    -- brute force: any ScreenGui under CoreGui/gethui with frames
+    pcall(function()
+        local parent = CerusGetGuiParent()
+        if not parent then return end
+        for _, g in ipairs(parent:GetChildren()) do
+            if g:IsA("ScreenGui") and g.Name ~= "CerusDeltaOpenBtn" and g.Name ~= "CerusForceUIBtn" then
+                g.Enabled = true
+                pcall(function() g.DisplayOrder = math.max(g.DisplayOrder, 999999) end)
+                for _, d in ipairs(g:GetDescendants()) do
+                    if d:IsA("Frame") and d.Size.X.Offset > 200 and d.Size.Y.Offset > 150 then
+                        d.Visible = true
+                        d.Active = true
+                    end
+                end
+            end
+        end
+    end)
+    print("[Cerus Delta] HardShow attempted")
+end
+getgenv().CerusHardShowLinoria = CerusHardShowLinoria
+
+local function CerusSpawnDeltaButton()
+    pcall(function()
+        local parent = CerusGetGuiParent()
+        if not parent then
+            task.wait(1)
+            parent = CerusGetGuiParent()
+        end
+        if not parent then
+            warn("[Cerus] no gui parent for delta button")
+            return
+        end
+        for _, name in ipairs({"CerusDeltaOpenBtn", "CerusForceUIBtn"}) do
+            local old = parent:FindFirstChild(name)
+            if old then pcall(function() old:Destroy() end) end
+        end
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "CerusDeltaOpenBtn"
+        gui.ResetOnSpawn = false
+        gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+        gui.DisplayOrder = 2147483647
+        gui.IgnoreGuiInset = true
+        gui.Enabled = true
+        pcall(function()
+            if syn and syn.protect_gui then syn.protect_gui(gui) end
+        end)
+        pcall(function()
+            if protectgui then protectgui(gui) end
+        end)
+        gui.Parent = parent
+
+        local btn = Instance.new("TextButton")
+        btn.Name = "OpenMenu"
+        btn.Size = UDim2.fromOffset(130, 36)
+        btn.Position = UDim2.new(0, 14, 0.5, -18)
+        btn.AnchorPoint = Vector2.new(0, 0.5)
+        btn.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
+        btn.BackgroundTransparency = 0.1
+        btn.TextColor3 = Color3.fromRGB(0, 255, 200)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 15
+        btn.Text = "OPEN CERUS"
+        btn.AutoButtonColor = true
+        btn.ZIndex = 100
+        btn.Parent = gui
+
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, 8)
+        c.Parent = btn
+        local s = Instance.new("UIStroke")
+        s.Color = Color3.fromRGB(0, 255, 200)
+        s.Thickness = 1.5
+        s.Parent = btn
+
+        -- second button top-right for mobile thumb
+        local btn2 = Instance.new("TextButton")
+        btn2.Name = "OpenMenu2"
+        btn2.Size = UDim2.fromOffset(100, 32)
+        btn2.Position = UDim2.new(1, -112, 0, 48)
+        btn2.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
+        btn2.TextColor3 = Color3.fromRGB(0, 200, 255)
+        btn2.Font = Enum.Font.GothamBold
+        btn2.TextSize = 13
+        btn2.Text = "CERUS UI"
+        btn2.ZIndex = 100
+        btn2.Parent = gui
+        local c2 = Instance.new("UICorner")
+        c2.CornerRadius = UDim.new(0, 8)
+        c2.Parent = btn2
+        local s2 = Instance.new("UIStroke")
+        s2.Color = Color3.fromRGB(0, 200, 255)
+        s2.Thickness = 1.5
+        s2.Parent = btn2
+
+        local function onOpen()
+            CerusHardShowLinoria()
+            -- try again after short delay (Linoria may still be building)
+            task.delay(0.15, CerusHardShowLinoria)
+            task.delay(0.5, CerusHardShowLinoria)
+            task.delay(1.0, CerusHardShowLinoria)
+        end
+        btn.MouseButton1Click:Connect(onOpen)
+        btn2.MouseButton1Click:Connect(onOpen)
+        btn.Activated:Connect(onOpen)
+        btn2.Activated:Connect(onOpen)
+
+        -- touch support
+        pcall(function()
+            local UIS = game:GetService("UserInputService")
+            local function makeDrag(target)
+                local dragging, start, startPos
+                target.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1
+                        or input.UserInputType == Enum.UserInputType.Touch then
+                        dragging = true
+                        start = input.Position
+                        startPos = target.Position
+                    end
+                end)
+                UIS.InputChanged:Connect(function(input)
+                    if not dragging then return end
+                    if input.UserInputType == Enum.UserInputType.MouseMovement
+                        or input.UserInputType == Enum.UserInputType.Touch then
+                        local d = input.Position - start
+                        target.Position = UDim2.new(
+                            startPos.X.Scale, startPos.X.Offset + d.X,
+                            startPos.Y.Scale, startPos.Y.Offset + d.Y
+                        )
+                    end
+                end)
+                UIS.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1
+                        or input.UserInputType == Enum.UserInputType.Touch then
+                        dragging = false
+                    end
+                end)
+            end
+            makeDrag(btn)
+            makeDrag(btn2)
+        end)
+
+        getgenv().__CerusDeltaUI.Gui = gui
+        print("[Cerus Delta] OPEN CERUS / CERUS UI buttons spawned")
+    end)
+end
+
+-- spawn immediately + retries for Delta slow parent
+task.spawn(function()
+    CerusSpawnDeltaButton()
+    for _ = 1, 8 do
+        task.wait(0.5)
+        local parent = CerusGetGuiParent()
+        if parent and not parent:FindFirstChild("CerusDeltaOpenBtn") then
+            CerusSpawnDeltaButton()
+        end
+    end
+end)
+getgenv().CerusSpawnDeltaButton = CerusSpawnDeltaButton
+
+
+
 -- Unpacked by ZeroVector: the script inside the packed file, as it was written
 local _stbl; _stbl = hookfunction(getrenv().setmetatable, newcclosure(function(tbl, mt)
     if mt and typeof(mt) == "table" and rawget(mt, "__mode") == "kv" then
@@ -218,64 +443,90 @@ local Tabs = {
 	['UI Settings'] = Window:AddTab('Settings'),
 }
 
+-- bridge for Delta OPEN CERUS button
+getgenv().__CerusDeltaUI = getgenv().__CerusDeltaUI or {}
+getgenv().__CerusDeltaUI.Library = Library
+getgenv().__CerusDeltaUI.Window = Window
+getgenv().Library = Library
+pcall(function()
+    if getgenv().CerusSpawnDeltaButton then getgenv().CerusSpawnDeltaButton() end
+end)
+
 -- FORCE SHOW LINORIA UI (executors / mobile / AutoShow fail)
 local function CerusForceShowUI(reason)
     reason = reason or "manual"
     pcall(function()
-        if not Library or Library.Unloaded then return end
-        -- parent ScreenGui
+        if not Library then return end
+        -- parent ScreenGui (Delta: try gethui, CoreGui, PlayerGui)
         local sg = Library.ScreenGui
+        local parents = {}
+        pcall(function() if gethui then table.insert(parents, gethui()) end end)
+        pcall(function() table.insert(parents, game:GetService("CoreGui")) end)
+        pcall(function()
+            local lp = game:GetService("Players").LocalPlayer
+            if lp then table.insert(parents, lp:FindFirstChild("PlayerGui") or lp:WaitForChild("PlayerGui", 1)) end
+        end)
         if sg then
-            local parent = nil
-            pcall(function() parent = (gethui and gethui()) or nil end)
-            if not parent then
-                pcall(function() parent = game:GetService("CoreGui") end)
-            end
-            if not parent then
-                pcall(function() parent = game.Players.LocalPlayer:WaitForChild("PlayerGui", 2) end)
-            end
-            if parent and sg.Parent ~= parent then
-                sg.Parent = parent
+            for _, parent in ipairs(parents) do
+                if parent then
+                    pcall(function() sg.Parent = parent end)
+                    break
+                end
             end
             sg.Enabled = true
             sg.DisplayOrder = 2147483646
             pcall(function() sg.IgnoreGuiInset = true end)
-            pcall(function()
-                if syn and syn.protect_gui then syn.protect_gui(sg) end
-            end)
-            pcall(function()
-                if protectgui then protectgui(sg) end
-            end)
-        end
-        -- show window holder
-        if Window then
-            if Window.Holder then
-                Window.Holder.Visible = true
-                Window.Holder.Active = true
+            pcall(function() sg.ResetOnSpawn = false end)
+            pcall(function() if syn and syn.protect_gui then syn.protect_gui(sg) end end)
+            pcall(function() if protectgui then protectgui(sg) end end)
+            -- force every top-level frame visible
+            for _, ch in ipairs(sg:GetChildren()) do
+                if ch:IsA("Frame") or ch:IsA("CanvasGroup") then
+                    ch.Visible = true
+                    pcall(function() ch.BackgroundTransparency = math.min(ch.BackgroundTransparency, 0.15) end)
+                end
             end
-            if Window.Outer then
-                Window.Outer.Visible = true
+        end
+        if Window then
+            for _, key in ipairs({"Holder", "Outer", "Main", "Inner", "Root"}) do
+                local f = Window[key]
+                if f and typeof(f) == "Instance" then
+                    pcall(function()
+                        f.Visible = true
+                        f.Active = true
+                    end)
+                end
             end
             if type(Window.SetVisible) == "function" then
                 pcall(function() Window:SetVisible(true) end)
             end
         end
-        -- Linoria toggle API
+        -- ALWAYS call Toggle on Delta to flip open
         if type(Library.Toggle) == "function" then
-            -- only open if currently closed
-            local open = false
-            pcall(function()
-                open = Window and Window.Holder and Window.Holder.Visible
+            pcall(function() Library:Toggle() end)
+            -- if still closed, toggle again
+            task.defer(function()
+                pcall(function()
+                    local vis = Window and Window.Holder and Window.Holder.Visible
+                    if not vis and Library.Toggle then Library:Toggle() end
+                end)
             end)
-            if not open then
-                pcall(function() Library:Toggle() end)
-            end
         end
         if type(Library.Show) == "function" then
             pcall(function() Library:Show() end)
         end
+        pcall(function() Library.Unloaded = false end)
         Library.MenuOpen = true
+        getgenv().__CerusDeltaUI = getgenv().__CerusDeltaUI or {}
+        getgenv().__CerusDeltaUI.Library = Library
+        getgenv().__CerusDeltaUI.Window = Window
         print("[Cerus] ForceShowUI:", reason)
+    end)
+    -- absolute brute force for Delta
+    pcall(function()
+        if getgenv().CerusHardShowLinoria then
+            getgenv().CerusHardShowLinoria()
+        end
     end)
 end
 getgenv().CerusForceShowUI = CerusForceShowUI
