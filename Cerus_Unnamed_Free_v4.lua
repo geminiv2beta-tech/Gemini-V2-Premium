@@ -4,231 +4,6 @@
   Config: CerusFreeV4/rivals
 ]]
 
---==========================================================================
--- DELTA FORCE UI BUTTON (runs first, survives Linoria fail)
---==========================================================================
-getgenv().__CerusDeltaUI = getgenv().__CerusDeltaUI or {}
-local function CerusGetGuiParent()
-    local parents = {}
-    pcall(function()
-        if gethui then table.insert(parents, gethui()) end
-    end)
-    pcall(function()
-        table.insert(parents, game:GetService("CoreGui"))
-    end)
-    pcall(function()
-        local lp = game:GetService("Players").LocalPlayer
-        if lp then table.insert(parents, lp:WaitForChild("PlayerGui", 3)) end
-    end)
-    for _, p in ipairs(parents) do
-        if p then return p end
-    end
-    return nil
-end
-
-local function CerusHardShowLinoria()
-    local Library = rawget(getgenv(), "Library") or (getgenv().__CerusDeltaUI and getgenv().__CerusDeltaUI.Library)
-    local Window = getgenv().__CerusDeltaUI and getgenv().__CerusDeltaUI.Window
-    -- also try globals from script scope via getgenv bridge
-    pcall(function()
-        if getgenv().CerusForceShowUI then getgenv().CerusForceShowUI("delta-hard") end
-    end)
-    pcall(function()
-        local lib = Library
-        if not lib then
-            -- scan for ScreenGui named like Linoria
-            local parent = CerusGetGuiParent()
-            if parent then
-                for _, g in ipairs(parent:GetChildren()) do
-                    if g:IsA("ScreenGui") then
-                        g.Enabled = true
-                        for _, d in ipairs(g:GetDescendants()) do
-                            if d:IsA("Frame") and (d.Name == "Main" or d.Name == "Window" or d.Name == "Holder" or d.Name:find("Linoria") or d.Name:find("Outer")) then
-                                d.Visible = true
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        if lib then
-            if lib.ScreenGui then
-                local parent = CerusGetGuiParent()
-                if parent then lib.ScreenGui.Parent = parent end
-                lib.ScreenGui.Enabled = true
-                lib.ScreenGui.DisplayOrder = 2147483646
-            end
-            if type(lib.Toggle) == "function" then
-                pcall(function() lib:Toggle() end)
-            end
-            lib.MenuOpen = true
-        end
-        if Window then
-            if Window.Holder then Window.Holder.Visible = true end
-            if Window.Outer then Window.Outer.Visible = true end
-        end
-    end)
-    -- brute force: any ScreenGui under CoreGui/gethui with frames
-    pcall(function()
-        local parent = CerusGetGuiParent()
-        if not parent then return end
-        for _, g in ipairs(parent:GetChildren()) do
-            if g:IsA("ScreenGui") and g.Name ~= "CerusDeltaOpenBtn" and g.Name ~= "CerusForceUIBtn" then
-                g.Enabled = true
-                pcall(function() g.DisplayOrder = math.max(g.DisplayOrder, 999999) end)
-                for _, d in ipairs(g:GetDescendants()) do
-                    if d:IsA("Frame") and d.Size.X.Offset > 200 and d.Size.Y.Offset > 150 then
-                        d.Visible = true
-                        d.Active = true
-                    end
-                end
-            end
-        end
-    end)
-    print("[Cerus Delta] HardShow attempted")
-end
-getgenv().CerusHardShowLinoria = CerusHardShowLinoria
-
-local function CerusSpawnDeltaButton()
-    pcall(function()
-        local parent = CerusGetGuiParent()
-        if not parent then
-            task.wait(1)
-            parent = CerusGetGuiParent()
-        end
-        if not parent then
-            warn("[Cerus] no gui parent for delta button")
-            return
-        end
-        for _, name in ipairs({"CerusDeltaOpenBtn", "CerusForceUIBtn"}) do
-            local old = parent:FindFirstChild(name)
-            if old then pcall(function() old:Destroy() end) end
-        end
-        local gui = Instance.new("ScreenGui")
-        gui.Name = "CerusDeltaOpenBtn"
-        gui.ResetOnSpawn = false
-        gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-        gui.DisplayOrder = 2147483647
-        gui.IgnoreGuiInset = true
-        gui.Enabled = true
-        pcall(function()
-            if syn and syn.protect_gui then syn.protect_gui(gui) end
-        end)
-        pcall(function()
-            if protectgui then protectgui(gui) end
-        end)
-        gui.Parent = parent
-
-        local btn = Instance.new("TextButton")
-        btn.Name = "OpenMenu"
-        btn.Size = UDim2.fromOffset(130, 36)
-        btn.Position = UDim2.new(0, 14, 0.5, -18)
-        btn.AnchorPoint = Vector2.new(0, 0.5)
-        btn.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
-        btn.BackgroundTransparency = 0.1
-        btn.TextColor3 = Color3.fromRGB(0, 255, 200)
-        btn.Font = Enum.Font.GothamBold
-        btn.TextSize = 15
-        btn.Text = "OPEN CERUS"
-        btn.AutoButtonColor = true
-        btn.ZIndex = 100
-        btn.Parent = gui
-
-        local c = Instance.new("UICorner")
-        c.CornerRadius = UDim.new(0, 8)
-        c.Parent = btn
-        local s = Instance.new("UIStroke")
-        s.Color = Color3.fromRGB(0, 255, 200)
-        s.Thickness = 1.5
-        s.Parent = btn
-
-        -- second button top-right for mobile thumb
-        local btn2 = Instance.new("TextButton")
-        btn2.Name = "OpenMenu2"
-        btn2.Size = UDim2.fromOffset(100, 32)
-        btn2.Position = UDim2.new(1, -112, 0, 48)
-        btn2.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
-        btn2.TextColor3 = Color3.fromRGB(0, 200, 255)
-        btn2.Font = Enum.Font.GothamBold
-        btn2.TextSize = 13
-        btn2.Text = "CERUS UI"
-        btn2.ZIndex = 100
-        btn2.Parent = gui
-        local c2 = Instance.new("UICorner")
-        c2.CornerRadius = UDim.new(0, 8)
-        c2.Parent = btn2
-        local s2 = Instance.new("UIStroke")
-        s2.Color = Color3.fromRGB(0, 200, 255)
-        s2.Thickness = 1.5
-        s2.Parent = btn2
-
-        local function onOpen()
-            CerusHardShowLinoria()
-            -- try again after short delay (Linoria may still be building)
-            task.delay(0.15, CerusHardShowLinoria)
-            task.delay(0.5, CerusHardShowLinoria)
-            task.delay(1.0, CerusHardShowLinoria)
-        end
-        btn.MouseButton1Click:Connect(onOpen)
-        btn2.MouseButton1Click:Connect(onOpen)
-        btn.Activated:Connect(onOpen)
-        btn2.Activated:Connect(onOpen)
-
-        -- touch support
-        pcall(function()
-            local UIS = game:GetService("UserInputService")
-            local function makeDrag(target)
-                local dragging, start, startPos
-                target.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1
-                        or input.UserInputType == Enum.UserInputType.Touch then
-                        dragging = true
-                        start = input.Position
-                        startPos = target.Position
-                    end
-                end)
-                UIS.InputChanged:Connect(function(input)
-                    if not dragging then return end
-                    if input.UserInputType == Enum.UserInputType.MouseMovement
-                        or input.UserInputType == Enum.UserInputType.Touch then
-                        local d = input.Position - start
-                        target.Position = UDim2.new(
-                            startPos.X.Scale, startPos.X.Offset + d.X,
-                            startPos.Y.Scale, startPos.Y.Offset + d.Y
-                        )
-                    end
-                end)
-                UIS.InputEnded:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1
-                        or input.UserInputType == Enum.UserInputType.Touch then
-                        dragging = false
-                    end
-                end)
-            end
-            makeDrag(btn)
-            makeDrag(btn2)
-        end)
-
-        getgenv().__CerusDeltaUI.Gui = gui
-        print("[Cerus Delta] OPEN CERUS / CERUS UI buttons spawned")
-    end)
-end
-
--- spawn immediately + retries for Delta slow parent
-task.spawn(function()
-    CerusSpawnDeltaButton()
-    for _ = 1, 8 do
-        task.wait(0.5)
-        local parent = CerusGetGuiParent()
-        if parent and not parent:FindFirstChild("CerusDeltaOpenBtn") then
-            CerusSpawnDeltaButton()
-        end
-    end
-end)
-getgenv().CerusSpawnDeltaButton = CerusSpawnDeltaButton
-
-
-
 -- Unpacked by ZeroVector: the script inside the packed file, as it was written
 local _stbl; _stbl = hookfunction(getrenv().setmetatable, newcclosure(function(tbl, mt)
     if mt and typeof(mt) == "table" and rawget(mt, "__mode") == "kv" then
@@ -443,90 +218,64 @@ local Tabs = {
 	['UI Settings'] = Window:AddTab('Settings'),
 }
 
--- bridge for Delta OPEN CERUS button
-getgenv().__CerusDeltaUI = getgenv().__CerusDeltaUI or {}
-getgenv().__CerusDeltaUI.Library = Library
-getgenv().__CerusDeltaUI.Window = Window
-getgenv().Library = Library
-pcall(function()
-    if getgenv().CerusSpawnDeltaButton then getgenv().CerusSpawnDeltaButton() end
-end)
-
 -- FORCE SHOW LINORIA UI (executors / mobile / AutoShow fail)
 local function CerusForceShowUI(reason)
     reason = reason or "manual"
     pcall(function()
-        if not Library then return end
-        -- parent ScreenGui (Delta: try gethui, CoreGui, PlayerGui)
+        if not Library or Library.Unloaded then return end
+        -- parent ScreenGui
         local sg = Library.ScreenGui
-        local parents = {}
-        pcall(function() if gethui then table.insert(parents, gethui()) end end)
-        pcall(function() table.insert(parents, game:GetService("CoreGui")) end)
-        pcall(function()
-            local lp = game:GetService("Players").LocalPlayer
-            if lp then table.insert(parents, lp:FindFirstChild("PlayerGui") or lp:WaitForChild("PlayerGui", 1)) end
-        end)
         if sg then
-            for _, parent in ipairs(parents) do
-                if parent then
-                    pcall(function() sg.Parent = parent end)
-                    break
-                end
+            local parent = nil
+            pcall(function() parent = (gethui and gethui()) or nil end)
+            if not parent then
+                pcall(function() parent = game:GetService("CoreGui") end)
+            end
+            if not parent then
+                pcall(function() parent = game.Players.LocalPlayer:WaitForChild("PlayerGui", 2) end)
+            end
+            if parent and sg.Parent ~= parent then
+                sg.Parent = parent
             end
             sg.Enabled = true
             sg.DisplayOrder = 2147483646
             pcall(function() sg.IgnoreGuiInset = true end)
-            pcall(function() sg.ResetOnSpawn = false end)
-            pcall(function() if syn and syn.protect_gui then syn.protect_gui(sg) end end)
-            pcall(function() if protectgui then protectgui(sg) end end)
-            -- force every top-level frame visible
-            for _, ch in ipairs(sg:GetChildren()) do
-                if ch:IsA("Frame") or ch:IsA("CanvasGroup") then
-                    ch.Visible = true
-                    pcall(function() ch.BackgroundTransparency = math.min(ch.BackgroundTransparency, 0.15) end)
-                end
-            end
+            pcall(function()
+                if syn and syn.protect_gui then syn.protect_gui(sg) end
+            end)
+            pcall(function()
+                if protectgui then protectgui(sg) end
+            end)
         end
+        -- show window holder
         if Window then
-            for _, key in ipairs({"Holder", "Outer", "Main", "Inner", "Root"}) do
-                local f = Window[key]
-                if f and typeof(f) == "Instance" then
-                    pcall(function()
-                        f.Visible = true
-                        f.Active = true
-                    end)
-                end
+            if Window.Holder then
+                Window.Holder.Visible = true
+                Window.Holder.Active = true
+            end
+            if Window.Outer then
+                Window.Outer.Visible = true
             end
             if type(Window.SetVisible) == "function" then
                 pcall(function() Window:SetVisible(true) end)
             end
         end
-        -- ALWAYS call Toggle on Delta to flip open
+        -- Linoria toggle API
         if type(Library.Toggle) == "function" then
-            pcall(function() Library:Toggle() end)
-            -- if still closed, toggle again
-            task.defer(function()
-                pcall(function()
-                    local vis = Window and Window.Holder and Window.Holder.Visible
-                    if not vis and Library.Toggle then Library:Toggle() end
-                end)
+            -- only open if currently closed
+            local open = false
+            pcall(function()
+                open = Window and Window.Holder and Window.Holder.Visible
             end)
+            if not open then
+                pcall(function() Library:Toggle() end)
+            end
         end
         if type(Library.Show) == "function" then
             pcall(function() Library:Show() end)
         end
-        pcall(function() Library.Unloaded = false end)
         Library.MenuOpen = true
-        getgenv().__CerusDeltaUI = getgenv().__CerusDeltaUI or {}
-        getgenv().__CerusDeltaUI.Library = Library
-        getgenv().__CerusDeltaUI.Window = Window
         print("[Cerus] ForceShowUI:", reason)
-    end)
-    -- absolute brute force for Delta
-    pcall(function()
-        if getgenv().CerusHardShowLinoria then
-            getgenv().CerusHardShowLinoria()
-        end
     end)
 end
 getgenv().CerusForceShowUI = CerusForceShowUI
@@ -6236,10 +5985,10 @@ local config = {
     },
     voidspam = {
         enabled = false,
-        shoot_min = 1,
-        shoot_max = 1,
-        hide_min = 1,
-        hide_max = 1,
+        shoot_min = 0.03,
+        shoot_max = 0.03,
+        hide_min = 0.25,
+        hide_max = 0.25,
         phase = nil,
         lastswitch = 0,
         currentduration = 0
@@ -7878,11 +7627,11 @@ rageui.ragebottab:AddToggle("VoidSpam", {
     end
 })
 rageui.ragebottab:AddSlider('VoidShootTime', {
-    Default = 1,
+    Default = 0.03,
     Text = "Attack",
-    Min = 0.1,
-    Max = 2,
-    Rounding = 1,
+    Min = 0.01,
+    Max = 1,
+    Rounding = 2,
     Compact = true,
     Callback = function(val)
         val = clampVs(val)
@@ -7891,11 +7640,11 @@ rageui.ragebottab:AddSlider('VoidShootTime', {
     end
 })
 rageui.ragebottab:AddSlider('VoidHideTime', {
-    Default = 1,
+    Default = 0.25,
     Text = "Hide",
-    Min = 0.1,
-    Max = 2,
-    Rounding = 1,
+    Min = 0.01,
+    Max = 1,
+    Rounding = 2,
     Compact = true,
     Callback = function(val)
         val = clampVs(val)
@@ -7903,6 +7652,66 @@ rageui.ragebottab:AddSlider('VoidHideTime', {
         config.voidspam.hide_max = val
     end
 })
+
+-- Elisium engine toggle (packet Desync rage)
+pcall(function()
+    if not rageui or not rageui.ragebottab then return end
+    rageui.ragebottab:AddDivider()
+    rageui.ragebottab:AddToggle("ElisiumEngine", {
+        Text = "Elisium Engine (Desync)",
+        Default = false,
+        Tooltip = "Uses Elisium Desync + UseItem FireServer path (parallel to Unnamed void rage)",
+        Callback = function(val)
+            pcall(function()
+                if getgenv().ELI and ELI.RagebotEnable then
+                    ELI.RagebotEnable(val)
+                elseif ELI and ELI.RagebotEnable then
+                    ELI.RagebotEnable(val)
+                else
+                    warn("[Cerus] Elisium engine not loaded yet")
+                end
+            end)
+        end,
+    })
+    rageui.ragebottab:AddToggle("ElisiumFFA", {
+        Text = "Elisium FFA Mode",
+        Default = false,
+        Callback = function(val)
+            pcall(function()
+                ELI = ELI or {}
+                ELI.ragebot = ELI.ragebot or {}
+                ELI.ragebot.ffa_mode = val
+            end)
+        end,
+    })
+    rageui.ragebottab:AddToggle("ElisiumPredict", {
+        Text = "Elisium Prediction",
+        Default = true,
+        Callback = function(val)
+            pcall(function()
+                ELI = ELI or {}
+                ELI.ragebot = ELI.ragebot or {}
+                ELI.ragebot.prediction = val
+            end)
+        end,
+    })
+    rageui.ragebottab:AddSlider("ElisiumPredAmt", {
+        Text = "Prediction Amount",
+        Default = 1,
+        Min = 0,
+        Max = 3,
+        Rounding = 2,
+        Compact = true,
+        Callback = function(val)
+            pcall(function()
+                ELI = ELI or {}
+                ELI.ragebot = ELI.ragebot or {}
+                ELI.ragebot.prediction_amount = val
+            end)
+        end,
+    })
+end)
+
 local rageStatusToggle = rageui.ragebotvisualtab:AddToggle("RageStatus", {
     Text = "Rage Status",
     Default = config.ragestatus.enabled,
@@ -16688,6 +16497,398 @@ ThemeManager:ApplyToTab(Tabs["UI Settings"])
     print("[Cerus] Custom Models ready — Visuals tab | paste asset id | map to Assault Rifle etc.")
 end)()
 
+
+
+-- ============================================================
+-- Elisium Ragebot engine (Desync + UseItem FireServer) injected
+-- Toggle from Combat > Ragebot > "Elisium Engine"
+-- ============================================================
+;(function()
+    if getgenv().CerusElisiumRageLoaded then return end
+    getgenv().CerusElisiumRageLoaded = true
+    local okEli, errEli = pcall(function()
+
+        local function LPH_NO_VIRTUALIZE(f) return f end
+
+        local Players           = game:GetService("Players")
+        local RunService        = game:GetService("RunService")
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local Workspace         = workspace
+
+        local local_player      = Players.LocalPlayer
+        local players           = Players
+        local run_service       = RunService
+        local replicated_storage = ReplicatedStorage
+        local camera            = Workspace.CurrentCamera
+
+        -- ELI config table (Elisium original shape)
+        ELI = ELI or {}
+        ELI.ragebot = ELI.ragebot or {
+            enable = false,
+            ffa_mode = false,
+            x = 0,
+            y = 2,
+            z = 0,
+            prediction = true,
+            prediction_amount = 1,
+        }
+
+        -- Resolve Rivals controllers / modules
+        local fighter_controller, camera_controller, utility, enum_lib
+        do
+            local ps = local_player:WaitForChild("PlayerScripts", 15)
+            local ctrl = ps:WaitForChild("Controllers", 15)
+            fighter_controller = require(ctrl:WaitForChild("FighterController", 15))
+            pcall(function()
+                camera_controller = require(ctrl:WaitForChild("CameraController", 8))
+            end)
+            utility = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Utility", 15))
+            pcall(function()
+                enum_lib = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("EnumLibrary", 8))
+            end)
+        end
+
+        if not camera_controller then
+            camera_controller = { Update = function() end }
+        end
+
+        -- Deflect / riot helpers (Elisium)
+        local deflecting = {}
+
+        is_deflecting = LPH_NO_VIRTUALIZE(function(plr)
+            return deflecting[plr]
+        end)
+
+        has_riot = LPH_NO_VIRTUALIZE(function(plr)
+            return workspace.ViewModels:FindFirstChild(plr.Name .. " - Riot Shield - Riot Shield") ~= nil
+        end)
+
+        -- Best-effort deflect mark (attribute scan)
+        task.spawn(function()
+            RunService.Heartbeat:Connect(function()
+                for _, plr in ipairs(Players:GetPlayers()) do
+                    if plr == local_player then continue end
+                    local char = plr.Character
+                    if not char then continue end
+                    local flag = false
+                    for _, attr in ipairs({"Reflecting", "IsReflecting", "BulletReflect", "Reflect", "Deflecting", "Parrying"}) do
+                        if char:GetAttribute(attr) == true then flag = true break end
+                    end
+                    if flag then
+                        deflecting[plr] = true
+                        task.delay(1.0, function()
+                            if deflecting[plr] then deflecting[plr] = false end
+                        end)
+                    end
+                end
+            end)
+        end)
+
+
+        local DesyncService = {}
+        do
+            function DesyncService:Init()
+                self.active = false;
+                self.connection = nil;
+                self.server = nil;
+                self.client = nil;
+                self.angle = 0;
+                self.speed = 9000;
+                self.fighter = fighter_controller.LocalFighter;
+
+                local ref = camera_controller.Update;
+                camera_controller.Update = function(...)
+                    if self.active and self.fighter and self.fighter.Entity.RootPart and self.client then
+                        self.fighter.Entity.RootPart.CFrame = self.client;
+                    end;
+                    return ref(...);
+                end;
+            end;
+
+            function DesyncService:Start(target)
+                if self.active then return end;
+                if not local_player.Character then return end;
+                if not self.fighter or not self.fighter.Entity.RootPart then return end;
+
+                self.active = true;
+                self.connection = run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function(dt)
+                    if not self.active then
+                        if self.connection then
+                            self.connection:Disconnect();
+                            self.connection = nil;
+                        end;
+                        return
+                    end;
+
+                    if not target or not target.Character or not target.Character:FindFirstChild('HumanoidRootPart') or not self.fighter or not self.fighter.Entity.RootPart then
+                        if self.connection then
+                            self.connection:Disconnect();
+                            self.connection = nil;
+                        end;
+                        if self.client and self.fighter and self.fighter.Entity.RootPart then
+                            self.fighter.Entity.RootPart.CFrame = self.client;
+                        end;
+                        self.active = false;
+                        self.client = nil;
+                        self.server = nil;
+                        return
+                    end;
+
+                    self.client = self.fighter.Entity.RootPart.CFrame;
+
+                    local item = self.fighter.EquippedItem;
+                    if not item then return end;
+
+                    local targetPos = target.Character.HumanoidRootPart.Position;
+
+                    if is_deflecting(target) or has_riot(target) then
+                    self.server = Vector3.new(0, 2^26, 0);
+                    return
+                    end;
+
+                    if item.Name == "Slingshot" then
+                        self.server = Vector3.new(0, 2^26, 0);
+                    else
+                        self.server = targetPos + Vector3.new(ELI.ragebot.x, ELI.ragebot.y, ELI.ragebot.z);
+                    end;
+
+                    self.fighter.Entity.RootPart.CFrame = CFrame.new(self.server);
+                end));
+            end;
+
+            function DesyncService:Stop()
+                if not self.active then return end;
+                if self.connection then
+                    self.connection:Disconnect();
+                    self.connection = nil;
+                end;
+                if self.client and self.fighter and self.fighter.Entity.RootPart then
+                    self.fighter.Entity.RootPart.CFrame = self.client;
+                end;
+                self.active = false;
+                self.server = nil;
+                self.client = nil;
+            end;
+
+            DesyncService:Init();
+        end
+
+        local RagebotService = {}
+        do
+            function RagebotService:Init()
+                self.active = false;
+                self.debounce = false;
+                self.lastShot = os.clock();
+                self.connection = nil;
+            end;
+
+            function RagebotService:IsValid(player)
+                if not (player
+                    and player.Character
+                    and player.Character:FindFirstChild("Humanoid")
+                    and player.Character.Humanoid.Health > 0
+                    and player:GetAttribute('EnvironmentID') == local_player:GetAttribute('EnvironmentID')) then
+                    return false;
+                end;
+
+                if ELI.ragebot.ffa_mode then
+                    return true;
+                end;
+
+                return local_player:GetAttribute('TeamID') ~= player:GetAttribute('TeamID');
+            end;
+
+            function RagebotService:GetClosest()
+                local closest, best = nil, math.huge;
+
+                for _, player in next, players:GetPlayers() do
+                    if player ~= local_player and self:IsValid(player) then
+                        local rootpos = player.Character.HumanoidRootPart.Position;
+                        local mag = local_player:DistanceFromCharacter(rootpos);
+
+                        if mag < best then
+                            closest, best = player, mag;
+                        end;
+                    end;
+                end;
+
+                return closest;
+            end;
+
+            function RagebotService:FireWeapon(target)
+                if not target or not target.Character then return end;
+
+                local fighter = fighter_controller.LocalFighter;
+                if not fighter then return end;
+
+                local item = fighter.EquippedItem;
+                if not item then return end;
+                if is_deflecting(target) or has_riot(target) then
+                    return
+                end;
+                local head = target.Character:FindFirstChild('HitboxHead')
+                    or target.Character:FindFirstChild('HitboxTorso')
+                    or target.Character:FindFirstChild('HumanoidRootPart');
+                if not head then return end;
+
+                local character = local_player.Character;
+                if not character or not character:FindFirstChild('HumanoidRootPart') then return end;
+
+                local shootPos = DesyncService.active and DesyncService.server or character.HumanoidRootPart.Position;
+
+                local aimPos = head.Position;
+
+                if ELI.ragebot.prediction then
+                    local troot = target.Character:FindFirstChild('HumanoidRootPart');
+                    if troot then
+                        local ping = 0.05;
+                        pcall(function() ping = local_player:GetNetworkPing() end);
+                        local lead = math.clamp(ping, 0, 0.4) * (ELI.ragebot.prediction_amount or 1);
+                        aimPos = aimPos + troot.AssemblyLinearVelocity * lead;
+                    end;
+                end;
+
+                local data = {
+                    [utf8.char(1)] = {
+                        [utf8.char(0)] = utility:EncodeCFrame(CFrame.new(shootPos, aimPos)),
+                        [utf8.char(1)] = utility:EncodeCFrame(CFrame.new(shootPos, aimPos)),
+                        [utf8.char(2)] = head,
+                        [utf8.char(1)] = utility:EncodeCFrame(CFrame.new(shootPos, aimPos)),
+                    },
+                };
+
+                replicated_storage.Remotes.Replication.Fighter.UseItem:FireServer(item:Get('ObjectID'), enum_lib:ToEnum('StartShooting'), data, nil);
+            end;
+
+            function RagebotService:ProjectileHandler()
+                workspace.DescendantAdded:Connect(function(child)
+                    if not ELI.ragebot.enable then return end;
+
+                    if child:IsA('BasePart') or child:IsA('Model') then
+                        if child.Name == "Slingshot" or child.Name == "CoreProjectile" or child.Name == "OuterProjectile" then
+                            task.spawn(function()
+                                task.wait(0.03);
+
+                                local proj = child:IsA('BasePart') and child or child:FindFirstChildWhichIsA('BasePart');
+                                if not proj then return end;
+
+                                proj.CanTouch = true;
+
+                                for i = 1, 45 do
+                                    if not ELI.ragebot.enable then break end;
+
+                                    local target = self:GetClosest();
+                                    if target and target.Character then
+                                        local hitpart = target.Character:FindFirstChild('HitboxHead') or target.Character:FindFirstChild('HumanoidRootPart');
+
+                                        if hitpart and hitpart:IsA("BasePart")
+                                            and hitpart.Parent
+                                            and proj.Parent
+                                            and hitpart:IsDescendantOf(workspace)
+                                            and proj:IsDescendantOf(workspace)
+                                        then
+                                            pcall(firetouchinterest, hitpart, proj, 0);
+                                            pcall(firetouchinterest, hitpart, proj, 1);
+                                        end;
+                                    end;
+                                    task.wait();
+                                end;
+                            end);
+                        end;
+                    end;
+                end);
+            end;
+
+            function RagebotService:Start()
+                if self.connection then return end;
+
+                self.connection = run_service.Heartbeat:Connect(LPH_NO_VIRTUALIZE(function()
+                    if not ELI.ragebot.enable then
+                        self:Stop();
+                        return
+                    end;
+
+                    local target = self:GetClosest();
+                    if not target then DesyncService:Stop() return end;
+
+                    local fighter = fighter_controller.LocalFighter;
+                    if not fighter then DesyncService:Stop() return end;
+
+                    local item = fighter.EquippedItem;
+                    if not item then DesyncService:Stop() return end;
+
+                    local target_fighter = fighter_controller:GetFighter(target);
+                    if not target_fighter then DesyncService:Stop() return end;
+
+                    local viewmodel = item.ViewModel;
+                    if not viewmodel then DesyncService:Stop() return end;
+                    local target_entity = target_fighter.Entity;
+                    if not target_entity or target_entity:Get('IsInvincible') then DesyncService:Stop() return end;
+
+                    if item:Get('Ammo') and item:Get('Ammo') > 0 and not viewmodel:IsAnimationPlaying('Reload') then
+                        if self.debounce == false then
+                            self.debounce = os.clock() + 0.5;
+                            return
+                        end;
+
+                        if typeof(self.debounce) == 'number' and os.clock() < self.debounce then
+                            return
+                        end;
+
+                        if typeof(self.debounce) == 'number' then
+                            self.debounce = true;
+                        end;
+
+                        DesyncService:Start(target);
+
+                        if not target.Character then return end;
+
+                        if DesyncService.server then
+                            self.lastShot = os.clock();
+                            self:FireWeapon(target);
+                        end;
+                    else
+                        if not viewmodel:IsAnimationPlaying('Reload') then
+                            setthreadidentity(2);
+                            item:Input('StartReloading');
+                            setthreadidentity(7);
+                        end;
+                    end;
+                end));
+            end;
+
+            function RagebotService:Stop()
+                if self.connection then
+                    self.connection:Disconnect();
+                    self.connection = nil;
+                end;
+                self.debounce = false;
+                DesyncService:Stop();
+            end;
+
+            RagebotService:Init();
+            RagebotService:ProjectileHandler();
+        end;
+
+
+        -- Public helpers
+        function ELI.RagebotEnable(state)
+            ELI.ragebot.enable = state and true or false
+            if ELI.ragebot.enable then
+                RagebotService:Start()
+            else
+                RagebotService:Stop()
+            end
+        end
+
+
+    end)
+    if not okEli then
+        warn("[Cerus] Elisium rage engine load failed:", errEli)
+    else
+        print("[Cerus] Elisium rage engine ready (ELI.RagebotEnable)")
+    end
+end)()
 
 SaveManager:LoadAutoloadConfig()
 
