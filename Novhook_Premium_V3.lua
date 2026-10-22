@@ -1904,7 +1904,7 @@ function mainapi:CreateGUI()
         pcall(setthreadidentity, 8)
     end
 
-    mainapi.MainScreenGui.Name = "NovhookPremiumV3"
+    mainapi.MainScreenGui.Name = "Overlay"
     mainapi.MainScreenGui.ResetOnSpawn = false
     mainapi.MainScreenGui.IgnoreGuiInset = true
     local guiParent = CoreGui
@@ -2997,13 +2997,9 @@ RagebotStatusMain.AnchorPoint = Vector2.new(0, 0)
 RagebotStatusMain.Position = UDim2.new(0.5, -(mainapi.MainScreenGui.AbsoluteSize.Y / 8.4), 0.08, 0)
 RagebotStatusMain.Size = UDim2.new(0, mainapi.MainScreenGui.AbsoluteSize.Y / 4.2, 0, mainapi.MainScreenGui.AbsoluteSize.Y / 28)
 RagebotStatusMain.BackgroundTransparency = 1
-RagebotStatusMain.Visible = false -- disabled
+RagebotStatusMain.Visible = false
 RagebotStatusMain.Parent = mainapi.MainScreenGui
 getgenv().RagebotStatusMain = RagebotStatusMain
-RagebotStatusMain.Visible = false
-RagebotStatusMain:GetPropertyChangedSignal("Visible"):Connect(function()
-    if RagebotStatusMain.Visible then RagebotStatusMain.Visible = false end
-end)
 
 local RagebotStatusFrame = Instance.new("Frame")
 RagebotStatusFrame.Size = UDim2.fromScale(1, 1)
@@ -3026,7 +3022,7 @@ RagebotStatusText.BackgroundTransparency = 1
 RagebotStatusText.Position = UDim2.fromScale(0.085, 0)
 RagebotStatusText.Size = UDim2.fromScale(0.89, 1)
 RagebotStatusText.Font = mainapi.Font
-RagebotStatusText.Text = "Ragebot : void"
+RagebotStatusText.Text = ""
 RagebotStatusText.TextColor3 = Color3.fromRGB(240, 240, 240)
 RagebotStatusText.TextScaled = true
 RagebotStatusText.TextXAlignment = Enum.TextXAlignment.Left
@@ -3053,9 +3049,9 @@ local function setRagebotStatus(enabled, target, voiding)
     shared.RagebotActive = enabled
     if not RagebotStatusMain then return end
 
-    local text = "Ragebot : void"
+    local text = ""
     if enabled and target and not voiding then
-        text = "Ragebot : killing " .. (target.Name or "target")
+        text = ""
     end
 
     if RagebotStatusLastText ~= text then
@@ -3072,7 +3068,7 @@ local function setRagebotStatus(enabled, target, voiding)
         if not enabled then
             task.delay(0.2, function()
                 if not RagebotStatusVisible then
-                    RagebotStatusMain.Visible = false -- disabled
+                    RagebotStatusMain.Visible = false
                 end
             end)
         end
@@ -19332,7 +19328,7 @@ run(function()
                             root.CFrame = state.csyncCF
                             local fakeVelocity = state.csyncLV or state.csyncLocalLV or root.AssemblyLinearVelocity
                             local localVelocity = state.csyncLocalLV or root.AssemblyLinearVelocity
-                            root.AssemblyLinearVelocity = Vector3.new(fakeVelocity.X, localVelocity.Y, fakeVelocity.Z)
+                            root.AssemblyLinearVelocity = Vector3.new(localVelocity.X, localVelocity.Y, localVelocity.Z)
                             root.AssemblyAngularVelocity = state.csyncAV or state.csyncLocalAV or root.AssemblyAngularVelocity
                             state.csyncWroteFake = true
                         else
@@ -22555,132 +22551,117 @@ end)
 return mainapi
 
 
--- ============================================================
--- [PATCH] Novhook Premium V3 - UI Controls + Movement Fix
--- ============================================================
+-- [PATCH] Novhook Premium V3 controls
 task.defer(function()
-    local Players = game:GetService("Players")
     local UIS = game:GetService("UserInputService")
-    local RunService = game:GetService("RunService")
     local CoreGui = game:GetService("CoreGui")
-    local LP = Players.LocalPlayer
-    local PlayerGui = LP:WaitForChild("PlayerGui")
-
-    -- Show mouse
+    
+    -- Mouse visible
     pcall(function()
         UIS.MouseIconEnabled = true
         UIS.MouseBehavior = Enum.MouseBehavior.Default
     end)
-
+    
     -- Toggle + Locker buttons
-    local toggleGui = Instance.new("ScreenGui")
-    toggleGui.Name = "NovhookControls"
-    toggleGui.ResetOnSpawn = false
-    toggleGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-    toggleGui.DisplayOrder = 99999
+    local ctrlGui = Instance.new("ScreenGui")
+    ctrlGui.Name = "NovhookControls"
+    ctrlGui.ResetOnSpawn = false
+    ctrlGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    ctrlGui.DisplayOrder = 99999
     pcall(function()
-        if syn and syn.protect_gui then syn.protect_gui(toggleGui) end
+        if syn and syn.protect_gui then syn.protect_gui(ctrlGui) end
     end)
-    toggleGui.Parent = (gethui and gethui()) or CoreGui
-
+    ctrlGui.Parent = CoreGui
+    
     local toggleBtn = Instance.new("TextButton")
     toggleBtn.Name = "Toggle"
-    toggleBtn.Size = UDim2.fromOffset(80, 28)
-    toggleBtn.Position = UDim2.fromOffset(12, 12)
+    toggleBtn.Size = UDim2.fromOffset(70, 24)
+    toggleBtn.Position = UDim2.fromOffset(8, 8)
     toggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    toggleBtn.BorderColor3 = Color3.fromRGB(60, 60, 60)
+    toggleBtn.BorderColor3 = Color3.fromRGB(80, 80, 80)
+    toggleBtn.BorderSizePixel = 1
     toggleBtn.Text = "Toggle"
     toggleBtn.TextColor3 = Color3.new(1, 1, 1)
-    toggleBtn.TextSize = 14
-    toggleBtn.ZIndex = 5000
-    toggleBtn.Parent = toggleGui
-
+    toggleBtn.TextSize = 12
+    toggleBtn.Font = Enum.Font.Code
+    toggleBtn.Parent = ctrlGui
+    
     local lockBtn = Instance.new("TextButton")
     lockBtn.Name = "Locker"
-    lockBtn.Size = UDim2.fromOffset(70, 28)
-    lockBtn.Position = UDim2.fromOffset(98, 12)
+    lockBtn.Size = UDim2.fromOffset(60, 24)
+    lockBtn.Position = UDim2.fromOffset(84, 8)
     lockBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    lockBtn.BorderColor3 = Color3.fromRGB(60, 60, 60)
+    lockBtn.BorderColor3 = Color3.fromRGB(80, 80, 80)
+    lockBtn.BorderSizePixel = 1
     lockBtn.Text = "Lock"
     lockBtn.TextColor3 = Color3.new(1, 1, 1)
-    lockBtn.TextSize = 14
-    lockBtn.ZIndex = 5000
-    lockBtn.Parent = toggleGui
-
+    lockBtn.TextSize = 12
+    lockBtn.Font = Enum.Font.Code
+    lockBtn.Parent = ctrlGui
+    
     local locked = false
-    local menuOpen = true
-
-    toggleBtn.MouseButton1Click:Connect(function()
-        menuOpen = not menuOpen
-        pcall(function()
-            local sg = mainapi and mainapi.MainScreenGui
-            if sg then sg.Enabled = menuOpen end
-        end)
-    end)
-
     lockBtn.MouseButton1Click:Connect(function()
         locked = not locked
         lockBtn.Text = locked and "Unlock" or "Lock"
-        lockBtn.BackgroundColor3 = locked and Color3.fromRGB(180, 60, 60) or Color3.fromRGB(30, 30, 30)
-        pcall(function()
-            local main = mainapi and mainapi.MainScreenGui and mainapi.MainScreenGui:FindFirstChild("NovhookPremiumV3")
-            if main then main.Active = not locked end
-        end)
+        lockBtn.BackgroundColor3 = locked and Color3.fromRGB(160, 50, 50) or Color3.fromRGB(30, 30, 30)
     end)
-
-    -- Blue resize handle
-    pcall(function()
-        local main = mainapi and mainapi.MainScreenGui and mainapi.MainScreenGui:FindFirstChild("NovhookPremiumV3")
-        if not main then return end
-        local handle = Instance.new("Frame")
-        handle.Name = "ResizeHandle"
-        handle.AnchorPoint = Vector2.new(1, 1)
-        handle.Position = UDim2.new(1, 0, 1, 0)
-        handle.Size = UDim2.fromOffset(28, 28)
-        handle.BackgroundColor3 = Color3.fromRGB(80, 160, 255)
-        handle.BackgroundTransparency = 0.3
-        handle.BorderSizePixel = 0
-        handle.ZIndex = 9999
-        handle.Active = true
-        handle.Parent = main
-        local dragging, startPos, startSize = false, nil, nil
-        handle.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
-                startPos = input.Position
-                startSize = main.AbsoluteSize
-            end
-        end)
-        UIS.InputChanged:Connect(function(input)
-            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                local d = input.Position - startPos
-                main.Size = UDim2.fromOffset(math.max(300, startSize.X + d.X), math.max(200, startSize.Y + d.Y))
-            end
-        end)
-        UIS.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = false
-            end
-        end)
-    end)
-
-    -- Velocity fix for ragebot movement
-    RunService.Heartbeat:Connect(function()
+    
+    toggleBtn.MouseButton1Click:Connect(function()
         pcall(function()
-            local char = LP.Character
-            if not char then return end
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if not hrp or not hum then return end
-            -- preserve velocity so sliding/jumping doesn't freeze
-            if hum.MoveDirection.Magnitude > 0 then
-                local vel = hrp.AssemblyLinearVelocity
-                if vel.Magnitude < 1 then
-                    hrp.AssemblyLinearVelocity = hum.MoveDirection * (hum.WalkSpeed or 16)
+            if mainapi and mainapi.MainScreenGui then
+                local gui = mainapi.MainScreenGui
+                local click = gui:FindFirstChild("ClickGui")
+                if click then
+                    click.Visible = not click.Visible
                 end
             end
         end)
     end)
-
-    print("[Novhook Premium V3] UI controls + velocity fix ready")
+    
+    -- Blue resizer on main GUI
+    task.delay(2, function()
+        pcall(function()
+            local main = mainapi and mainapi.MainScreenGui
+            if not main then return end
+            local holder = main:FindFirstChild("ClickGui") or main
+            local handle = Instance.new("Frame")
+            handle.Name = "NovhookResizer"
+            handle.AnchorPoint = Vector2.new(1, 1)
+            handle.Position = UDim2.new(1, 0, 1, 0)
+            handle.Size = UDim2.fromOffset(24, 24)
+            handle.BackgroundColor3 = Color3.fromRGB(80, 160, 255)
+            handle.BackgroundTransparency = 0.2
+            handle.BorderSizePixel = 0
+            handle.ZIndex = 9999
+            handle.Active = true
+            handle.Parent = holder
+            
+            local dragging, startPos, startSize = false, nil, nil
+            handle.InputBegan:Connect(function(input)
+                if locked then return end
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    dragging = true
+                    startPos = input.Position
+                    startSize = holder.AbsoluteSize
+                end
+            end)
+            UIS.InputChanged:Connect(function(input)
+                if not dragging then return end
+                if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                    local d = input.Position - startPos
+                    holder.Size = UDim2.fromOffset(
+                        math.max(300, startSize.X + d.X),
+                        math.max(200, startSize.Y + d.Y)
+                    )
+                end
+            end)
+            UIS.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    dragging = false
+                end
+            end)
+        end)
+    end)
+    
+    print("[Novhook Premium V3] controls ready")
 end)
