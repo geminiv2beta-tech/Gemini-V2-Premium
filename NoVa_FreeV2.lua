@@ -356,19 +356,19 @@ local function isShootingRange()
     return false
 end
 
-local MenuBlur = Lighting:FindFirstChild("NoVaMenuBlur")
+local MenuBlur = Lighting:FindFirstChild("LionMenuBlur")
 if not MenuBlur or not MenuBlur:IsA("BlurEffect") then
     MenuBlur = Instance.new("BlurEffect")
-    MenuBlur.Name = "NoVaMenuBlur"
+    MenuBlur.Name = "LionMenuBlur"
     MenuBlur.Parent = Lighting
 end
 MenuBlur.Size = 0
 
 local function setMenuBlur(open)
-    local blur = Lighting:FindFirstChild("NoVaMenuBlur")
+    local blur = Lighting:FindFirstChild("LionMenuBlur")
     if not blur or not blur:IsA("BlurEffect") then
         blur = Instance.new("BlurEffect")
-        blur.Name = "NoVaMenuBlur"
+        blur.Name = "LionMenuBlur"
         blur.Parent = Lighting
     end
     blur.Parent = Lighting
@@ -408,16 +408,6 @@ local entitylib = {
 }
 
 mainapi.Libraries.entitylib = entitylib
--- Velocity preservation helper for ragebot CFrame sets
-local function setCFramePreserveVelocity(part, cf)
-    if not part or not cf then return end
-    local vel = part.AssemblyLinearVelocity
-    local ang = part.AssemblyAngularVelocity
-    part.CFrame = cf
-    part.AssemblyLinearVelocity = vel
-    part.AssemblyAngularVelocity = ang
-end
-
 
 local function createEvent()
 	local event = {
@@ -1995,101 +1985,81 @@ function mainapi:CreateGUI()
         TabPadding = 4,
         MenuFadeTime = 0.15,
     })
+    -- Left side toggle button (Linoria style)
+    task.defer(function()
+        pcall(function()
+            local holder = LionWindow and LionWindow.Holder
+            if not holder then return end
+            
+            local toggleBtn = Instance.new("TextButton")
+            toggleBtn.Name = "NoVaToggle"
+            toggleBtn.Size = UDim2.new(0, 40, 0, 40)
+            toggleBtn.Position = UDim2.new(0, 10, 0.5, -20)
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 255)
+            toggleBtn.Text = "☰"
+            toggleBtn.TextColor3 = Color3.new(1,1,1)
+            toggleBtn.TextSize = 20
+            toggleBtn.Font = Enum.Font.GothamBold
+            toggleBtn.ZIndex = 200
+            toggleBtn.Parent = holder.Parent or holder
+            
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, 8)
+            corner.Parent = toggleBtn
+            
+            toggleBtn.MouseButton1Click:Connect(function()
+                if LionLibrary and LionLibrary.Toggle then
+                    LionLibrary:Toggle()
+                else
+                    holder.Visible = not holder.Visible
+                end
+            end)
+            
+            -- Blue resize handle at bottom right
+            local resizeHandle = Instance.new("TextButton")
+            resizeHandle.Name = "ResizeHandle"
+            resizeHandle.Size = UDim2.new(0, 16, 0, 16)
+            resizeHandle.Position = UDim2.new(1, -16, 1, -16)
+            resizeHandle.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+            resizeHandle.Text = ""
+            resizeHandle.ZIndex = 200
+            resizeHandle.Parent = holder
+            
+            local rCorner = Instance.new("UICorner")
+            rCorner.CornerRadius = UDim.new(0, 4)
+            rCorner.Parent = resizeHandle
+            
+            local resizing, resizeStart, startSize
+            local UIS = game:GetService("UserInputService")
+            
+            resizeHandle.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    resizing = true
+                    resizeStart = input.Position
+                    startSize = holder.Size
+                end
+            end)
+            
+            UIS.InputChanged:Connect(function(input)
+                if resizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                    local delta = input.Position - resizeStart
+                    local newW = math.max(400, startSize.X.Offset + delta.X)
+                    local newH = math.max(300, startSize.Y.Offset + delta.Y)
+                    holder.Size = UDim2.new(0, newW, 0, newH)
+                end
+            end)
+            
+            UIS.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    resizing = false
+                end
+            end)
+        end)
+    end)
+
     if LionWindow and LionWindow.Holder then
         LionWindow.Holder.Visible = false
     end
-
-    -- Toggle, Locker, and Resize controls
-    pcall(function()
-        local holder = LionWindow and LionWindow.Holder
-        if not holder then return end
-        local UIS = game:GetService("UserInputService")
-        local locked = false
-        local resizing = false
-
-        -- Toggle button (open/close)
-        local toggleBtn = Instance.new("TextButton")
-        toggleBtn.Name = "ToggleBtn"
-        toggleBtn.Size = UDim2.new(0, 80, 0, 28)
-        toggleBtn.Position = UDim2.new(0, 8, 1, -36)
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        toggleBtn.Text = "Toggle"
-        toggleBtn.Font = Enum.Font.GothamBold
-        toggleBtn.TextSize = 12
-        toggleBtn.ZIndex = 200
-        toggleBtn.Parent = holder
-        local tc = Instance.new("UICorner")
-        tc.CornerRadius = UDim.new(0, 6)
-        tc.Parent = toggleBtn
-        toggleBtn.MouseButton1Click:Connect(function()
-            if LionLibrary and LionLibrary.Toggle then
-                pcall(function() LionLibrary:Toggle() end)
-            end
-        end)
-
-        -- Locker button (prevent movement)
-        local lockerBtn = Instance.new("TextButton")
-        lockerBtn.Name = "LockerBtn"
-        lockerBtn.Size = UDim2.new(0, 80, 0, 28)
-        lockerBtn.Position = UDim2.new(0, 96, 1, -36)
-        lockerBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        lockerBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        lockerBtn.Text = "Unlock"
-        lockerBtn.Font = Enum.Font.GothamBold
-        lockerBtn.TextSize = 12
-        lockerBtn.ZIndex = 200
-        lockerBtn.Parent = holder
-        local lc = Instance.new("UICorner")
-        lc.CornerRadius = UDim.new(0, 6)
-        lc.Parent = lockerBtn
-        lockerBtn.MouseButton1Click:Connect(function()
-            locked = not locked
-            lockerBtn.Text = locked and "Locked" or "Unlock"
-            lockerBtn.BackgroundColor3 = locked and Color3.fromRGB(180, 60, 60) or Color3.fromRGB(40, 40, 40)
-            if holder then
-                holder.Active = not locked
-                holder.Draggable = not locked
-            end
-        end)
-
-        -- Blue resize handle at bottom left
-        local resizeHandle = Instance.new("TextButton")
-        resizeHandle.Name = "ResizeHandle"
-        resizeHandle.Size = UDim2.new(0, 20, 0, 20)
-        resizeHandle.Position = UDim2.new(0, 4, 1, -24)
-        resizeHandle.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
-        resizeHandle.Text = ""
-        resizeHandle.ZIndex = 201
-        resizeHandle.Parent = holder
-        local rc = Instance.new("UICorner")
-        rc.CornerRadius = UDim.new(0, 4)
-        rc.Parent = resizeHandle
-
-        local resizeStart, startSize
-        resizeHandle.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                resizing = true
-                resizeStart = input.Position
-                startSize = holder.Size
-            end
-        end)
-        UIS.InputChanged:Connect(function(input)
-            if resizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                if resizeStart and startSize then
-                    local delta = input.Position - resizeStart
-                    local newW = math.max(300, startSize.X.Offset + delta.X)
-                    local newH = math.max(200, startSize.Y.Offset + delta.Y)
-                    holder.Size = UDim2.new(0, newW, 0, newH)
-                end
-            end
-        end)
-        UIS.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                resizing = false
-            end
-        end)
-    end)
     pcall(function()
         mainapi:Clean(LionLibrary:OnEvent("VisibilityChanged"):Connect(function(open)
             mainapi.ClickGuiStatus = open == true
@@ -3553,7 +3523,7 @@ function mainapi:Uninject()
     mainapi:Save()
     pcall(setMenuBlur, false)
     pcall(function()
-        local blur = Lighting:FindFirstChild("NoVaMenuBlur")
+        local blur = Lighting:FindFirstChild("LionMenuBlur")
         if blur and blur:IsA("BlurEffect") then
             blur:Destroy()
         end
@@ -18589,7 +18559,7 @@ run(function()
 								local root = char and GetRoot(char)
 
 								if root then
-									setCFramePreserveVelocity(root, _G.OrbitCframes.client)
+									root.CFrame = _G.OrbitCframes.client
 								end
 							end
 						end
@@ -18760,7 +18730,12 @@ run(function()
 
 							local orbitCF = CFrame.new(pos, center)
 
-							setCFramePreserveVelocity(root, orbitCF)
+							-- Preserve velocity so joystick/slide/jump keep working
+							local oldVel = root.AssemblyLinearVelocity
+							local oldAng = root.AssemblyAngularVelocity
+							root.CFrame = orbitCF
+							root.AssemblyLinearVelocity = oldVel
+							root.AssemblyAngularVelocity = oldAng
 							
 							if _G.OrbitConfig.useDesync then
 								_G.OrbitCframes.desync = orbitCF
@@ -19398,7 +19373,7 @@ run(function()
                 local function restoreLocalRoot(root)
                     if not root or not state.csyncLocalCF then return false end
                     local liveVelocity = root.AssemblyLinearVelocity
-                    setCFramePreserveVelocity(root, state.csyncLocalCF)
+                    root.CFrame = state.csyncLocalCF
                     if state.csyncLocalLV then
                         root.AssemblyLinearVelocity = Vector3.new(state.csyncLocalLV.X, liveVelocity.Y, state.csyncLocalLV.Z)
                     end
@@ -19427,7 +19402,7 @@ run(function()
                         state.csyncLocalLV = root.AssemblyLinearVelocity
                         state.csyncLocalAV = root.AssemblyAngularVelocity
                         if state.csyncCF then
-                            setCFramePreserveVelocity(root, state.csyncCF)
+                            root.CFrame = state.csyncCF
                             local fakeVelocity = state.csyncLV or state.csyncLocalLV or root.AssemblyLinearVelocity
                             local localVelocity = state.csyncLocalLV or root.AssemblyLinearVelocity
                             root.AssemblyLinearVelocity = Vector3.new(fakeVelocity.X, localVelocity.Y, fakeVelocity.Z)
@@ -19537,7 +19512,7 @@ run(function()
                         if not state.orbitClientCF then return end
                         local root = getRoot(lplr.Character)
                         if not root then return end
-                        setCFramePreserveVelocity(root, state.orbitClientCF)
+                        root.CFrame = state.orbitClientCF
                         applyExternalMovementVelocity()
                     end)
                 end
@@ -20249,7 +20224,7 @@ run(function()
                             local root = char and GetRoot(char)
 
                             if root and _G.DesyncCframes.client then
-                                setCFramePreserveVelocity(root, _G.DesyncCframes.client)
+                                root.CFrame = _G.DesyncCframes.client
                             end
                         end
                     )
