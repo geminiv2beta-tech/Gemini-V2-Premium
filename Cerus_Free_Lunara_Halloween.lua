@@ -161,7 +161,7 @@ local function getScreenPointForAim()
     return Vector2.new(loc.X, loc.Y)
 end
 local Window = Library:CreateWindow({
-	Title = "Cerus Free Lunara Crack Halloween Build",
+	Title = "cerus (free) lunara crack-halloween build",
 	Center = true,
 	AutoShow = true,
 	Resizable = true,
@@ -171,53 +171,6 @@ local Window = Library:CreateWindow({
 	TabPadding = 8,
 	MenuFadeTime = 0.2
 })
-
--- Halloween Decorations
-pcall(function()
-    local Players = game:GetService("Players")
-    local LP = Players.LocalPlayer
-    local PlayerGui = LP:WaitForChild("PlayerGui")
-    
-    -- Pumpkin + Black String Overlay
-    local decoGui = Instance.new("ScreenGui")
-    decoGui.Name = "HalloweenDeco"
-    decoGui.ResetOnSpawn = false
-    decoGui.DisplayOrder = 100
-    decoGui.Parent = PlayerGui
-    
-    -- Black string (top border)
-    local blackString = Instance.new("Frame")
-    blackString.Name = "BlackString"
-    blackString.Size = UDim2.new(1, 0, 0, 4)
-    blackString.Position = UDim2.new(0, 0, 0, 0)
-    blackString.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    blackString.BorderSizePixel = 0
-    blackString.Parent = decoGui
-    
-    -- Pumpkin label
-    local pumpkin = Instance.new("TextLabel")
-    pumpkin.Name = "Pumpkin"
-    pumpkin.Size = UDim2.new(0, 40, 0, 40)
-    pumpkin.Position = UDim2.new(0, 8, 0, 8)
-    pumpkin.BackgroundTransparency = 1
-    pumpkin.Text = "🎃"
-    pumpkin.TextSize = 28
-    pumpkin.Font = Enum.Font.GothamBold
-    pumpkin.Parent = decoGui
-    
-    -- NovaXHub logo reference (image would need asset ID)
-    local logoLabel = Instance.new("TextLabel")
-    logoLabel.Name = "NovaXHubLogo"
-    logoLabel.Size = UDim2.new(0, 120, 0, 30)
-    logoLabel.Position = UDim2.new(1, -128, 0, 8)
-    logoLabel.BackgroundTransparency = 1
-    logoLabel.Text = "NovaXHub"
-    logoLabel.TextColor3 = Color3.fromRGB(100, 150, 255)
-    logoLabel.TextSize = 16
-    logoLabel.Font = Enum.Font.GothamBold
-    logoLabel.Parent = decoGui
-end)
-
 local Tabs = {
 	Combat = Window:AddTab("Combat"),
 	Character = Window:AddTab("Character"),
@@ -362,7 +315,7 @@ if not getgenv().InstanceSliderFillBound then
         end
     end)
 end
-local INSTANCE_ACCENT = Color3.fromRGB(255, 140, 0) -- Halloween Orange
+local INSTANCE_ACCENT = Color3.fromRGB(255, 140, 0)
 local INSTANCE_BROWN_ACCENTS = {
     Color3.fromRGB(200, 149, 108),
     Color3.fromRGB(200, 149, 106),
