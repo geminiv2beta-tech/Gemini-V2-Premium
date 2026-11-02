@@ -4900,13 +4900,8 @@ do
 
         -- Library element functions
         function library:window(properties)
-            -- [MOBILE] Auto-fit window to mobile viewport
+            -- Forced size 525 x 300
             local default_size = dim2(0, 525, 0, 300)
-            if is_mobile then
-                local w = clamp(viewport_size.X * 0.94, 320, 700)
-                local h = clamp(viewport_size.Y * 0.82, 340, 505)
-                default_size = dim2(0, w, 0, h)
-            end
 
             local cfg = {
                 suffix = properties.suffix or properties.Suffix or "tech";
